@@ -1,0 +1,402 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #e4e7ec;
+  background: #101216;
+  font-synthesis: none;
+  line-height: 1.6;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+}
+a {
+  color: #9cb9ff;
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+button,
+textarea,
+select {
+  font: inherit;
+}
+button,
+select {
+  border: 1px solid #343b49;
+  border-radius: 7px;
+  color: #e4e7ec;
+  background: #202630;
+  padding: 7px 12px;
+}
+button {
+  cursor: pointer;
+}
+button:hover:not(:disabled) {
+  border-color: #8aa7ed;
+}
+button:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+button.primary {
+  background: #b7cbff;
+  color: #15213b;
+  border-color: #b7cbff;
+}
+button.danger {
+  color: #f5b6b6;
+}
+button.small {
+  padding: 2px 8px;
+  font-size: 12px;
+}
+:focus-visible {
+  outline: 2px solid #b7cbff;
+  outline-offset: 3px;
+}
+.shell {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  min-height: 100dvh;
+}
+.sidebar {
+  background: #15181e;
+  border-right: 1px solid #292e39;
+  padding: 24px 18px;
+}
+.brand {
+  font-size: 24px;
+  font-weight: 650;
+  letter-spacing: -1px;
+}
+.brand a {
+  color: #e4e7ec;
+}
+.brand span {
+  font-size: 12px;
+  color: #929baa;
+  letter-spacing: 0;
+  font-weight: 400;
+}
+.connection {
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+.connection.ready {
+  color: #9cd3b1;
+}
+.connection.offline {
+  color: #efabab;
+}
+.local-warning,
+.sidebar footer {
+  color: #929baa;
+  font-size: 12px;
+}
+.sidebar nav {
+  margin-top: 32px;
+}
+.project {
+  margin-bottom: 24px;
+}
+.project-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+  gap: 8px;
+}
+.project-heading a {
+  color: #e4e7ec;
+  font-size: 14px;
+  overflow-wrap: anywhere;
+}
+.session-link {
+  display: flex;
+  flex-direction: column;
+  padding: 8px 10px;
+  border-radius: 7px;
+  color: #a8b1c1;
+  font-size: 14px;
+}
+.session-link.selected {
+  background: #263145;
+  color: #d7e3ff;
+}
+.session-link small {
+  font-size: 11px;
+  color: #929baa;
+}
+.sidebar footer {
+  margin-top: 32px;
+}
+main {
+  min-width: 0;
+}
+.welcome {
+  max-width: 650px;
+  margin: 16vh auto;
+  padding: 32px;
+}
+.welcome h1 {
+  font-size: clamp(32px, 5vw, 56px);
+  line-height: 1.15;
+  letter-spacing: -2px;
+  font-weight: 550;
+}
+.welcome p {
+  max-width: 460px;
+}
+.eyebrow {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  color: #929baa;
+  margin: 0;
+}
+.muted {
+  color: #929baa;
+}
+.error {
+  color: #f5b6b6;
+}
+.session-pane {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+.session-header {
+  border-bottom: 1px solid #292e39;
+  padding: 22px 32px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.session-header h1 {
+  font-size: 21px;
+  font-weight: 550;
+  margin: 3px 0;
+}
+.session-header p {
+  margin-bottom: 0;
+}
+.controls {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.banner {
+  padding: 12px 24px;
+  margin: 0;
+  font-size: 13px;
+  background: #242932;
+  border-bottom: 1px solid #343b49;
+  overflow-wrap: anywhere;
+}
+.banner p {
+  margin-top: 0;
+}
+.transcript {
+  width: min(100%, 940px);
+  margin: 0 auto;
+  padding: 30px 32px 60px;
+  flex: 1;
+}
+.empty {
+  color: #929baa;
+  padding: 60px 0;
+}
+.empty h2 {
+  color: #c3ccdb;
+  font-size: 22px;
+  font-weight: 500;
+}
+.message {
+  padding: 18px 0;
+  overflow-wrap: anywhere;
+}
+.message + .message {
+  border-top: 1px solid #252a34;
+}
+.message > header {
+  color: #9cb9ff;
+  font-size: 12px;
+  margin-bottom: 10px;
+  font-weight: 600;
+}
+.message.user > header {
+  color: #9cd3b1;
+}
+.message.toolResult {
+  font-size: 13px;
+}
+.message.toolResult > header {
+  color: #b1a2ce;
+}
+.message p:first-child {
+  margin-top: 0;
+}
+.message p:last-child {
+  margin-bottom: 0;
+}
+pre {
+  background: #181d25;
+  border: 1px solid #2b3240;
+  border-radius: 7px;
+  padding: 14px;
+  overflow: auto;
+  white-space: pre-wrap;
+  font-size: 12px;
+  line-height: 1.6;
+}
+code {
+  font-family: ui-monospace, monospace;
+  font-size: 0.9em;
+}
+:not(pre) > code {
+  background: #252c38;
+  padding: 2px 4px;
+  border-radius: 3px;
+}
+summary {
+  color: #a8b1c1;
+  cursor: pointer;
+}
+.composer {
+  margin-top: auto;
+  position: sticky;
+  bottom: 0;
+  background: #101216;
+  padding: 16px 32px 24px;
+  border-top: 1px solid #292e39;
+}
+.composer form,
+.session-settings,
+.queues {
+  max-width: 876px;
+  margin: 0 auto;
+}
+textarea {
+  width: 100%;
+  resize: vertical;
+  min-height: 100px;
+  max-height: 40vh;
+  padding: 14px;
+  color: #e4e7ec;
+  background: #181d25;
+  border: 1px solid #343b49;
+  border-radius: 8px;
+}
+.composer-footer {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+  font-size: 12px;
+}
+.composer-footer > .muted {
+  flex: 1;
+}
+.composer-footer select {
+  margin-left: 6px;
+}
+.session-settings {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  padding-bottom: 12px;
+  font-size: 12px;
+}
+.session-settings label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  max-width: 100%;
+}
+.session-settings select {
+  min-width: 0;
+  max-width: 360px;
+}
+.session-settings select:disabled {
+  opacity: 0.6;
+}
+.session-settings p {
+  flex-basis: 100%;
+  margin: 0;
+  font-size: 11px;
+}
+.context-usage {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-left: auto;
+  color: #a8b1c1;
+}
+.context-usage meter {
+  width: 100%;
+  height: 6px;
+  accent-color: #9cd3b1;
+}
+.queues {
+  font-size: 12px;
+  padding-bottom: 12px;
+}
+.queues li {
+  white-space: pre-wrap;
+}
+@media (max-width: 760px) {
+  .shell {
+    grid-template-columns: 1fr;
+  }
+  .sidebar {
+    border-right: 0;
+    border-bottom: 1px solid #292e39;
+    padding: 16px;
+  }
+  .sidebar nav {
+    display: flex;
+    gap: 24px;
+    overflow-x: auto;
+    max-height: 180px;
+    margin-top: 16px;
+  }
+  .project {
+    min-width: 180px;
+    margin-bottom: 0;
+  }
+  .sidebar footer,
+  .local-warning {
+    display: none;
+  }
+  .connection {
+    margin: 4px 0;
+  }
+  .session-pane {
+    min-height: 70dvh;
+  }
+  .session-header {
+    padding: 18px 16px;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .transcript {
+    padding: 16px 16px 30px;
+  }
+  .composer {
+    padding: 12px 16px 16px;
+  }
+  .composer-footer > .muted {
+    display: none;
+  }
+  .welcome {
+    margin: 5vh auto;
+  }
+}

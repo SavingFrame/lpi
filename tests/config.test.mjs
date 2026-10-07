@@ -1,0 +1,125 @@
+import assert from 'node:assert/strict';
+import { mkdirSync, renameSync, symlinkSync, writeFileSync } from 'node:fs';
+import { join } from 'node:path';
+import test from 'node:test';
+import { loadConfig } from '../dist/config.js';
+import { Catalog } from '../dist/storage/catalog.js';
+import { fixture } from './helpers.mjs';
+
+function setup(t) {
+  const { root } = fixture(t);
+  const home = join(root, 'home');
+  const projects = join(home, 'Projects');
+  mkdirSync(projects);
+  const path = join(root, 'config.json');
+  const load = (projectRoots, extra = {}) => {
+    writeFileSync(
+      path,
+      JSON.stringify({ dataDirectory: join(root, 'sessions'), projectRoots, ...extra }),
+    );
+    return loadConfig(path, home);
+  };
+  return { root, home, projects, load };
+}
+
+test('project roots expand home paths and discover immediate non-Git and hidden directories', (t) => {
+  const { projects, load } = setup(t);
+  for (const name of ['pim', 'notes', '.hidden']) {
+    mkdirSync(join(projects, name));
+  }
+  mkdirSync(join(projects, 'notes', 'nested'));
+  writeFileSync(join(projects, 'README.md'), 'not a project');
+  const config = load(['~/Projects/']);
+  assert.deepEqual(config.projectRoots, [projects]);
+  assert.deepEqual(
+    config.projects.map((project) => project.name),
+    ['.hidden', 'notes', 'pim'],
+  );
+  for (const project of config.projects) {
+    assert.match(project.id, /^[a-f0-9]{64}$/);
+    assert.equal(project.directory, join(projects, project.name));
+  }
+});
+
+test('overlapping roots are containers and canonical symlink aliases are deduplicated', (t) => {
+  const { root, projects, load } = setup(t);
+  const work = join(projects, 'work');
+  mkdirSync(work);
+  mkdirSync(join(work, 'client'));
+  mkdirSync(join(projects, 'pim'));
+  symlinkSync(join(projects, 'pim'), join(projects, 'alias'));
+  symlinkSync(projects, join(root, 'root-alias'));
+  symlinkSync(join(projects, 'missing'), join(projects, 'broken'));
+  writeFileSync(join(projects, 'file'), 'file');
+  symlinkSync(join(projects, 'file'), join(projects, 'file-alias'));
+  const roots = ['~/Projects', '~/Projects/work', join(root, 'root-alias'), '~/Projects'];
+  const config = load(roots);
+  assert.equal(config.projectRoots.length, 2);
+  assert.equal(config.projects.length, 2);
+  assert.deepEqual(
+    new Set(config.projects.map((project) => project.name)),
+    new Set(['pim', 'client']),
+  );
+  assert.deepEqual(load([...roots].reverse()).projects, config.projects);
+});
+
+test('same-named folders have distinct IDs and new folders do not change existing IDs', (t) => {
+  const { projects, load } = setup(t);
+  const work = join(projects, 'work');
+  mkdirSync(work);
+  mkdirSync(join(projects, 'app'));
+  mkdirSync(join(work, 'app'));
+  const before = load(['~/Projects', '~/Projects/work']).projects;
+  assert.equal(before.length, 2);
+  assert.equal(before[0].name, before[1].name);
+  assert.notEqual(before[0].id, before[1].id);
+  mkdirSync(join(projects, 'another'));
+  const after = load(['~/Projects/work', '~/Projects']).projects;
+  for (const project of before) {
+    assert.deepEqual(
+      after.find((item) => item.directory === project.directory),
+      project,
+    );
+  }
+});
+
+test('empty roots are valid, including the home root itself', (t) => {
+  const { projects, home, load } = setup(t);
+  assert.deepEqual(load(['~/Projects']).projects, []);
+  const config = load(['~']);
+  assert.deepEqual(config.projectRoots, [home]);
+  assert.deepEqual(
+    config.projects.map((project) => project.directory),
+    [projects],
+  );
+});
+
+test('invalid roots and the old explicit project schema fail with configuration errors', (t) => {
+  const { projects, load } = setup(t);
+  assert.throws(() => load([]), /at least one project root/);
+  assert.throws(() => load(undefined), /at least one project root/);
+  assert.throws(() => load('~/Projects'), /at least one project root/);
+  assert.throws(() => load(['Projects']), /absolute or start with/);
+  assert.throws(() => load(['~someone/Projects']), /absolute or start with/);
+  assert.throws(() => load(['~/missing']), /Project root is unavailable: ~\/missing/);
+  writeFileSync(join(projects, 'file'), 'file');
+  assert.throws(() => load([join(projects, 'file')]), /Project root is unavailable/);
+  assert.throws(() => load(['~/Projects'], { projects: [] }), /Replace projects with projectRoots/);
+});
+
+test('session associations survive rediscovery and relocation never silently rebinds them', (t) => {
+  const { root, projects, load } = setup(t);
+  const folder = join(projects, 'pim');
+  mkdirSync(folder);
+  const before = load(['~/Projects']);
+  const data = join(root, 'catalog');
+  const catalog = new Catalog(data, before.projects);
+  const created = catalog.create(before.projects[0]);
+  symlinkSync(projects, join(root, 'alias'));
+  const after = load([join(root, 'alias'), '~/Projects']);
+  const reopened = new Catalog(data, after.projects);
+  assert.equal(reopened.get(created.id).projectId, created.projectId);
+  assert.equal(reopened.get(created.id).directory, folder);
+  renameSync(folder, join(projects, 'renamed'));
+  assert.throws(() => new Catalog(data, load(['~/Projects']).projects), /Missing or relocated/);
+});

@@ -1,0 +1,45 @@
+{
+  "name": "pim",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.19"
+  },
+  "scripts": {
+    "check": "biome check --error-on-warnings .",
+    "check:fix": "biome check --write --error-on-warnings .",
+    "lint": "biome lint --error-on-warnings .",
+    "format": "biome format --write .",
+    "format:check": "biome format .",
+    "dev": "vite --config frontend/vite.config.ts frontend",
+    "build": "npm run build:server && npm run build:frontend",
+    "build:server": "tsc -p tsconfig.json",
+    "build:frontend": "vite build --config frontend/vite.config.ts frontend",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p frontend/tsconfig.json",
+    "start": "node dist/main.js",
+    "recover": "node dist/recover.js",
+    "test:frontend": "node --experimental-strip-types --test frontend/tests/live.test.mjs",
+    "test:backend": "npm run build:server && node --test tests/*.test.mjs",
+    "test": "node --test prototypes/handoff/*.test.mjs",
+    "test:handoff": "node prototypes/handoff/run.mjs"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "2.5.15",
+    "@types/node": "22.19.0",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@types/ws": "8.18.1",
+    "@vitejs/plugin-react": "6.1.2",
+    "typescript": "5.9.3",
+    "vite": "8.3.3"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "1.0.4",
+    "@tanstack/react-query": "5.104.1",
+    "@tanstack/react-router": "1.170.41",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "react-markdown": "10.1.0",
+    "ws": "8.22.0"
+  }
+}

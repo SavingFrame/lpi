@@ -1,0 +1,66 @@
+import type { Server } from 'node:http';
+import { WebSocket, WebSocketServer } from 'ws';
+import type { Config } from '../config.js';
+import type { Events } from '../events.js';
+import { validateRequest } from './security.js';
+
+export function attachWebSockets(server: Server, config: Config, events: Events): () => void {
+  const sockets = new WebSocketServer({
+    noServer: true,
+    maxPayload: 4096,
+    perMessageDeflate: false,
+  });
+  server.on('upgrade', (request, socket, head) => {
+    try {
+      validateRequest(request, config);
+      if (request.url !== '/events' || sockets.clients.size >= 32) {
+        throw new Error('Upgrade rejected');
+      }
+      sockets.handleUpgrade(request, socket, head, (client) => sockets.emit('connection', client));
+    } catch {
+      socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
+    }
+  });
+  sockets.on('connection', (socket) => {
+    socket.on('error', () => socket.terminate());
+    socket.on('message', () => socket.close(1008, 'Use REST for commands'));
+    socket.send(JSON.stringify({ type: 'connected', replay: false, ...events.checkpoint() }));
+  });
+  const unsubscribe = events.subscribe((event) => {
+    const data = JSON.stringify(event);
+    for (const socket of sockets.clients) {
+      if (socket.readyState !== WebSocket.OPEN) {
+        continue;
+      }
+      if (socket.bufferedAmount + Buffer.byteLength(data) > 2 * 1024 * 1024) {
+        socket.terminate(); // Never block RPC stdout on a slow client.
+      } else {
+        socket.send(data);
+      }
+    }
+  });
+  const alive = new WeakSet<WebSocket>();
+  sockets.on('connection', (socket) => {
+    alive.add(socket);
+    socket.on('pong', () => alive.add(socket));
+  });
+  const heartbeat = setInterval(() => {
+    for (const socket of sockets.clients) {
+      if (!alive.has(socket)) {
+        socket.terminate();
+      } else {
+        alive.delete(socket);
+        socket.ping();
+      }
+    }
+  }, 30_000);
+  heartbeat.unref();
+  return () => {
+    clearInterval(heartbeat);
+    unsubscribe();
+    for (const socket of sockets.clients) {
+      socket.terminate();
+    }
+    sockets.close();
+  };
+}
