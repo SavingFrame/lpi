@@ -6,6 +6,7 @@ import {
 import { WebSocket } from 'ws';
 import { emptyView, record, reduceEvent, type View } from '../client-state.js';
 import { text } from '../errors.js';
+import { reserveManagedFile } from '../tmux-binding.js';
 import { BRIDGE_LIMIT, bridgeCommand } from './protocol.js';
 
 /** Connect native Pi to the relay without opening another runtime. */
@@ -137,6 +138,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
       if (!sessionFile) {
         throw new Error('Ephemeral sessions cannot connect to Pim');
       }
+      reserveManagedFile(sessionFile);
       const current = new WebSocket(url, {
         maxPayload: BRIDGE_LIMIT,
         perMessageDeflate: false,
@@ -151,6 +153,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
         }
         send({
           type: 'attach',
+          launchId: process.env.PIM_LAUNCH_ID,
           session: {
             file: sessionFile,
             id: sessionId,

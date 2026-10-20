@@ -73,12 +73,12 @@ async function setup(t, timeout = 1000) {
     },
     view: { ...emptyView(), messages: [entry.message] },
   };
-  async function open() {
+  async function open(launchId) {
     const socket = new WebSocket(url);
     socket.on('error', () => {});
     await once(socket, 'open');
     const response = once(socket, 'message');
-    socket.send(JSON.stringify({ type: 'attach', session: identity, snapshot }));
+    socket.send(JSON.stringify({ type: 'attach', launchId, session: identity, snapshot }));
     const attached = JSON.parse(String((await response)[0]));
     return { socket, attached };
   }
@@ -413,6 +413,19 @@ test('empty native sessions stay visible while live but disappear after disconne
     inventory.list().some((item) => item.id === fresh.attached.sessionId),
     false,
   );
+});
+
+test('launch correlation resolves only connected registrations and survives reconnect', async (t) => {
+  const { open, bridges } = await setup(t);
+  assert.equal(bridges.findLaunch('launch-1'), undefined);
+  const first = await open('launch-1');
+  assert.equal(bridges.findLaunch('launch-1').id, first.attached.sessionId);
+  assert.equal(bridges.findLaunch('another-launch'), undefined);
+  first.socket.terminate();
+  await waitFor(() => bridges.findLaunch('launch-1') === undefined);
+  const reconnected = await open('launch-1');
+  assert.equal(bridges.findLaunch('launch-1').id, reconnected.attached.sessionId);
+  reconnected.socket.terminate();
 });
 
 test('lost acknowledgments are unknown and never replayed', async (t) => {

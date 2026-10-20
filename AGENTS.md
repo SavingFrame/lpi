@@ -8,7 +8,7 @@ Adapted from https://github.com/earendil-works/pi/blob/main/AGENTS.md for this r
 - Pim is a single relay server. Extensions connect to it; do not run a web server per Pi instance.
 - Use public Pi extension APIs and normal JSONL persistence. Do not introduce RPC, runtime handoff, Pi Durable, or experimental server/client packages without discussion.
 - A lost connection never authorizes launching another writer. Saved-session discovery is read-only.
-- Tmux launching is planned, not implemented. Keep documentation clear about this boundary.
+- Browser create/resume launches native Pi through the dedicated Pim tmux socket. Keep real-Pi integration status and external-writer detection limits explicit.
 
 ## Communication
 

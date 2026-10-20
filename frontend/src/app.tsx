@@ -10,6 +10,7 @@ import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Textarea } from './components/ui/textarea';
 import { ImageAttachments } from './image-attachments';
+import { LaunchSession } from './launch-session';
 import { SessionSettings } from './session-controls';
 import { Transcript } from './transcript';
 
@@ -54,6 +55,7 @@ export function Shell() {
             No project folders found. Add a folder under a configured root, then restart the server.
           </p>
         )}
+        <LaunchSession />
         <nav aria-label="Recent sessions">
           <h2 className="eyebrow">Recent sessions</h2>
           {sessionQuery.isPending && <p className="muted">Loading sessions…</p>}
@@ -122,7 +124,7 @@ export function Welcome() {
         <br />
         on your PC.
       </h1>
-      <p>Choose a saved session or connect a running native Pi instance.</p>
+      <p>Create a session, resume saved history, or connect a running native Pi instance.</p>
       <p className="muted">Pi runs the agent. Pim relays history, events, and commands.</p>
     </div>
   );
@@ -229,6 +231,9 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
           </p>
         </div>
         <div className="controls">
+          {session?.connection === 'disconnected' && session.projectId === projectId && (
+            <LaunchSession projectId={projectId} resumeId={id} />
+          )}
           <Button
             type="button"
             variant="outline"

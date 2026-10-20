@@ -4,6 +4,7 @@ import { bridgeCommand } from '../bridge/protocol.js';
 import type { NativeBridges } from '../bridge/server.js';
 import type { Config } from '../config.js';
 import { AppError, generation, object, text } from '../errors.js';
+import { Launches } from '../launches.js';
 import type { Sessions } from '../sessions.js';
 import { serveFrontend } from './frontend.js';
 import { validateRequest } from './security.js';
@@ -42,6 +43,7 @@ export function createApi(
   sessions: Sessions,
   bridges: NativeBridges,
   frontendDirectory = 'frontend/dist',
+  launches = new Launches(config, sessions, bridges),
 ) {
   const usedRequests = new Set<string>();
   let inFlight = 0;
@@ -77,7 +79,7 @@ export function createApi(
         send(response, 200, { sessions: sessions.list() });
         return;
       }
-      const match = /^\/sessions\/([a-f0-9-]{36})(?:\/(commands|snapshot))?$/.exec(path);
+      const match = /^\/sessions\/([a-f0-9-]{36})(?:\/(commands|snapshot|resume))?$/.exec(path);
       if (request.method === 'GET' && match?.[2] === 'snapshot') {
         send(response, 200, sessions.snapshot(String(match[1])));
         return;
@@ -86,7 +88,9 @@ export function createApi(
         send(response, 200, sessions.get(String(match[1])));
         return;
       }
-      if (request.method !== 'POST' || match?.[2] !== 'commands') {
+      const creating = path === '/sessions';
+      const resuming = match?.[2] === 'resume';
+      if (request.method !== 'POST' || (!creating && !resuming && match?.[2] !== 'commands')) {
         throw new AppError('Route not found', 404);
       }
       if (inFlight >= 128) {
@@ -107,7 +111,14 @@ export function createApi(
         throw new AppError('Request ID capacity reached; restart the relay', 503);
       }
       usedRequests.add(requestId);
-      const id = String(match[1]);
+      if (creating || resuming) {
+        const id = resuming ? String(match?.[1]) : undefined;
+        const projectId = id ? sessions.get(id).projectId : text(raw.projectId, 'project ID', 128);
+        const session = await launches.start(projectId, id, raw.confirmedOffline === true);
+        send(response, 200, { requestId, outcome: 'acknowledged', data: { session } });
+        return;
+      }
+      const id = String(match?.[1]);
       sessions.get(id);
       const data = await bridges.command(
         id,

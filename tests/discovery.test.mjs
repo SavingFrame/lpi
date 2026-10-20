@@ -145,7 +145,7 @@ test('read-only inspection sees persisted changes but rejects partial records an
   assert.throws(() => discovery.inspect(session.id));
 });
 
-test('saved sessions are visible through HTTP but cannot be executed by the relay', async (t) => {
+test('saved sessions are read-only through HTTP until explicitly resumed', async (t) => {
   const { root, config, defer } = fixture(t);
   const sessions = join(root, 'pi-sessions');
   const file = join(sessions, 'one.jsonl');
@@ -174,11 +174,10 @@ test('saved sessions are visible through HTTP but cannot be executed by the rela
   assert.equal(snapshot.state.readOnly, true);
   assert.equal(snapshot.view.messages[0].content, 'Existing history');
   assert.match(snapshot.view.notice, /Read-only/);
-  for (const path of [
-    '/sessions',
-    `/sessions/${session.id}/start`,
-    `/sessions/${session.id}/stop`,
-  ]) {
+  for (const path of ['/sessions', `/sessions/${session.id}/resume`]) {
+    assert.equal((await fetch(`${base}${path}`, { method: 'POST' })).status, 415);
+  }
+  for (const path of [`/sessions/${session.id}/start`, `/sessions/${session.id}/stop`]) {
     assert.equal((await fetch(`${base}${path}`, { method: 'POST' })).status, 404);
   }
   await assert.rejects(bridges.command(session.id, 0, { type: 'prompt', message: 'unsafe' }));

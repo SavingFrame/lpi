@@ -79,13 +79,63 @@ test('relay REST, host/origin checks, WebSocket events and removed runtime endpo
     message: { role: 'user', content: [image] },
   });
   assert.deepEqual(JSON.parse(String((await largeEvent)[0])).data.message.content, [image]);
-  for (const path of ['/sessions', `/sessions/${id}/start`, `/sessions/${id}/stop`]) {
+  assert.equal((await fetch(`${base}/sessions`, { method: 'POST', headers })).status, 400);
+  for (const path of [`/sessions/${id}/start`, `/sessions/${id}/stop`]) {
     assert.equal((await fetch(`${base}${path}`, { method: 'POST', headers })).status, 404);
   }
   assert.equal((await fetch(`${base}/sessions/${id}/snapshot`)).status, 404);
   socket.close();
   await once(socket, 'close');
   assert.deepEqual(sessions.list(), []);
+});
+
+test('launch API correlates create/resume requests and rejects replay', async (t) => {
+  const { config, defer } = fixture(t);
+  const events = new Events();
+  const bridges = new NativeBridges(config, events);
+  const sessions = new Sessions(new SessionDiscovery([], config.projects), bridges, events);
+  const id = '11111111-1111-1111-1111-111111111111';
+  const calls = [];
+  const launches = {
+    start: async (...args) => {
+      calls.push(args);
+      return { id, projectId: 'test' };
+    },
+  };
+  const server = createApi(config, sessions, bridges, 'frontend/dist', launches);
+  defer(() => {
+    bridges.close();
+    server.close();
+    server.closeAllConnections();
+  });
+  server.listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  config.port = server.address().port;
+  const base = `http://127.0.0.1:${config.port}`;
+  const headers = { 'Content-Type': 'application/json', Origin: config.origins[0] };
+  const create = () =>
+    fetch(`${base}/sessions`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ requestId: 'create-1', projectId: 'test' }),
+    });
+  const response = await create();
+  assert.equal(response.status, 200);
+  assert.deepEqual(await response.json(), {
+    requestId: 'create-1',
+    outcome: 'acknowledged',
+    data: { session: { id, projectId: 'test' } },
+  });
+  assert.deepEqual(calls, [['test', undefined, false]]);
+  assert.equal((await create()).status, 409);
+  sessions.get = () => ({ id, projectId: 'test' });
+  const resumed = await fetch(`${base}/sessions/${id}/resume`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ requestId: 'resume-1', confirmedOffline: true }),
+  });
+  assert.equal(resumed.status, 200);
+  assert.deepEqual(calls[1], ['test', id, true]);
 });
 
 test('production frontend serves deep links and assets without bypassing origin checks', async (t) => {

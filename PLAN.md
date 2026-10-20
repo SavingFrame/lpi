@@ -43,20 +43,20 @@ Real native Pi with the installed extension set remains unverified.
 - Remote commands use public extension APIs. No unrestricted shell or terminal-input proxy is planned.
 - LAN/Tailscale clients are trusted. No application authentication or bridge token. Network access control belongs to deployment; Host/Origin checks remain enforced.
 
-## Next: launch native Pi in tmux
+## Native Pi launching in tmux
 
-Planned, not implemented:
+Implemented, with real-Pi integration still unverified:
 
-- The server creates a detached tmux session in a configured project.
-- Start normal interactive Pi with the bridge extension and relay connection configuration.
-- Create fresh sessions through Pi, not by writing JSONL in Pim.
-- Wait for the extension to register, and report failed or uncertain startup explicitly.
+- Browser project selection and fresh session creation through native Pi.
+- Saved-session Resume uses the existing JSONL file after identity/history validation.
+- A dedicated `tmux -L pim` server with one detached session per runtime.
+- The pinned native Pi CLI loads the bridge and registers with a correlated launch ID.
+- Launches wait for registration and report failed or uncertain startup without automatic replay.
+- Managed extensions reserve canonical file IDs in tmux before registration. Reservations survive relay restarts and accumulate across TUI session switches until the tmux session exits.
+- Resume checks all managed reservations and blocks while any runtime is unregistered. External Pi writers cannot be detected reliably, so resume requires explicit offline confirmation.
 - Attaching to tmux reveals the same native TUI and runtime the browser controls.
-- Pi remains alive independently of browser and relay connections.
-- Define safe existing-session resume separately. Never spawn a second runtime just because a bridge is unavailable.
-- Keep tmux launching separate from transport and saved-session discovery.
-
-The current browser has no create/start/stop controls. Start native Pi manually and connect its extension.
+- Pi remains alive independently of browser and relay connections. No browser stop control.
+- Launching stays separate from transport and read-only discovery.
 
 ## Later
 

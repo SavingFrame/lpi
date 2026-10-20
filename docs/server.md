@@ -21,8 +21,12 @@ Roots are not a filesystem sandbox. Project trust and agent configuration belong
 | GET | /sessions/:id | Session identity and connection metadata |
 | GET | /sessions/:id/snapshot | History/activity, runtime metadata, epoch, and cursor |
 | POST | /sessions/:id/commands | Forward a command to a connected native Pi instance |
+| POST | /sessions | Launch a fresh native Pi in a configured project |
+| POST | /sessions/:id/resume | Resume saved history in native Pi |
 
-Create/start/stop endpoints were removed. Tmux launching will be a separate capability.
+Create accepts `{ requestId, projectId }`. Resume accepts `{ requestId, confirmedOffline: true }`; the project comes from the saved record. Both return `{ requestId, outcome: "acknowledged", data: { session } }` after correlated bridge registration. They do not use connection generations. Launch checks are serialized, bounded to 32 managed tmux sessions, and wait up to 20 seconds for registration. Timeouts and lost subprocess results are unknown outcomes, never automatically replayed.
+
+The dedicated `tmux -L pim` socket hosts one session per runtime, using the pinned Pi CLI and explicit bridge extension. Managed extensions reserve file IDs in tmux before registration. Resume rejects reserved files and unregistered runtimes, and requires confirmation that external writers have stopped. Reservations survive relay restarts and conservatively accumulate across TUI session switches. No generic terminal-input proxy or stop endpoint is exposed.
 
 Session records contain `id`, `projectId`, `directory`, `file`, `createdAt`, `piSessionId`, `connection`, and `generation`. Pim IDs derive from canonical file paths, so copied files with identical Pi IDs remain distinct. Connection is `connected` or `disconnected`, not a statement about process liveness or ownership.
 

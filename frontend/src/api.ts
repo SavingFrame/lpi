@@ -160,6 +160,16 @@ export async function inspect(id: string, signal: AbortSignal): Promise<Snapshot
   return snapshot(await request(`/sessions/${encodeURIComponent(id)}/snapshot`, undefined, signal));
 }
 
+export async function launch(projectId: string, resumeId?: string): Promise<Session> {
+  const result = record(
+    await request(resumeId ? `/sessions/${encodeURIComponent(resumeId)}/resume` : '/sessions', {
+      projectId,
+      confirmedOffline: resumeId !== undefined,
+    }),
+  );
+  return session(record(result.data).session);
+}
+
 export async function operate(
   id: string,
   generation: number,

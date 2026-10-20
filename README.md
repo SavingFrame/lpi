@@ -4,7 +4,7 @@ A single relay server and browser client for native Pi sessions. Pi runs the age
 
 ## Run
 
-Requires Node.js 22.19+. The extension is typechecked against pinned **Pi 1.0.4**.
+Requires Node.js 22.19+ and tmux 3.2+ for browser create/resume. The extension is typechecked against pinned **Pi 1.0.4**.
 
 ```sh
 npm ci --ignore-scripts
@@ -36,9 +36,24 @@ Adapt the path to your checkout. Loading the extension connects automatically to
 
 The browser receives current-branch history, assistant partials, tool activity, runtime metadata, and queued-message presence. Prompt, steer, follow-up, and abort run in that same native Pi process. Attach photos/screenshots using the image picker, clipboard paste, or drag-and-drop (PNG, JPEG, GIF, WebP; up to 4 images and 4 MiB total). Image-only messages are supported; the selected model must support images. Model changes, queue editing, and dialog answers remain terminal-only.
 
-`/pim-disconnect` stops the relay connection without stopping Pi. Closing the browser or Pim does not stop the agent. Closing Pi does. For now, launch Pi manually inside tmux if it should outlive your terminal connection.
+`/pim-disconnect` stops the relay connection without stopping Pi. Closing the browser or Pim does not stop the agent. Closing Pi does.
 
-**Server-side tmux launching and browser session creation are planned, not implemented.** There are no RPC runtimes, ownership locks, parking sessions, or handoffs. See [the plan](PLAN.md).
+## Create or resume from the browser
+
+Choose a project in the sidebar and click **New session**. For saved history, open the session and click **Resume session**. Pim starts the pinned native Pi CLI in a detached tmux session, then waits for its bridge to register. Project-trust prompts and other startup dialogs must be answered in the terminal.
+
+All managed runtimes use the dedicated `pim` socket, separate from your regular tmux server:
+
+```sh
+tmux -L pim list-sessions
+tmux -L pim attach -t pim-<launch-id>
+```
+
+Detach with Ctrl+b, then d. The terminal and browser control the same native runtime. Closing Pim leaves tmux and Pi running; bridges reconnect automatically when the relay returns.
+
+Resume refuses files reserved by managed runtimes, even while their bridges are disconnected. Reservations survive relay restarts and conservatively retain every file opened in that tmux session. A runtime that has not registered a file blocks resume until inspected. For externally launched Pi, confirm it has stopped before resuming. This is not a general filesystem lock or ownership coordinator.
+
+Startup timeouts and lost responses are uncertain outcomes. Inspect recent sessions and tmux before trying again. No automatic launch replay or browser stop control is provided. Real native-Pi integration remains unverified. See [the plan](PLAN.md).
 
 ## Frontend development
 

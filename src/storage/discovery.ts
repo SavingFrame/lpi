@@ -176,63 +176,68 @@ export class SessionDiscovery {
     if (!session) {
       throw new AppError('Session not found', 404);
     }
-    let fd: number;
-    try {
-      fd = openSync(session.file, constants.O_RDONLY | constants.O_NOFOLLOW);
-    } catch {
-      throw new AppError('Pi transcript unavailable; refresh or restart discovery', 409);
+    return inspectSavedSession(session);
+  }
+}
+
+/** Validate and inspect a known canonical session without rescanning its neighbors. */
+export function inspectSavedSession(session: Session) {
+  let fd: number;
+  try {
+    fd = openSync(session.file, constants.O_RDONLY | constants.O_NOFOLLOW);
+  } catch {
+    throw new AppError('Pi transcript unavailable; refresh or restart discovery', 409);
+  }
+  try {
+    const before = fstatSync(fd);
+    if (!before.isFile() || before.size > 32 * 1024 * 1024) {
+      throw new AppError('Pi transcript exceeds the 32 MiB read limit', 413);
     }
-    try {
-      const before = fstatSync(fd);
-      if (!before.isFile() || before.size > 32 * 1024 * 1024) {
-        throw new AppError('Pi transcript exceeds the 32 MiB read limit', 413);
-      }
-      // Read exactly the observed size, not an unbounded file growing under an external writer.
-      const buffer = Buffer.alloc(before.size);
-      let size = 0;
-      while (size < buffer.length) {
-        const count = readSync(fd, buffer, size, buffer.length - size, size);
-        if (count === 0) {
-          throw new AppError('Pi session changed during inspection; refresh', 409);
-        }
-        size += count;
-      }
-      const after = fstatSync(fd);
-      const current = statSync(session.file);
-      if (
-        before.size !== after.size ||
-        before.mtimeMs !== after.mtimeMs ||
-        before.ctimeMs !== after.ctimeMs ||
-        after.ino !== current.ino ||
-        after.dev !== current.dev ||
-        after.size !== current.size ||
-        after.mtimeMs !== current.mtimeMs
-      ) {
+    // Read exactly the observed size, not an unbounded file growing under an external writer.
+    const buffer = Buffer.alloc(before.size);
+    let size = 0;
+    while (size < buffer.length) {
+      const count = readSync(fd, buffer, size, buffer.length - size, size);
+      if (count === 0) {
         throw new AppError('Pi session changed during inspection; refresh', 409);
       }
-      const content = buffer.toString('utf8');
-      const lines = content.trimEnd().split('\n');
-      const metadata = header(lines[0] ?? '');
-      if (metadata.id !== session.piSessionId || realpathSync(metadata.cwd) !== session.directory) {
-        throw new AppError('Pi session identity changed; restart discovery', 409);
-      }
-      // Pi's parser tolerates malformed lines. Do not silently hide a partially appended record.
-      for (const line of lines) {
-        JSON.parse(line);
-      }
-      const entries = parseSessionEntries(content).filter((entry) => entry.type !== 'session');
-      const name = entries.findLast((entry) => entry.type === 'session_info')?.name;
-      return { messages: buildSessionContext(entries).messages, name };
-    } catch (error) {
-      if (error instanceof AppError) {
-        throw error;
-      }
-      throw new AppError(
-        'Pi transcript unavailable or incomplete; refresh or restart discovery',
-        409,
-      );
-    } finally {
-      closeSync(fd);
+      size += count;
     }
+    const after = fstatSync(fd);
+    const current = statSync(session.file);
+    if (
+      before.size !== after.size ||
+      before.mtimeMs !== after.mtimeMs ||
+      before.ctimeMs !== after.ctimeMs ||
+      after.ino !== current.ino ||
+      after.dev !== current.dev ||
+      after.size !== current.size ||
+      after.mtimeMs !== current.mtimeMs
+    ) {
+      throw new AppError('Pi session changed during inspection; refresh', 409);
+    }
+    const content = buffer.toString('utf8');
+    const lines = content.trimEnd().split('\n');
+    const metadata = header(lines[0] ?? '');
+    if (metadata.id !== session.piSessionId || realpathSync(metadata.cwd) !== session.directory) {
+      throw new AppError('Pi session identity changed; restart discovery', 409);
+    }
+    // Pi's parser tolerates malformed lines. Do not silently hide a partially appended record.
+    for (const line of lines) {
+      JSON.parse(line);
+    }
+    const entries = parseSessionEntries(content).filter((entry) => entry.type !== 'session');
+    const name = entries.findLast((entry) => entry.type === 'session_info')?.name;
+    return { messages: buildSessionContext(entries).messages, name };
+  } catch (error) {
+    if (error instanceof AppError) {
+      throw error;
+    }
+    throw new AppError(
+      'Pi transcript unavailable or incomplete; refresh or restart discovery',
+      409,
+    );
+  } finally {
+    closeSync(fd);
   }
 }

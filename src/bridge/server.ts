@@ -33,6 +33,7 @@ interface Pending {
 }
 
 interface NativeSession {
+  launchId?: string;
   session: Session;
   socket?: WebSocket;
   snapshot: BridgeSnapshot;
@@ -269,6 +270,7 @@ export class NativeBridges {
       throw new Error('Native session inventory limit reached');
     }
     const native: NativeSession = {
+      launchId: raw.launchId === undefined ? undefined : text(raw.launchId, 'launch ID', 128),
       socket,
       pending: new Map(),
       session: {
@@ -299,6 +301,13 @@ export class NativeBridges {
     );
     this.events.publish(id, native.session.generation, 'connection', native.session);
     return native;
+  }
+
+  findLaunch(launchId: string): Session | undefined {
+    const native = [...this.sessions.values()].find(
+      (item) => item.launchId === launchId && item.session.connection === 'connected',
+    );
+    return native ? structuredClone(native.session) : undefined;
   }
 
   list(): Session[] {

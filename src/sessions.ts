@@ -2,7 +2,7 @@ import type { NativeBridges } from './bridge/server.js';
 import { emptyView, message } from './client-state.js';
 import { AppError } from './errors.js';
 import type { Events } from './events.js';
-import type { SessionDiscovery } from './storage/discovery.js';
+import { inspectSavedSession, type SessionDiscovery } from './storage/discovery.js';
 
 export interface Session {
   id: string;
@@ -71,6 +71,10 @@ export class Sessions {
       throw new AppError('Session not found', 404);
     }
     return session;
+  }
+
+  validateResume(id: string): void {
+    inspectSavedSession(this.get(id));
   }
 
   snapshot(id: string) {

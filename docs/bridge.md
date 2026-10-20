@@ -58,7 +58,7 @@ Disconnection disables commands and retains labeled last-known history. It does 
 
 Commands carry a connection generation. The extension checks generation, current file/session identity, and consumed command IDs. Server acknowledgments correlate to pending requests. Timeout, malformed acknowledgment, or transport loss makes the outcome unknown and closes the command channel. Commands are never replayed.
 
-Closing Pim does not terminate Pi. Closing Pi stops its agent. Launch manually inside tmux for terminal-independent operation; automatic tmux launching is planned, not implemented.
+Closing Pim does not terminate Pi. Closing Pi stops its agent. Browser create/resume launches native Pi in the dedicated `tmux -L pim` server. Use `tmux -L pim list-sessions`, then `tmux -L pim attach -t <name>` to inspect its native TUI. Managed extensions reserve canonical file IDs in their tmux session before registering, preventing managed resume while a disconnected runtime remains. These reservations survive relay restarts and conservatively accumulate across TUI session switches until that tmux session exits. Do not set `PIM_TMUX_SESSION` manually when launching outside Pim.
 
 ## Verification
 
