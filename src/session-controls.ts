@@ -34,6 +34,7 @@ export function isThinkingLevel(value: unknown): value is ThinkingLevel {
 
 export interface SessionControls {
   availableModels: ModelOption[];
+  scopedModels: ModelOption[];
   model: ModelOption | null;
   thinkingLevel: ThinkingLevel | null;
   availableThinkingLevels: ThinkingLevel[];
@@ -56,6 +57,9 @@ export function sessionControls(value: unknown): SessionControls {
   const raw = record(value);
   if (!Array.isArray(raw.availableModels)) {
     throw new Error('Invalid controls.availableModels: expected an array');
+  }
+  if (!Array.isArray(raw.scopedModels)) {
+    throw new Error('Invalid controls.scopedModels: expected an array');
   }
   if (!Array.isArray(raw.availableThinkingLevels)) {
     throw new Error('Invalid controls.availableThinkingLevels: expected an array');
@@ -91,6 +95,7 @@ export function sessionControls(value: unknown): SessionControls {
   }
   return {
     availableModels: raw.availableModels.map(modelOption),
+    scopedModels: raw.scopedModels.map(modelOption),
     model: raw.model === null ? null : modelOption(raw.model),
     thinkingLevel: raw.thinkingLevel,
     availableThinkingLevels,

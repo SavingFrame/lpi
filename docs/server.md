@@ -51,7 +51,7 @@ Lost responses, timeouts, or connection failures may have unknown outcomes. Neve
 Snapshots contain `{ epoch, cursor, session, state, controls, view }`.
 
 - `state`: runtime metadata or read-only file status.
-- `controls`: current model, `availableModels` (provider/id/name from the authenticated native registry), effective thinking level, `availableThinkingLevels` (from `pi-ai` capabilities for the current native model), and context usage. Disconnected saved-file snapshots have no available models.
+- `controls`: current model, `availableModels` (provider/id/name from the authenticated native registry), `scopedModels` (provider/id/name from `ctx.scopedModels`, not a separate favorites store), effective thinking level, `availableThinkingLevels` (from `pi-ai` capabilities for the current native model), and context usage. Disconnected saved-file snapshots have no available models.
 - `view`: current-context messages, authoritative assistant partial, active tools, running/compacting flags, and notices.
 
 Connected snapshots come from the extension's received stream. The server captures the cached snapshot and event boundary synchronously. This is not a checkpoint of the native process.

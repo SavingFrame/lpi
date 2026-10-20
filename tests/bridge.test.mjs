@@ -69,6 +69,7 @@ async function setup(t, timeout = 1000) {
     state: { isStreaming: false, hasPendingMessages: false },
     controls: {
       availableModels: [],
+      scopedModels: [],
       model: null,
       thinkingLevel: 'off',
       availableThinkingLevels: [],
@@ -131,6 +132,7 @@ function fakePi(header, file, entry) {
     mode: 'tui',
     cwd: header.cwd,
     model: models[0],
+    scopedModels: [{ model: models[1], thinkingLevel: 'high' }],
     modelRegistry: { getAvailable: () => models },
     sessionManager: {
       getSessionFile: () => file,
@@ -299,6 +301,9 @@ test('model and thinking settings update native Pi and synchronize authoritative
   const modelCommand = { type: 'set_model', provider: 'fake', modelId: 'second' };
   const thinkingCommand = { type: 'set_thinking_level', level: 'xhigh' };
   assert.equal(bridges.snapshot(session.id).controls.availableModels.length, 2);
+  assert.deepEqual(bridges.snapshot(session.id).controls.scopedModels, [
+    { provider: 'fake', id: 'second', name: 'Second' },
+  ]);
   assert.deepEqual(bridges.snapshot(session.id).controls.availableThinkingLevels, ['off']);
   await bridges.command(session.id, session.generation, modelCommand);
   assert.equal(fake.ctx.model.id, 'second');

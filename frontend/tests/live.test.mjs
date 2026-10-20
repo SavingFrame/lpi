@@ -29,6 +29,7 @@ function boundary(cursor = 0, sessionId = id, epoch = 'server-one') {
     state: { isStreaming: false, hasPendingMessages: false },
     controls: {
       availableModels: [{ provider: 'fake', id: 'first', name: 'First' }],
+      scopedModels: [],
       model: { provider: 'fake', id: 'first', name: 'First' },
       thinkingLevel: 'medium',
       availableThinkingLevels: ['off', 'low', 'medium', 'high'],
@@ -368,6 +369,11 @@ test('context usage preserves unknown values and rejects malformed statistics', 
   assert.throws(() => sessionControls({ ...controls, model: {} }));
   assert.deepEqual(sessionControls(controls).availableModels, controls.availableModels);
   assert.throws(() => sessionControls({ ...controls, availableModels: [{}] }));
+  assert.throws(() => sessionControls({ ...controls, scopedModels: [{}] }));
+  assert.deepEqual(
+    sessionControls({ ...controls, scopedModels: controls.availableModels }).scopedModels,
+    controls.availableModels,
+  );
   assert.throws(() => sessionControls({ ...controls, thinkingLevel: 'invalid' }));
   assert.throws(() => sessionControls({ ...controls, availableThinkingLevels: ['invalid'] }));
   assert.deepEqual(

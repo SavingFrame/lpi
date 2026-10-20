@@ -90,6 +90,7 @@ export class Sessions {
       state: { sessionName: inspected.name, readOnly: true, bridgeConnected: false },
       controls: {
         availableModels: [],
+        scopedModels: [],
         model: null,
         thinkingLevel: null,
         availableThinkingLevels: [],

@@ -105,6 +105,11 @@ export default function nativeBridge(pi: ExtensionAPI): void {
           id,
           name,
         })),
+        scopedModels: ctx.scopedModels.map(({ model: { provider, id, name } }) => ({
+          provider,
+          id,
+          name,
+        })),
         model: ctx.model
           ? { provider: ctx.model.provider, id: ctx.model.id, name: ctx.model.name }
           : null,
