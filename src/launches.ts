@@ -139,8 +139,6 @@ export class Launches {
         `PIM_TMUX_SESSION=${name}`,
         process.execPath,
         cli,
-        '--extension',
-        fileURLToPath(new URL('./bridge/extension.js', import.meta.url)),
         ...(saved ? ['--session', saved.file] : ['--session-id', launchId]),
       ];
       // Once sent to tmux, a lost subprocess result is not proof that Pi did not start.

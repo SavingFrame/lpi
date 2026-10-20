@@ -17,7 +17,7 @@ Launch normal Pi with the compiled extension:
 pi --extension /absolute/path/to/pim/dist/bridge/extension.js --resume
 ```
 
-Loading the extension opts into connection on session startup, including after switching sessions. No global extension installation or settings changes are required.
+Loading the extension opts into connection on session startup, including after switching sessions. This explicit command is for Pi instances without the bridge globally configured. Browser create/resume relies on Pi’s existing global extension configuration and does not pass `--extension`. Enable the compiled bridge there before using browser launching, and do not configure both a wrapper and an explicit path for the same extension.
 
 To reconnect manually or select another endpoint, run:
 
@@ -38,6 +38,7 @@ The endpoint defaults to `ws://127.0.0.1:3141/bridge`. Set `PIM_BRIDGE_URL` for 
 - Branch navigation, compaction completion, and final settlement refresh history.
 - Current model, thinking, context usage, and queued-message presence, sampled every second.
 - Browser prompt, steer, follow-up, and abort through public extension APIs.
+- Stop runtime for connected Pim-managed instances through `ctx.abort()` and `ctx.shutdown()`. Acceptance is flushed before shutdown cleanup disconnects the bridge. External instances reject this command.
 - Native prompt lifecycle notices where Pi exposes them. Dialog answers remain terminal-only.
 
 Browser image attachments are delivered as structured image content through `pi.sendUserMessage`, including with steer/follow-up and image-only messages. PNG, JPEG, GIF, and WebP are supported, up to four images and 4 MiB total per message. A model with image input support is required. Slash commands, model/thinking setters, queue editing, and custom terminal UI adaptation are not exposed. Steer/follow-up use normal Pi semantics and can start a turn when idle.
@@ -58,7 +59,7 @@ Disconnection disables commands and retains labeled last-known history. It does 
 
 Commands carry a connection generation. The extension checks generation, current file/session identity, and consumed command IDs. Server acknowledgments correlate to pending requests. Timeout, malformed acknowledgment, or transport loss makes the outcome unknown and closes the command channel. Commands are never replayed.
 
-Closing Pim does not terminate Pi. Closing Pi stops its agent. Browser create/resume launches native Pi in the dedicated `tmux -L pim` server. Use `tmux -L pim list-sessions`, then `tmux -L pim attach -t <name>` to inspect its native TUI. Managed extensions reserve canonical file IDs in their tmux session before registering, preventing managed resume while a disconnected runtime remains. These reservations survive relay restarts and conservatively accumulate across TUI session switches until that tmux session exits. Do not set `PIM_TMUX_SESSION` manually when launching outside Pim.
+Closing Pim does not terminate Pi. Closing Pi stops its agent. Browser create/resume launches native Pi in the dedicated `tmux -L pim` server. Use `tmux -L pim list-sessions`, then `tmux -L pim attach -t <name>` to inspect its native TUI. Managed extensions reserve canonical file IDs in their tmux session before registering, preventing managed resume while a disconnected runtime remains. These reservations survive relay restarts and conservatively accumulate across TUI session switches until that tmux session exits. Stop runtime requests orderly Pi exit, which normally removes its dedicated tmux session. It does not kill tmux directly or delete history. Shutdown can take time; a disconnect alone is still not proof of exit. Do not set `PIM_TMUX_SESSION` or `PIM_LAUNCH_ID` manually when launching outside Pim.
 
 ## Verification
 

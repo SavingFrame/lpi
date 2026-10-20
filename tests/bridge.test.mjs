@@ -105,7 +105,7 @@ function fakePi(header, file, entry) {
   const sent = [];
   const notifications = [];
   const statuses = new Map();
-  const state = { idle: true, pending: false, aborts: 0, entries: [entry] };
+  const state = { idle: true, pending: false, aborts: 0, shutdowns: 0, entries: [entry] };
   const ctx = {
     mode: 'tui',
     cwd: header.cwd,
@@ -120,6 +120,10 @@ function fakePi(header, file, entry) {
     hasPendingMessages: () => state.pending,
     abort: () => {
       state.aborts++;
+    },
+    shutdown: () => {
+      state.shutdowns++;
+      handlers.get('session_shutdown')?.({ type: 'session_shutdown' }, ctx);
     },
     getContextUsage: () => undefined,
     ui: {
@@ -242,6 +246,80 @@ test('native extension streams history, partial responses, tools and routes comm
     bridges.command(session.id, generation, { type: 'prompt', message: 'Offline' }),
   );
 });
+
+test('stop runtime is rejected for externally launched Pi', async (t) => {
+  const { open, bridges } = await setup(t);
+  const { socket, attached } = await open();
+  await assert.rejects(
+    bridges.command(attached.sessionId, attached.generation, { type: 'stop_runtime' }),
+    /Only Pim-managed/,
+  );
+  assert.equal(bridges.get(attached.sessionId).connection, 'connected');
+  socket.terminate();
+});
+
+for (const busy of [false, true]) {
+  test(`stop runtime requests graceful shutdown without changing history (busy: ${busy})`, async (t) => {
+    const { config, root, defer, file, header, entry, url, bridges } = await setup(t);
+    const original = readFileSync(file);
+    const keys = ['PIM_BRIDGE_URL', 'PIM_LAUNCH_ID', 'PIM_TMUX_SESSION', 'PATH'];
+    const previous = keys.map((key) => process.env[key]);
+    const launchId = '11111111-1111-1111-1111-111111111111';
+    const bin = join(root, 'bin');
+    mkdirSync(bin);
+    // Stub reservations only. Never contact a real tmux server in this test.
+    writeFileSync(join(bin, 'tmux'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
+    process.env.PATH = `${bin}:${process.env.PATH}`;
+    process.env.PIM_BRIDGE_URL = url;
+    process.env.PIM_LAUNCH_ID = launchId;
+    process.env.PIM_TMUX_SESSION = `pim-${launchId}`;
+    const fake = fakePi(header, file, entry);
+    defer(async () => {
+      await fake.emit('session_shutdown');
+      for (const [index, key] of keys.entries()) {
+        if (previous[index] === undefined) {
+          delete process.env[key];
+        } else {
+          process.env[key] = previous[index];
+        }
+      }
+    });
+    fake.state.idle = !busy;
+    fake.state.pending = busy;
+    await fake.emit('session_start');
+    await waitFor(() => bridges.list()[0]?.connection === 'connected');
+    const session = bridges.list()[0];
+    assert.equal(bridges.snapshot(session.id).state.managedRuntime, true);
+    await assert.rejects(
+      bridges.command(session.id, session.generation - 1, { type: 'stop_runtime' }),
+      /stale/,
+    );
+    assert.equal(fake.state.shutdowns, 0);
+    const response = await fetch(
+      `http://127.0.0.1:${config.port}/sessions/${session.id}/commands`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestId: 'stop-runtime',
+          generation: session.generation,
+          command: { type: 'stop_runtime' },
+        }),
+      },
+    );
+    assert.equal(response.status, 200);
+    assert.equal((await response.json()).outcome, 'acknowledged');
+    await waitFor(() => bridges.get(session.id).connection === 'disconnected');
+    assert.equal(fake.state.aborts, 1);
+    assert.equal(fake.state.shutdowns, 1);
+    assert.deepEqual(readFileSync(file), original);
+    await assert.rejects(
+      bridges.command(session.id, session.generation, { type: 'stop_runtime' }),
+      /unavailable|stale/,
+    );
+    assert.equal(fake.state.shutdowns, 1);
+  });
+}
 
 test('browser images reach native Pi as structured user content, including image-only messages', async (t) => {
   const { config, defer, file, header, entry, url, bridges } = await setup(t);

@@ -1,6 +1,6 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useParams } from '@tanstack/react-router';
-import { ArrowUp, Folder, RefreshCw, Square, Terminal } from 'lucide-react';
+import { ArrowUp, Folder, Power, RefreshCw, Square, Terminal } from 'lucide-react';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import type { ImageAttachment } from '../../src/attachments';
 import { record } from '../../src/client-state';
@@ -178,7 +178,9 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
       const disposition =
         result.data === null || result.data === undefined ? null : record(result.data).disposition;
       setOutcome(
-        `${disposition ? String(disposition) : String(result.outcome)}. Not necessarily finished.`,
+        variables.command.type === 'stop_runtime'
+          ? 'Shutdown requested. Runtime exit is not yet confirmed.'
+          : `${disposition ? String(disposition) : String(result.outcome)}. Not necessarily finished.`,
       );
       if (variables.submitted !== undefined && draft === variables.submitted) {
         setDraft('');
@@ -231,6 +233,26 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
           </p>
         </div>
         <div className="controls">
+          {session?.connection === 'connected' && snapshot?.state.managedRuntime === true && (
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              disabled={!active}
+              onClick={() => {
+                if (
+                  window.confirm(
+                    'Stop this Pi runtime? Active work will be interrupted and queued messages will not be resumed. Saved history will remain. This also closes its terminal.',
+                  )
+                ) {
+                  mutation.mutate({ command: { type: 'stop_runtime' } });
+                }
+              }}
+            >
+              <Power aria-hidden="true" />
+              Stop runtime
+            </Button>
+          )}
           {session?.connection === 'disconnected' && session.projectId === projectId && (
             <LaunchSession projectId={projectId} resumeId={id} />
           )}

@@ -25,6 +25,12 @@ export default function nativeBridge(pi: ExtensionAPI): void {
   let attempt = 0;
   let bridgeUrl = process.env.PIM_BRIDGE_URL ?? 'ws://127.0.0.1:3141/bridge';
   let lastStatus = '';
+  let stopping = false;
+  const launchId = process.env.PIM_LAUNCH_ID;
+  const managedRuntime =
+    launchId !== undefined &&
+    /^[a-f0-9-]{36}$/.test(launchId) &&
+    process.env.PIM_TMUX_SESSION === `pim-${launchId}`;
   const seenCommands = new Set<string>();
 
   pi.registerEntryRenderer('pim-image-attachments', (entry, _options, theme) => {
@@ -85,6 +91,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
     const thinkingLevel = pi.getThinkingLevel();
     return {
       state: {
+        managedRuntime,
         isStreaming: !ctx.isIdle(),
         hasPendingMessages: ctx.hasPendingMessages(),
         sessionName: ctx.sessionManager.getSessionName(),
@@ -208,6 +215,12 @@ export default function nativeBridge(pi: ExtensionAPI): void {
               throw new Error('Stale native session command');
             }
             command = bridgeCommand(raw.command);
+            if (stopping) {
+              throw new Error('Native runtime is stopping');
+            }
+            if (command.type === 'stop_runtime' && !managedRuntime) {
+              throw new Error('Only Pim-managed runtimes can be stopped remotely');
+            }
             if (command.type === 'prompt' && !ctx.isIdle() && !command.streamingBehavior) {
               throw new Error('Native agent is busy. Use steer or follow-up.');
             }
@@ -221,6 +234,24 @@ export default function nativeBridge(pi: ExtensionAPI): void {
             return;
           }
           // Never report rejection after dispatch. A thrown action has an uncertain outcome.
+          if (command.type === 'stop_runtime') {
+            stopping = true;
+            const context = ctx;
+            // Flush acceptance before shutdown handlers disconnect the bridge.
+            current.send(JSON.stringify({ type: 'ack', id, outcome: 'acknowledged' }), (error) => {
+              if (error) {
+                current.terminate();
+                return;
+              }
+              try {
+                context.abort();
+                context.shutdown();
+              } catch {
+                current.terminate();
+              }
+            });
+            return;
+          }
           if (command.type === 'abort') {
             ctx.abort();
           } else {

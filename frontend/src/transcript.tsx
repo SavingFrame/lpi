@@ -2,8 +2,50 @@ import { useLayoutEffect, useRef } from 'react';
 import Markdown from 'react-markdown';
 import { imageAttachments } from '../../src/attachments';
 import type { Message, View } from '../../src/client-state';
+import { type TranscriptTool, transcriptState } from './transcript-state';
 
-function MessageBody({ item }: { item: Message }) {
+function ToolBlock({ tool }: { tool: TranscriptTool }) {
+  const args = tool.args;
+  const input =
+    typeof args === 'object' && args !== null
+      ? Object.entries(args).find(
+          ([key, value]) =>
+            ['command', 'path', 'query', 'url'].includes(key) && typeof value === 'string',
+        )?.[1]
+      : undefined;
+  return (
+    <details className="tool-block">
+      <summary>
+        <span className="tool-name">{tool.name}</span>
+        {typeof input === 'string' && <span className="tool-input">{input}</span>}
+        <span className={`tool-status ${tool.status === 'Failed' ? 'error' : ''}`}>
+          {tool.status}
+        </span>
+      </summary>
+      <div className="tool-body">
+        <div className="muted">Arguments</div>
+        <pre>{JSON.stringify(args, null, 2) ?? 'Unavailable'}</pre>
+        {tool.result ? (
+          <>
+            <div className="muted">Output</div>
+            <MessageBody item={tool.result} />
+          </>
+        ) : tool.progress !== undefined ? (
+          <>
+            <div className="muted">Progress</div>
+            <pre>{JSON.stringify(tool.progress, null, 2)}</pre>
+          </>
+        ) : (
+          <p className="muted">
+            {tool.status === 'No result' ? 'No result available.' : 'Waiting for output.'}
+          </p>
+        )}
+      </div>
+    </details>
+  );
+}
+
+function MessageBody({ item, tools }: { item: Message; tools?: Map<string, TranscriptTool> }) {
   const content = item.content;
   return (
     <>
@@ -52,6 +94,10 @@ function MessageBody({ item }: { item: Message }) {
             );
           }
           if (block.type === 'toolCall') {
+            const tool = typeof block.id === 'string' ? tools?.get(block.id) : undefined;
+            if (tool) {
+              return <ToolBlock key={key} tool={tool} />;
+            }
             return (
               <details key={key}>
                 <summary>Tool: {String(block.name)}</summary>
@@ -106,58 +152,49 @@ export function Transcript({ view }: { view: View }) {
       observer.disconnect();
     };
   }, []);
-  const messages = view.messages.filter((item) => item.role !== 'system' && item.display !== false);
+  const { groups, tools, unpaired } = transcriptState(view);
   return (
     <section ref={transcript} className="transcript" aria-label="Conversation">
-      {messages.length === 0 && !view.partial && (
+      {groups.length === 0 && unpaired.length === 0 && (
         <div className="empty">
           <h2>Start a conversation</h2>
           <p>Prompts run on your PC. Closing this browser does not stop the agent.</p>
         </div>
       )}
-      {messages.map((item, index) => (
+      {groups.map((group) => (
         <article
-          className={`message ${item.role}`}
-          key={`${item.role}:${item.timestamp}:${String(item.toolCallId ?? index)}`}
+          className={`message ${group.role}${group.streaming ? ' partial' : ''}`}
+          key={group.key}
         >
           <header>
-            {item.role === 'user'
-              ? 'You'
-              : item.role === 'assistant'
-                ? 'Pi'
-                : String(item.toolName ?? item.role)}
-            {item.isError === true && ' (error)'}
+            {group.author}
+            {group.streaming && <span className="muted">streaming</span>}
           </header>
-          {item.role === 'toolResult' ? (
-            <details>
-              <summary>Tool output</summary>
-              <MessageBody item={item} />
-            </details>
-          ) : (
-            <MessageBody item={item} />
-          )}
+          <div className="flex flex-col gap-3">
+            {group.messages.map((item, messageIndex) => (
+              <div key={group.messageKeys[messageIndex]}>
+                {item.isError === true && <p className="error">Error</p>}
+                {item.role === 'toolResult' ? (
+                  <details>
+                    <summary>Tool output</summary>
+                    <MessageBody item={item} />
+                  </details>
+                ) : (
+                  <MessageBody item={item} tools={tools} />
+                )}
+              </div>
+            ))}
+          </div>
         </article>
       ))}
-      {view.partial && (
-        <article className="message assistant partial">
-          <header>
-            Pi <span className="muted">streaming</span>
-          </header>
-          <MessageBody item={view.partial} />
-        </article>
-      )}
-      {view.tools.map((tool) => (
-        <article className="message toolResult" key={tool.id}>
-          <header>
-            {tool.name} <span className="muted">running</span>
-          </header>
-          <details>
-            <summary>Arguments and progress</summary>
-            <pre>{JSON.stringify(tool.args, null, 2)}</pre>
-            {tool.result !== undefined && <pre>{JSON.stringify(tool.result, null, 2)}</pre>}
-          </details>
-        </article>
-      ))}
+      {unpaired.map((tool) => {
+        const activity = tools.get(tool.id);
+        return activity ? (
+          <article className="message toolResult" key={tool.id}>
+            <ToolBlock tool={activity} />
+          </article>
+        ) : null;
+      })}
     </section>
   );
 }

@@ -338,6 +338,9 @@ export class NativeBridges {
     ) {
       throw new AppError('Native bridge unavailable or stale generation');
     }
+    if (command.type === 'stop_runtime' && native.snapshot.state.managedRuntime !== true) {
+      throw new AppError('Only Pim-managed runtimes can be stopped remotely', 422);
+    }
     if (native.pending.size >= 32 || socket.bufferedAmount > 1024 * 1024) {
       throw new AppError('Native command channel overloaded', 429);
     }

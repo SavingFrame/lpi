@@ -80,7 +80,8 @@ test('new session launches pinned native Pi with argv and correlated environment
   assert.ok(command.includes('PIM_BRIDGE_URL=ws://127.0.0.1:3141/bridge'));
   assert.ok(command.includes('--session-id'));
   assert.ok(command.some((arg) => arg.endsWith('/dist/bundle/cli.js')));
-  assert.ok(command.some((arg) => arg.endsWith('/dist/bridge/extension.js')));
+  assert.ok(!command.includes('--extension'));
+  assert.ok(!command.some((arg) => arg.endsWith('/dist/bridge/extension.js')));
   assert.ok(!command.includes('--mode'));
 });
 

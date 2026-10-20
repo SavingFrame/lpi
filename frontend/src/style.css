@@ -325,6 +325,35 @@
     padding: 14px 0;
     color: var(--muted-foreground);
   }
+  .tool-block {
+    margin: 10px 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 12px;
+    overflow: hidden;
+  }
+  .tool-name {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+  .tool-input {
+    display: inline-block;
+    max-width: min(50vw, 440px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+    margin-left: 12px;
+  }
+  .tool-status {
+    margin-left: 12px;
+    font-size: 11px;
+  }
+  .tool-body {
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    color: var(--foreground);
+  }
   .message p:first-child {
     margin-top: 0;
   }
@@ -386,6 +415,9 @@
   summary {
     color: var(--muted-foreground);
     display: list-item;
+  }
+  .tool-block > summary {
+    padding: 10px 12px;
   }
   .composer {
     margin-top: auto;

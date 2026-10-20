@@ -52,6 +52,7 @@ export function bridgeSnapshot(value: unknown): BridgeSnapshot {
 
 export type BridgeCommand =
   | { type: 'abort' }
+  | { type: 'stop_runtime' }
   | {
       type: 'prompt' | 'steer' | 'follow_up';
       message: string;
@@ -62,11 +63,14 @@ export type BridgeCommand =
 export function bridgeCommand(value: unknown): BridgeCommand {
   const raw = object(value);
   const type = text(raw.type, 'command type', 64);
-  if (type === 'abort') {
+  if (type === 'abort' || type === 'stop_runtime') {
     return { type };
   }
   if (type !== 'prompt' && type !== 'steer' && type !== 'follow_up') {
-    throw new AppError('Native bridge supports prompt, steer, follow-up, and abort only', 422);
+    throw new AppError(
+      'Native bridge supports prompt, steer, follow-up, abort, and stop_runtime only',
+      422,
+    );
   }
   let images: ImageAttachment[];
   try {

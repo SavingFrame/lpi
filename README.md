@@ -40,7 +40,7 @@ The browser receives current-branch history, assistant partials, tool activity, 
 
 ## Create or resume from the browser
 
-Choose a project in the sidebar and click **New session**. For saved history, open the session and click **Resume session**. Pim starts the pinned native Pi CLI in a detached tmux session, then waits for its bridge to register. Project-trust prompts and other startup dialogs must be answered in the terminal.
+Choose a project in the sidebar and click **New session**. For saved history, open the session and click **Resume session**. Pim starts the pinned native Pi CLI in a detached tmux session, then waits for its bridge to register. The bridge must already be enabled through Pi’s global extension configuration. Pim does not pass `--extension`, avoiding duplicate loading. The explicit command above is only for instances without the bridge globally configured. Project-trust prompts and other startup dialogs must be answered in the terminal.
 
 All managed runtimes use the dedicated `pim` socket, separate from your regular tmux server:
 
@@ -53,7 +53,7 @@ Detach with Ctrl+b, then d. The terminal and browser control the same native run
 
 Resume refuses files reserved by managed runtimes, even while their bridges are disconnected. Reservations survive relay restarts and conservatively retain every file opened in that tmux session. A runtime that has not registered a file blocks resume until inspected. For externally launched Pi, confirm it has stopped before resuming. This is not a general filesystem lock or ownership coordinator.
 
-Startup timeouts and lost responses are uncertain outcomes. Inspect recent sessions and tmux before trying again. No automatic launch replay or browser stop control is provided. Real native-Pi integration remains unverified. See [the plan](PLAN.md).
+Startup timeouts and lost responses are uncertain outcomes. Inspect recent sessions and tmux before trying again. No automatic launch replay is provided. For connected Pim-managed runtimes, **Stop runtime** requests graceful Pi shutdown after confirmation, interrupting active work without deleting history. Pi exit normally removes its dedicated tmux session. Acceptance is not proof of exit; resume still checks tmux reservations. Externally launched runtimes must be stopped in their terminal. Real native-Pi integration remains unverified. See [the plan](PLAN.md).
 
 ## Frontend development
 

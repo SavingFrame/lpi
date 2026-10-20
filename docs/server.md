@@ -26,7 +26,7 @@ Roots are not a filesystem sandbox. Project trust and agent configuration belong
 
 Create accepts `{ requestId, projectId }`. Resume accepts `{ requestId, confirmedOffline: true }`; the project comes from the saved record. Both return `{ requestId, outcome: "acknowledged", data: { session } }` after correlated bridge registration. They do not use connection generations. Launch checks are serialized, bounded to 32 managed tmux sessions, and wait up to 20 seconds for registration. Timeouts and lost subprocess results are unknown outcomes, never automatically replayed.
 
-The dedicated `tmux -L pim` socket hosts one session per runtime, using the pinned Pi CLI and explicit bridge extension. Managed extensions reserve file IDs in tmux before registration. Resume rejects reserved files and unregistered runtimes, and requires confirmation that external writers have stopped. Reservations survive relay restarts and conservatively accumulate across TUI session switches. No generic terminal-input proxy or stop endpoint is exposed.
+The dedicated `tmux -L pim` socket hosts one session per runtime, using the pinned Pi CLI and the bridge enabled through existing global Pi extension configuration. The launcher does not pass `--extension`. Managed extensions reserve file IDs in tmux before registration. Resume rejects reserved files and unregistered runtimes, and requires confirmation that external writers have stopped. Reservations survive relay restarts and conservatively accumulate across TUI session switches. No generic terminal-input proxy is exposed. Stop uses the existing generation-checked command endpoint, not a tmux kill endpoint.
 
 Session records contain `id`, `projectId`, `directory`, `file`, `createdAt`, `piSessionId`, `connection`, and `generation`. Pim IDs derive from canonical file paths, so copied files with identical Pi IDs remain distinct. Connection is `connected` or `disconnected`, not a statement about process liveness or ownership.
 
@@ -40,7 +40,7 @@ POST bodies require JSON content type, a unique request ID, and the current conn
 }
 ```
 
-Supported commands: `prompt`, `steer`, `follow_up`, and `abort`. Prompt optionally accepts `streamingBehavior: "steer" | "followUp"`. Messages optionally include `images: [{ type: "image", mimeType: "image/png", data: "<base64>" }]`. PNG, JPEG, GIF, and WebP are supported (four images, 4 MiB total decoded bytes). An empty `message` is accepted when images are present. Slash commands, settings changes, queue editing, and dialog answers are not exposed.
+Supported commands: `prompt`, `steer`, `follow_up`, `abort`, and `stop_runtime`. Stop is limited to connected Pim-managed runtimes advertising `state.managedRuntime: true`. It requests abort and graceful shutdown without deleting history. Acknowledgment means acceptance, not confirmed process exit; existing tmux reservation checks still apply before resume. Prompt optionally accepts `streamingBehavior: "steer" | "followUp"`. Messages optionally include `images: [{ type: "image", mimeType: "image/png", data: "<base64>" }]`. PNG, JPEG, GIF, and WebP are supported (four images, 4 MiB total decoded bytes). An empty `message` is accepted when images are present. Slash commands, settings changes, queue editing, and dialog answers are not exposed.
 
 Success returns `outcome: "acknowledged"` and `data.disposition: "dispatched"`. This means the extension invoked the public Pi API, not that work completed or persisted. Observe subsequent output and settlement.
 
