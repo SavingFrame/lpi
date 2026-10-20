@@ -10,10 +10,36 @@ export interface Session {
   directory: string;
   file: string;
   createdAt: string;
+  updatedAt?: string;
+  title?: string;
   piSessionId: string;
   connection: 'connected' | 'disconnected';
   /** Connection version for rejecting stale commands, not a runtime ownership claim. */
   generation: number;
+}
+
+export function promptTitle(content: unknown): string | undefined {
+  const text =
+    typeof content === 'string'
+      ? content
+      : Array.isArray(content)
+        ? content
+            .map((part: unknown) => {
+              if (
+                part &&
+                typeof part === 'object' &&
+                'type' in part &&
+                part.type === 'text' &&
+                'text' in part &&
+                typeof part.text === 'string'
+              ) {
+                return part.text;
+              }
+              return '';
+            })
+            .join(' ')
+        : '';
+  return text.replace(/\s+/g, ' ').trim().slice(0, 160) || undefined;
 }
 
 /** Read-only saved history plus connections to existing native Pi runtimes. */

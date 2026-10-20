@@ -12,6 +12,15 @@ export function Shell() {
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
   const sessionQuery = useQuery({ queryKey: ['sessions'], queryFn: sessions });
   const connection = useSyncExternalStore(live.subscribe, live.getState);
+  const [showAll, setShowAll] = useState(false);
+  const sortedSessions = [...(sessionQuery.data ?? [])].sort(
+    (a, b) => Date.parse(b.updatedAt ?? b.createdAt) - Date.parse(a.updatedAt ?? a.createdAt),
+  );
+  const visibleSessions = showAll ? sortedSessions : sortedSessions.slice(0, 15);
+  const selectedSession = sortedSessions.find((session) => session.id === sessionId);
+  if (selectedSession && !visibleSessions.some((session) => session.id === sessionId)) {
+    visibleSessions.push(selectedSession);
+  }
   useEffect(() => {
     live.connect();
     return live.disconnect;
@@ -36,37 +45,39 @@ export function Shell() {
             No project folders found. Add a folder under a configured root, then restart the server.
           </p>
         )}
-        <nav aria-label="Projects and sessions">
-          {projectQuery.data?.map((project) => (
-            <section className="project" key={project.id}>
-              <div className="project-heading">
-                <Link
-                  to="/app/projects/$projectId"
-                  params={{ projectId: project.id }}
-                  title={project.directory}
-                >
-                  {project.name}
-                </Link>
-              </div>
-              {sessionQuery.data
-                ?.filter((session) => session.projectId === project.id)
-                .slice()
-                .reverse()
-                .map((session) => (
-                  <Link
-                    className={`session-link ${sessionId === session.id ? 'selected' : ''}`}
-                    to="/app/projects/$projectId/sessions/$sessionId"
-                    params={{ projectId: project.id, sessionId: session.id }}
-                    key={session.id}
-                  >
-                    <span>{session.piSessionId.slice(0, 8)}</span>
-                    <small>
-                      {session.connection === 'connected' ? 'Pi · live TUI' : 'Pi · read-only'}
-                    </small>
-                  </Link>
-                ))}
-            </section>
-          ))}
+        <nav aria-label="Recent sessions">
+          <h2 className="eyebrow">Recent sessions</h2>
+          {sessionQuery.isPending && <p className="muted">Loading sessions…</p>}
+          {sessionQuery.data?.length === 0 && <p className="muted">No sessions found.</p>}
+          {visibleSessions.map((session) => {
+            const project = projectQuery.data?.find((project) => project.id === session.projectId);
+            const title = session.title || 'Untitled session';
+            const updatedAt = session.updatedAt ?? session.createdAt;
+            return (
+              <Link
+                className={`session-link ${sessionId === session.id ? 'selected' : ''}`}
+                to="/app/projects/$projectId/sessions/$sessionId"
+                params={{ projectId: session.projectId, sessionId: session.id }}
+                key={session.id}
+                title={title}
+                aria-current={sessionId === session.id ? 'page' : undefined}
+              >
+                <span>{title}</span>
+                <small>
+                  {project?.name ?? 'Project'} ·{' '}
+                  {session.connection === 'connected' ? 'live' : 'read-only'}
+                </small>
+                <small>
+                  <time dateTime={updatedAt}>{new Date(updatedAt).toLocaleString()}</time>
+                </small>
+              </Link>
+            );
+          })}
+          {sortedSessions.length > 15 && (
+            <button type="button" onClick={() => setShowAll(!showAll)}>
+              {showAll ? 'Show recent only' : 'Show older sessions'}
+            </button>
+          )}
         </nav>
         <footer>
           {projectQuery.data?.find((project) => project.id === projectId)?.name ??

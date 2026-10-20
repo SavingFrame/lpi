@@ -17,7 +17,9 @@ Browser/API authentication is not enabled. Pim trusts reachable home LAN/Tailsca
 
 ## Behavior
 
-Saved records show **Pi · read-only**. Connected records show **Pi · live TUI** and support prompt, steer, follow-up, and abort. Current model/thinking/context metadata is display-only. Queue editing and dialog answers remain terminal-only.
+The sidebar shows the 15 most recent sessions across projects, sorted by saved-file modification time or native connection/activity time. Titles use the session name or first user text, with project, timestamp, and live/read-only status underneath. Older sessions are available through **Show older sessions**; an older selected session stays visible. Saved title discovery reads bounded file prefixes and tails, so missing metadata falls back to **Untitled session**.
+
+Saved records show **read-only**. Connected records show **live** and support prompt, steer, follow-up, and abort. Current model/thinking/context metadata is display-only. Queue editing and dialog answers remain terminal-only.
 
 There are no browser create/start/stop controls. Server-side tmux launching is planned.
 

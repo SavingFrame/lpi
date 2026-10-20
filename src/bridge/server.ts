@@ -16,7 +16,7 @@ import { emptyView, record, reduceEvent } from '../client-state.js';
 import type { Config } from '../config.js';
 import { AppError, text } from '../errors.js';
 import type { Events } from '../events.js';
-import type { Session } from '../sessions.js';
+import { promptTitle, type Session } from '../sessions.js';
 import { piInventoryId } from '../storage/session-id.js';
 import {
   BRIDGE_LIMIT,
@@ -204,6 +204,14 @@ export class NativeBridges {
         } else {
           throw new Error('Unsupported bridge frame');
         }
+        if (raw.type === 'sync' || raw.type === 'event') {
+          native.session.updatedAt = new Date().toISOString();
+        }
+        native.session.title =
+          promptTitle(native.snapshot.state.sessionName) ??
+          promptTitle(
+            native.snapshot.view.messages.find((message) => message.role === 'user')?.content,
+          );
       } catch {
         socket.close(1008, 'Bridge registration or protocol rejected');
       }
@@ -269,12 +277,18 @@ export class NativeBridges {
         directory: cwd,
         projectId: project.id,
         createdAt,
+        updatedAt: new Date().toISOString(),
         piSessionId,
         connection: 'connected',
         generation: (previous?.session.generation ?? 0) + 1,
       },
       snapshot: bridgeSnapshot(raw.snapshot),
     };
+    native.session.title =
+      promptTitle(native.snapshot.state.sessionName) ??
+      promptTitle(
+        native.snapshot.view.messages.find((message) => message.role === 'user')?.content,
+      );
     this.sessions.set(id, native);
     socket.send(
       JSON.stringify({

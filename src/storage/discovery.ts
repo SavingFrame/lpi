@@ -13,7 +13,7 @@ import { isAbsolute, join } from 'node:path';
 import { buildSessionContext, parseSessionEntries } from '@earendil-works/pi-coding-agent';
 import type { Project } from '../config.js';
 import { AppError, object, text } from '../errors.js';
-import type { Session } from '../sessions.js';
+import { promptTitle, type Session } from '../sessions.js';
 import { piInventoryId } from './session-id.js';
 
 function header(content: string): { id: string; cwd: string; timestamp: string } {
@@ -81,7 +81,11 @@ export class SessionDiscovery {
             visited.add(file);
             const fd = openSync(file, constants.O_RDONLY | constants.O_NOFOLLOW);
             let firstLine: string;
+            let title: string | undefined;
+            let updatedAt: string;
             try {
+              const stats = fstatSync(fd);
+              updatedAt = stats.mtime.toISOString();
               const buffer = Buffer.alloc(65_536);
               const size = readSync(fd, buffer, 0, buffer.length, 0);
               const end = buffer.subarray(0, size).indexOf(10);
@@ -89,6 +93,33 @@ export class SessionDiscovery {
                 throw new Error('Missing or oversized Pi session header');
               }
               firstLine = buffer.subarray(0, end).toString('utf8');
+              // Bounded metadata reads, never load every transcript into the inventory.
+              const chunks = [buffer.subarray(0, size).toString('utf8')];
+              if (stats.size > buffer.length) {
+                const tail = Buffer.alloc(65_536);
+                const count = readSync(fd, tail, 0, tail.length, stats.size - tail.length);
+                const start = tail.indexOf(10);
+                chunks.push(tail.subarray(start + 1, count).toString('utf8'));
+              }
+              let name: string | undefined;
+              for (const chunk of chunks) {
+                for (const line of chunk.split('\n')) {
+                  try {
+                    const entry = object(JSON.parse(line));
+                    if (entry.type === 'session_info' && typeof entry.name === 'string') {
+                      name = promptTitle(entry.name);
+                    } else if (!title && entry.type === 'message') {
+                      const message = object(entry.message);
+                      if (message.role === 'user') {
+                        title = promptTitle(message.content);
+                      }
+                    }
+                  } catch {
+                    // Partial boundary lines do not invalidate the session header.
+                  }
+                }
+              }
+              title = name ?? title;
             } finally {
               closeSync(fd);
             }
@@ -106,6 +137,8 @@ export class SessionDiscovery {
               directory,
               file,
               createdAt: metadata.timestamp,
+              updatedAt,
+              title,
               piSessionId: metadata.id,
               connection: 'disconnected',
               generation: 0,

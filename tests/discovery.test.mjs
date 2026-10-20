@@ -54,11 +54,36 @@ test('discovery uses canonical header cwd, stable path IDs, and never changes or
   assert.equal(session.piSessionId, piId);
   assert.equal(session.directory, config.projects[0].directory);
   assert.equal(session.connection, 'disconnected');
+  assert.equal(session.title, 'Native conversation');
+  assert.ok(Number.isFinite(Date.parse(session.updatedAt)));
   assert.notEqual(session.id, first.list().find((item) => item.file === copy).id);
   assert.deepEqual(new SessionDiscovery([sessions], config.projects).list(), first.list());
   assert.equal(first.inspect(session.id).messages[0].content, 'Existing history');
   assert.equal(first.inspect(session.id).name, 'Native conversation');
   assert.deepEqual(readFileSync(file), before);
+});
+
+test('inventory falls back to the first user text and reads names near the file end', (t) => {
+  const { root, config } = fixture(t);
+  const sessions = join(root, 'pi-sessions');
+  const file = join(sessions, 'one.jsonl');
+  seed(file, config.projects[0].directory);
+  const lines = readFileSync(file, 'utf8').trimEnd().split('\n');
+  const message = JSON.parse(lines[1]);
+  message.message.content = [{ type: 'text', text: '  Fix\n the sidebar  ' }];
+  writeFileSync(file, `${lines[0]}\n${JSON.stringify(message)}\n`);
+  assert.equal(
+    new SessionDiscovery([sessions], config.projects).list()[0].title,
+    'Fix the sidebar',
+  );
+  writeFileSync(
+    file,
+    `${readFileSync(file, 'utf8')}${JSON.stringify({ type: 'custom', data: 'x'.repeat(100_000) })}\n${lines[2]}\n`,
+  );
+  assert.equal(
+    new SessionDiscovery([sessions], config.projects).list()[0].title,
+    'Native conversation',
+  );
 });
 
 test('discovery ignores nested files and symlinks and warns on invalid headers', (t) => {

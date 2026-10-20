@@ -96,19 +96,14 @@ button.danger {
 .sidebar nav {
   margin-top: 32px;
 }
-.project {
-  margin-bottom: 24px;
+:where(.sidebar nav) h2 {
+  margin-bottom: 12px;
 }
-.project-heading {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 10px;
-  gap: 8px;
-}
-.project-heading a {
-  color: #e4e7ec;
-  font-size: 14px;
+.session-link > span {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow-wrap: anywhere;
 }
 .session-link {
@@ -331,15 +326,9 @@ textarea {
     padding: 16px;
   }
   .sidebar nav {
-    display: flex;
-    gap: 24px;
-    overflow-x: auto;
-    max-height: 180px;
+    overflow-y: auto;
+    max-height: 220px;
     margin-top: 16px;
-  }
-  .project {
-    min-width: 180px;
-    margin-bottom: 0;
   }
   .sidebar footer,
   .local-warning {

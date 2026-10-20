@@ -29,6 +29,9 @@ export function session(value: unknown): Session {
     typeof raw.directory !== 'string' ||
     typeof raw.file !== 'string' ||
     typeof raw.createdAt !== 'string' ||
+    (raw.updatedAt !== undefined &&
+      (typeof raw.updatedAt !== 'string' || !Number.isFinite(Date.parse(raw.updatedAt)))) ||
+    (raw.title !== undefined && typeof raw.title !== 'string') ||
     typeof raw.piSessionId !== 'string' ||
     !['connected', 'disconnected'].includes(String(raw.connection)) ||
     typeof raw.generation !== 'number' ||
