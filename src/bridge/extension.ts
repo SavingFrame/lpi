@@ -26,6 +26,27 @@ export default function nativeBridge(pi: ExtensionAPI): void {
   let lastStatus = '';
   const seenCommands = new Set<string>();
 
+  pi.registerEntryRenderer('pim-image-attachments', (entry, _options, theme) => {
+    if (!entry.data || typeof entry.data !== 'object' || Array.isArray(entry.data)) {
+      return undefined;
+    }
+    const data = record(entry.data);
+    if (
+      typeof data.count !== 'number' ||
+      !Number.isSafeInteger(data.count) ||
+      data.count < 1 ||
+      (data.mode !== 'prompt' && data.mode !== 'steer' && data.mode !== 'follow_up')
+    ) {
+      return undefined;
+    }
+    const mode = data.mode === 'follow_up' ? 'follow-up' : data.mode;
+    const label = `Pim: ${data.count} image${data.count === 1 ? '' : 's'} submitted (${mode})`;
+    return {
+      render: (width) => [theme.fg('muted', label.slice(0, Math.max(0, width)))],
+      invalidate() {},
+    };
+  });
+
   function stop(): void {
     enabled = false;
     clearTimeout(retry);
@@ -206,7 +227,19 @@ export default function nativeBridge(pi: ExtensionAPI): void {
                 : command.type === 'follow_up'
                   ? 'followUp'
                   : command.streamingBehavior;
-            pi.sendUserMessage(command.message, { deliverAs, expandPromptTemplates: false });
+            pi.sendUserMessage(
+              command.images?.length
+                ? [{ type: 'text', text: command.message }, ...command.images]
+                : command.message,
+              { deliverAs, expandPromptTemplates: false },
+            );
+            if (command.images?.length) {
+              // Durable TUI feedback only. Image bytes remain in the user message, not this entry.
+              pi.appendEntry('pim-image-attachments', {
+                count: command.images.length,
+                mode: deliverAs === 'followUp' ? 'follow_up' : (deliverAs ?? 'prompt'),
+              });
+            }
           }
           send({ type: 'ack', id, outcome: 'acknowledged' });
         } catch {

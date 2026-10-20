@@ -1,3 +1,4 @@
+import { EVENT_BUFFER_LIMIT } from '../../src/attachments.ts';
 import { record, reduceEvent } from '../../src/client-state.ts';
 import type { ServerEvent } from '../../src/events.ts';
 import { inspect, type Snapshot } from './api.ts';
@@ -95,7 +96,7 @@ export class LiveSession {
         }
         if (this.buffer) {
           this.bytes += event.data.length * 2;
-          if (this.bytes > 2 * 1024 * 1024 || this.buffer.length >= 4096) {
+          if (this.bytes > EVENT_BUFFER_LIMIT * 2 || this.buffer.length >= 4096) {
             throw new Error('Synchronization buffer exceeded. Reconnecting.');
           }
           this.buffer.push(item);

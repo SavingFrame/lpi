@@ -1,9 +1,15 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useParams } from '@tanstack/react-router';
+import { ArrowUp, Folder, RefreshCw, Square, Terminal } from 'lucide-react';
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import type { ImageAttachment } from '../../src/attachments';
 import { record } from '../../src/client-state';
 import { ApiError, operate, projects, sessions } from './api';
 import { live, queryClient } from './client';
+import { Badge } from './components/ui/badge';
+import { Button } from './components/ui/button';
+import { Textarea } from './components/ui/textarea';
+import { ImageAttachments } from './image-attachments';
 import { SessionSettings } from './session-controls';
 import { Transcript } from './transcript';
 
@@ -30,7 +36,10 @@ export function Shell() {
       <aside className="sidebar">
         <div className="brand">
           <Link to="/">
-            pim<span> / native Pi relay</span>
+            <span className="brand-mark">
+              <Terminal size={17} aria-hidden="true" />
+            </span>
+            pim<span>native Pi relay</span>
           </Link>
         </div>
         <p className={`connection ${connection.status}`} role="status">
@@ -65,7 +74,9 @@ export function Shell() {
                 <span>{title}</span>
                 <small>
                   {project?.name ?? 'Project'} ·{' '}
-                  {session.connection === 'connected' ? 'live' : 'read-only'}
+                  <Badge variant="outline" className="px-1 py-0 text-[10px] font-normal">
+                    {session.connection === 'connected' ? 'live' : 'read-only'}
+                  </Badge>
                 </small>
                 <small>
                   <time dateTime={updatedAt}>{new Date(updatedAt).toLocaleString()}</time>
@@ -74,12 +85,19 @@ export function Shell() {
             );
           })}
           {sortedSessions.length > 15 && (
-            <button type="button" onClick={() => setShowAll(!showAll)}>
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              className="mt-2 w-full"
+              onClick={() => setShowAll(!showAll)}
+            >
               {showAll ? 'Show recent only' : 'Show older sessions'}
-            </button>
+            </Button>
           )}
         </nav>
-        <footer>
+        <footer className="flex items-center gap-2">
+          <Folder size={13} aria-hidden="true" />
           {projectQuery.data?.find((project) => project.id === projectId)?.name ??
             'Select a project'}
         </footer>
@@ -95,6 +113,9 @@ export function Welcome() {
   useEffect(() => live.select(null), []);
   return (
     <div className="welcome">
+      <div className="welcome-mark">
+        <Terminal size={24} aria-hidden="true" />
+      </div>
       <p className="eyebrow">PIM / WORKSPACE</p>
       <h1>
         Your sessions,
@@ -118,6 +139,7 @@ export function SessionPage() {
 interface Operation {
   command: Record<string, unknown>;
   submitted?: string;
+  submittedImages?: ImageAttachment[];
 }
 
 function SessionPane({ id, projectId }: { id: string; projectId: string }) {
@@ -126,6 +148,8 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
   const projectName =
     projectQuery.data?.find((project) => project.id === projectId)?.name ?? 'Project';
   const [draft, setDraft] = useState(() => sessionStorage.getItem(`draft:${id}`) ?? '');
+  const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
+  const [readingImages, setReadingImages] = useState(false);
   const [mode, setMode] = useState<'prompt' | 'steer' | 'follow_up'>('prompt');
   const [uncertain, setUncertain] = useState(
     () => sessionStorage.getItem(`uncertain:${id}`) === 'true',
@@ -156,6 +180,9 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
       );
       if (variables.submitted !== undefined && draft === variables.submitted) {
         setDraft('');
+      }
+      if (variables.submittedImages) {
+        setAttachments((current) => (current === variables.submittedImages ? [] : current));
       }
       live.refresh();
       void queryClient.invalidateQueries({ queryKey: ['sessions'] });
@@ -202,13 +229,16 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
           </p>
         </div>
         <div className="controls">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={live.refresh}
             disabled={connection.status === 'offline' || mutation.isPending}
           >
+            <RefreshCw aria-hidden="true" />
             Refresh
-          </button>
+          </Button>
         </div>
       </header>
       {connection.status !== 'ready' && (
@@ -242,8 +272,10 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
       {uncertain && (
         <div className="banner error">
           <p>Do not resend automatically. Refresh and inspect the session first.</p>
-          <button
+          <Button
             type="button"
+            variant="secondary"
+            size="sm"
             disabled={connection.status !== 'ready'}
             onClick={() => {
               setUncertain(false);
@@ -252,7 +284,7 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
             }}
           >
             I reviewed the session
-          </button>
+          </Button>
         </div>
       )}
       {snapshot && <Transcript view={snapshot.view} />}
@@ -261,26 +293,64 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (active && draft.trim()) {
-              mutation.mutate({ command: { type: mode, message: draft }, submitted: draft });
+            if (
+              active &&
+              !readingImages &&
+              (draft.trim() || attachments.length) &&
+              !(mode === 'prompt' && snapshot?.view.running)
+            ) {
+              mutation.mutate({
+                command: { type: mode, message: draft.trim() ? draft : '', images: attachments },
+                submitted: draft,
+                submittedImages: attachments,
+              });
             }
           }}
         >
-          <textarea
-            aria-label="Message"
-            placeholder={
-              session?.connection === 'connected'
-                ? 'What should Pi work on?'
-                : 'Connect native Pi to send a message'
-            }
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
-            rows={4}
-          />
+          <ImageAttachments
+            images={attachments}
+            onChange={setAttachments}
+            disabled={mutation.isPending || uncertain}
+            onBusy={setReadingImages}
+          >
+            <Textarea
+              aria-label="Message"
+              placeholder={
+                session?.connection === 'connected'
+                  ? 'What should Pi work on?'
+                  : 'Connect native Pi to send a message'
+              }
+              value={draft}
+              onChange={(event) => setDraft(event.target.value)}
+              onKeyDown={(event) => {
+                if (
+                  event.nativeEvent.isComposing ||
+                  event.repeat ||
+                  event.ctrlKey ||
+                  event.metaKey ||
+                  event.shiftKey
+                ) {
+                  return;
+                }
+                if (event.key === 'Enter' && event.altKey) {
+                  event.preventDefault();
+                  event.currentTarget.form?.requestSubmit();
+                } else if (event.key === 'Escape' && !event.altKey && active) {
+                  event.preventDefault();
+                  mutation.mutate({ command: { type: 'abort' } });
+                }
+              }}
+              rows={4}
+            />
+          </ImageAttachments>
           <div className="composer-footer">
             <label>
               Send as{' '}
-              <select value={mode} onChange={(event) => setMode(event.target.value as typeof mode)}>
+              <select
+                className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:ring-1 focus-visible:ring-ring"
+                value={mode}
+                onChange={(event) => setMode(event.target.value as typeof mode)}
+              >
                 <option value="prompt">Prompt</option>
                 <option value="steer">Steer</option>
                 <option value="follow_up">Follow-up</option>
@@ -289,22 +359,34 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
             <span className="muted" role="status">
               {mutation.isPending ? 'Submitting…' : outcome ? outcome : 'Draft stays in this tab.'}
             </span>
-            <button
+            <Button
               type="button"
-              className="danger"
+              variant="ghost"
+              size="sm"
+              className="text-red-300 hover:text-red-200"
               disabled={!active}
               onClick={() => mutation.mutate({ command: { type: 'abort' } })}
-              title="Abort does not clear queued messages"
+              aria-keyshortcuts="Escape"
+              title="Abort (Esc in message box). Does not clear queued messages"
             >
+              <Square aria-hidden="true" />
               Abort
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
-              className="primary"
-              disabled={!active || !draft.trim() || (mode === 'prompt' && snapshot?.view.running)}
+              size="sm"
+              aria-keyshortcuts="Alt+Enter"
+              title="Send (Alt+Enter in message box)"
+              disabled={
+                !active ||
+                readingImages ||
+                (!draft.trim() && !attachments.length) ||
+                (mode === 'prompt' && snapshot?.view.running)
+              }
             >
+              <ArrowUp aria-hidden="true" />
               Send
-            </button>
+            </Button>
           </div>
         </form>
       </div>

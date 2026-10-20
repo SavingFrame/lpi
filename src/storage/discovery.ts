@@ -83,11 +83,14 @@ export class SessionDiscovery {
             let firstLine: string;
             let title: string | undefined;
             let updatedAt: string;
+            let hasMessages = false;
             try {
               const stats = fstatSync(fd);
               updatedAt = stats.mtime.toISOString();
               const buffer = Buffer.alloc(65_536);
               const size = readSync(fd, buffer, 0, buffer.length, 0);
+              // Unread middle records may contain messages. Only hide proven empty files.
+              hasMessages = stats.size > size;
               const end = buffer.subarray(0, size).indexOf(10);
               if (end < 0) {
                 throw new Error('Missing or oversized Pi session header');
@@ -106,6 +109,9 @@ export class SessionDiscovery {
                 for (const line of chunk.split('\n')) {
                   try {
                     const entry = object(JSON.parse(line));
+                    if (entry.type === 'message') {
+                      hasMessages = true;
+                    }
                     if (entry.type === 'session_info' && typeof entry.name === 'string') {
                       name = promptTitle(entry.name);
                     } else if (!title && entry.type === 'message') {
@@ -124,6 +130,9 @@ export class SessionDiscovery {
               closeSync(fd);
             }
             const metadata = header(firstLine);
+            if (!hasMessages) {
+              continue;
+            }
             const directory = realpathSync(metadata.cwd);
             const project = projects.find((item) => item.directory === directory);
             if (!project) {

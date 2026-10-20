@@ -36,7 +36,7 @@ POST bodies require JSON content type, a unique request ID, and the current conn
 }
 ```
 
-Supported commands: `prompt`, `steer`, `follow_up`, and `abort`. Prompt optionally accepts `streamingBehavior: "steer" | "followUp"`. Slash commands, settings changes, queue editing, and dialog answers are not exposed.
+Supported commands: `prompt`, `steer`, `follow_up`, and `abort`. Prompt optionally accepts `streamingBehavior: "steer" | "followUp"`. Messages optionally include `images: [{ type: "image", mimeType: "image/png", data: "<base64>" }]`. PNG, JPEG, GIF, and WebP are supported (four images, 4 MiB total decoded bytes). An empty `message` is accepted when images are present. Slash commands, settings changes, queue editing, and dialog answers are not exposed.
 
 Success returns `outcome: "acknowledged"` and `data.disposition: "dispatched"`. This means the extension invoked the public Pi API, not that work completed or persisted. Observe subsequent output and settlement.
 
@@ -78,10 +78,10 @@ All reachable LAN/Tailscale clients are trusted. Browser/API and bridge access h
 - 32 native records and bridge sockets; 8 MiB native frames/snapshots.
 - 512 active tools and 32 pending commands per native connection.
 - 10-second command acknowledgment and 5-second attachment deadlines.
-- 32 browser sockets with 2 MiB outbound allowance.
-- 1 MiB HTTP bodies, 128 concurrent POST handlers, 256 HTTP connections.
+- 32 browser sockets with 8 MiB outbound allowance.
+- 6 MiB HTTP bodies, 128 concurrent POST handlers, 256 HTTP connections.
 - Saved discovery: 10,000 candidate files, 10,000 subdirectories, 64 KiB headers.
-- Browser synchronization: 2 MiB or 4,096 selected-session events.
+- Browser synchronization: 16 MiB estimated string storage or 4,096 selected-session events.
 
 Slow clients disconnect without stalling Pi. Closing the relay disconnects bridges but never terminates native Pi.
 

@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
+import { buildSessionContext } from '@earendil-works/pi-coding-agent';
 import { WebSocket } from 'ws';
 import { createApi } from '../dist/api/http.js';
 import { attachWebSockets } from '../dist/api/websocket.js';
@@ -99,6 +100,8 @@ async function setup(t, timeout = 1000) {
 function fakePi(header, file, entry) {
   const handlers = new Map();
   const commands = new Map();
+  const renderers = new Map();
+  const appended = [];
   const sent = [];
   const notifications = [];
   const statuses = new Map();
@@ -128,12 +131,25 @@ function fakePi(header, file, entry) {
   const pi = {
     on: (name, handler) => handlers.set(name, handler),
     registerCommand: (name, command) => commands.set(name, command.handler),
+    registerEntryRenderer: (name, renderer) => renderers.set(name, renderer),
+    appendEntry: (customType, data) => {
+      const custom = {
+        type: 'custom',
+        id: `custom-${appended.length}`,
+        parentId: state.entries.at(-1).id,
+        timestamp: header.timestamp,
+        customType,
+        data,
+      };
+      appended.push(custom);
+      state.entries.push(custom);
+    },
     getThinkingLevel: () => 'off',
     sendUserMessage: (message, options) => sent.push({ message, ...options }),
   };
   extension(pi);
   const emit = async (type, extra = {}) => handlers.get(type)?.({ type, ...extra }, ctx);
-  return { ctx, emit, commands, sent, state, notifications, statuses };
+  return { ctx, emit, commands, renderers, appended, sent, state, notifications, statuses };
 }
 
 test('native extension streams history, partial responses, tools and routes commands into the same runtime', async (t) => {
@@ -216,6 +232,7 @@ test('native extension streams history, partial responses, tools and routes comm
   await fake.emit('agent_settled');
   await waitFor(() => !bridges.snapshot(session.id).view.running);
   assert.deepEqual(readFileSync(file), original);
+  assert.equal(fake.appended.length, 0);
   await fake.commands.get('pim-disconnect')('', fake.ctx);
   await waitFor(() => bridges.get(session.id).connection === 'disconnected');
   const offline = await inventory.snapshot(session.id);
@@ -224,6 +241,111 @@ test('native extension streams history, partial responses, tools and routes comm
   await assert.rejects(
     bridges.command(session.id, generation, { type: 'prompt', message: 'Offline' }),
   );
+});
+
+test('browser images reach native Pi as structured user content, including image-only messages', async (t) => {
+  const { config, defer, file, header, entry, url, bridges } = await setup(t);
+  const previous = process.env.PIM_BRIDGE_URL;
+  process.env.PIM_BRIDGE_URL = url;
+  const fake = fakePi(header, file, entry);
+  defer(async () => {
+    await fake.emit('session_shutdown');
+    if (previous === undefined) {
+      delete process.env.PIM_BRIDGE_URL;
+    } else {
+      process.env.PIM_BRIDGE_URL = previous;
+    }
+  });
+  await fake.emit('session_start');
+  await waitFor(() => bridges.list()[0]?.connection === 'connected');
+  const session = bridges.list()[0];
+  const png = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXioAAAAASUVORK5CYII=',
+    'base64',
+  );
+  // Valid PNG with trailing padding exercises requests beyond the former 1 MiB body limit.
+  const image = {
+    type: 'image',
+    mimeType: 'image/png',
+    data: Buffer.concat([png, Buffer.alloc(800_000)]).toString('base64'),
+  };
+  for (const [index, type] of ['prompt', 'steer', 'follow_up'].entries()) {
+    const message = index === 0 ? '' : 'Look at this screenshot';
+    const images = index === 2 ? [image, image] : [image];
+    const response = await fetch(
+      `http://127.0.0.1:${config.port}/sessions/${session.id}/commands`,
+      {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          requestId: `image-${index}`,
+          generation: session.generation,
+          command: { type, message, images },
+        }),
+      },
+    );
+    assert.equal(response.status, 200);
+    assert.deepEqual(fake.sent[index].message, [{ type: 'text', text: message }, ...images]);
+    assert.equal(fake.sent[index].expandPromptTemplates, false);
+    assert.equal(fake.appended.length, index + 1);
+    assert.equal(fake.appended[index].customType, 'pim-image-attachments');
+    assert.deepEqual(fake.appended[index].data, { count: images.length, mode: type });
+  }
+  assert.equal(fake.sent[1].deliverAs, 'steer');
+  assert.equal(fake.sent[2].deliverAs, 'followUp');
+  assert.deepEqual(buildSessionContext(fake.state.entries).messages, [entry.message]);
+
+  // A fresh extension can render persisted metadata without the original image files or bytes.
+  const reloaded = fakePi(header, file, entry);
+  const render = reloaded.renderers.get('pim-image-attachments');
+  const theme = { fg: (_color, text) => text };
+  for (const [index, saved] of JSON.parse(JSON.stringify(fake.appended)).entries()) {
+    const component = render(saved, { expanded: false }, theme);
+    const label = [
+      'Pim: 1 image submitted (prompt)',
+      'Pim: 1 image submitted (steer)',
+      'Pim: 2 images submitted (follow-up)',
+    ][index];
+    assert.deepEqual(component.render(80), [label]);
+    assert.deepEqual(component.render(8), [label.slice(0, 8)]);
+    component.invalidate();
+    assert.deepEqual(component.render(80), [label]);
+  }
+  for (const data of [null, {}, { count: -1, mode: 'prompt' }, { count: 1, mode: 'bad' }]) {
+    assert.equal(render({ data }, {}, theme), undefined);
+  }
+  fake.state.idle = false;
+  await assert.rejects(
+    bridges.command(session.id, session.generation, {
+      type: 'prompt',
+      message: 'Busy image',
+      images: [image],
+    }),
+    /busy/,
+  );
+  await bridges.command(session.id, session.generation, { type: 'abort' });
+  assert.equal(fake.appended.length, 3);
+});
+
+test('image policy rejects unsupported types, malformed data, excess count and size', () => {
+  const image = {
+    type: 'image',
+    mimeType: 'image/png',
+    data: Buffer.from('\u0089PNG\r\n\u001a\n', 'latin1').toString('base64'),
+  };
+  assert.equal(bridgeCommand({ type: 'prompt', message: '', images: [image] }).images.length, 1);
+  for (const images of [
+    [{ ...image, mimeType: 'image/svg+xml' }],
+    [{ ...image, data: '!invalid' }],
+    [{ ...image, data: 'aGVsbG8=' }],
+    Array(5).fill(image),
+    [{ ...image, data: Buffer.alloc(4 * 1024 * 1024 + 1).toString('base64') }],
+    'not-an-array',
+  ]) {
+    assert.throws(() => bridgeCommand({ type: 'prompt', message: 'Image', images }));
+  }
+  assert.throws(() => bridgeCommand({ type: 'prompt', message: '', images: [] }));
+  assert.throws(() => bridgeCommand({ type: 'prompt', message: '/new', images: [image] }));
 });
 
 test('duplicate connections and stale generations are blocked; reloaded instances can reconnect', async (t) => {
@@ -246,6 +368,51 @@ test('duplicate connections and stale generations are blocked; reloaded instance
   assert.ok(reconnected.attached.generation > attached.generation);
   assert.equal(bridges.get(attached.sessionId).connection, 'connected');
   reconnected.socket.terminate();
+});
+
+test('empty native sessions stay visible while live but disappear after disconnect', async (t) => {
+  const { open, bridges, inventory, snapshot, identity, file, root } = await setup(t);
+  snapshot.view.messages = [];
+  snapshot.state.sessionName = 'Named but empty';
+  const { socket, attached } = await open();
+  assert.equal(
+    inventory.list().find((item) => item.id === attached.sessionId).title,
+    'Named but empty',
+  );
+  socket.terminate();
+  await waitFor(() => bridges.get(attached.sessionId).connection === 'disconnected');
+  // The saved discovery entry must not leak through behind the hidden native entry.
+  assert.equal(
+    inventory.list().some((item) => item.file === file),
+    false,
+  );
+
+  // Reconnection and image-only history must not depend on a text-derived title.
+  snapshot.state.sessionName = undefined;
+  snapshot.view.messages = [
+    {
+      role: 'user',
+      content: [{ type: 'image', mimeType: 'image/png', data: 'image' }],
+      timestamp: 1,
+    },
+  ];
+  const reconnected = await open();
+  assert.ok(inventory.list().some((item) => item.id === attached.sessionId));
+  reconnected.socket.terminate();
+  await waitFor(() => bridges.get(attached.sessionId).connection === 'disconnected');
+  assert.ok(inventory.list().some((item) => item.id === attached.sessionId));
+
+  // A fresh session can attach before Pi creates its JSONL file.
+  identity.file = join(root, 'never-written.jsonl');
+  snapshot.view.messages = [];
+  const fresh = await open();
+  assert.ok(inventory.list().some((item) => item.id === fresh.attached.sessionId));
+  fresh.socket.terminate();
+  await waitFor(() => bridges.get(fresh.attached.sessionId).connection === 'disconnected');
+  assert.equal(
+    inventory.list().some((item) => item.id === fresh.attached.sessionId),
+    false,
+  );
 });
 
 test('lost acknowledgments are unknown and never replayed', async (t) => {

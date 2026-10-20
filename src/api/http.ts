@@ -1,4 +1,5 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { COMMAND_BODY_LIMIT } from '../attachments.js';
 import { bridgeCommand } from '../bridge/protocol.js';
 import type { NativeBridges } from '../bridge/server.js';
 import type { Config } from '../config.js';
@@ -16,7 +17,7 @@ async function body(request: IncomingMessage): Promise<Record<string, unknown>> 
   for await (const chunk of request) {
     const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
     size += buffer.length;
-    if (size > 1024 * 1024) {
+    if (size > COMMAND_BODY_LIMIT) {
       throw new AppError('Request body too large', 413);
     }
     chunks.push(buffer);

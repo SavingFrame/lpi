@@ -24,7 +24,7 @@ There is no RPC runtime, writable managed catalog, ownership coordinator, parkin
 - Bounded JSONL inspection through Pi's pure parsing/context helpers, without opening a runtime.
 - Opt-in native extension with token-free WebSocket transport on a trusted LAN/Tailscale network.
 - Current-branch snapshots, assistant partials, tool activity, model/thinking/context metadata, and queued-message presence.
-- Browser prompt, steering, follow-up, and abort routed into the connected native Pi runtime.
+- Browser prompt, steering, follow-up, and abort routed into the connected native Pi runtime, including image attachments from file selection, paste, or drag-and-drop.
 - One React/Vite browser client with snapshot/event reconnect synchronization.
 - Connection generations, request correlation, bounded delivery, and unknown mutation outcomes without automatic replay.
 - Deterministic tests using temporary files, fake public Pi contexts, local transports, and mocked browser transport. No model calls.
@@ -62,7 +62,7 @@ The current browser has no create/start/stop controls. Start native Pi manually 
 
 - Refresh saved-session discovery without restarting the relay.
 - Remote questions and approvals through explicit adapters while preserving native UI.
-- Remote model/thinking setters, queue inspection/editing, images, and additional supported commands.
+- Remote model/thinking setters, queue inspection/editing, and additional supported commands.
 - A separate iOS client over the trusted network.
 - Real-Pi integration coverage for lifecycle, reload, branch navigation, compaction, pending dialogs, and reconnects.
 

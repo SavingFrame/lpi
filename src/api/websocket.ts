@@ -1,5 +1,6 @@
 import type { Server } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
+import { EVENT_BUFFER_LIMIT } from '../attachments.js';
 import type { NativeBridges } from '../bridge/server.js';
 import type { Config } from '../config.js';
 import type { Events } from '../events.js';
@@ -42,7 +43,7 @@ export function attachWebSockets(
       if (socket.readyState !== WebSocket.OPEN) {
         continue;
       }
-      if (socket.bufferedAmount + Buffer.byteLength(data) > 2 * 1024 * 1024) {
+      if (socket.bufferedAmount + Buffer.byteLength(data) > EVENT_BUFFER_LIMIT) {
         socket.terminate(); // Never stall native event delivery for a slow browser.
       } else {
         socket.send(data);

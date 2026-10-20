@@ -86,6 +86,27 @@ test('inventory falls back to the first user text and reads names near the file 
   );
 });
 
+test('discovery hides metadata-only files but keeps untitled image-only conversations', (t) => {
+  const { root, config } = fixture(t);
+  const sessions = join(root, 'pi-sessions');
+  const file = join(sessions, 'empty.jsonl');
+  seed(file, config.projects[0].directory);
+  const lines = readFileSync(file, 'utf8').trimEnd().split('\n');
+  for (const content of [`${lines[0]}\n`, `${lines[0]}\n${lines[2]}\n`]) {
+    writeFileSync(file, content);
+    const discovery = new SessionDiscovery([sessions], config.projects);
+    assert.deepEqual(discovery.list(), []);
+    assert.deepEqual(discovery.warnings, []);
+    assert.equal(readFileSync(file, 'utf8'), content);
+  }
+  const entry = JSON.parse(lines[1]);
+  entry.message.content = [{ type: 'image', mimeType: 'image/png', data: 'image' }];
+  writeFileSync(file, `${lines[0]}\n${JSON.stringify(entry)}\n`);
+  const discovery = new SessionDiscovery([sessions], config.projects);
+  assert.equal(discovery.list().length, 1);
+  assert.equal(discovery.list()[0].title, undefined);
+});
+
 test('discovery ignores nested files and symlinks and warns on invalid headers', (t) => {
   const { root, config } = fixture(t);
   const sessions = join(root, 'pi-sessions');

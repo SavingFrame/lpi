@@ -72,6 +72,13 @@ test('relay REST, host/origin checks, WebSocket events and removed runtime endpo
   const event = once(socket, 'message');
   events.publish(id, 1, 'connection', { connection: 'connected' });
   assert.equal(JSON.parse(String((await event)[0])).sessionId, id);
+  const largeEvent = once(socket, 'message');
+  const image = { type: 'image', mimeType: 'image/png', data: 'A'.repeat(3 * 1024 * 1024) };
+  events.publish(id, 1, 'pi-event', {
+    type: 'message_end',
+    message: { role: 'user', content: [image] },
+  });
+  assert.deepEqual(JSON.parse(String((await largeEvent)[0])).data.message.content, [image]);
   for (const path of ['/sessions', `/sessions/${id}/start`, `/sessions/${id}/stop`]) {
     assert.equal((await fetch(`${base}${path}`, { method: 'POST', headers })).status, 404);
   }
@@ -104,6 +111,7 @@ test('production frontend serves deep links and assets without bypassing origin 
   assert.equal(page.status, 200);
   assert.match(page.headers.get('Content-Type'), /text\/html/);
   assert.match(page.headers.get('Content-Security-Policy'), /frame-ancestors 'none'/);
+  assert.match(page.headers.get('Content-Security-Policy'), /img-src 'self' data:/);
   assert.match(await page.text(), /Pim test/);
   const asset = await fetch(`${base}/assets/test.js`);
   assert.equal(asset.status, 200);

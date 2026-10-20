@@ -57,7 +57,12 @@ export class Sessions {
   list(): Session[] {
     const native = this.bridges.list();
     const ids = new Set(native.map((session) => session.id));
-    return [...this.discovery.list().filter((session) => !ids.has(session.id)), ...native];
+    const visibleNative = native.filter(
+      (session) =>
+        session.connection === 'connected' ||
+        (this.bridges.snapshot(session.id)?.view.messages.length ?? 0) > 0,
+    );
+    return [...this.discovery.list().filter((session) => !ids.has(session.id)), ...visibleNative];
   }
 
   get(id: string): Session {

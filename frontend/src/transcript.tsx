@@ -1,4 +1,6 @@
+import { useLayoutEffect, useRef } from 'react';
 import Markdown from 'react-markdown';
+import { imageAttachments } from '../../src/attachments';
 import type { Message, View } from '../../src/client-state';
 
 function MessageBody({ item }: { item: Message }) {
@@ -18,6 +20,28 @@ function MessageBody({ item }: { item: Message }) {
                 {String(block.text ?? '')}
               </Markdown>
             );
+          }
+          if (block.type === 'image') {
+            try {
+              const image = imageAttachments([block])[0];
+              if (image) {
+                return (
+                  <img
+                    key={key}
+                    className="message-image"
+                    src={`data:${image.mimeType};base64,${image.data}`}
+                    alt="Attachment"
+                    loading="lazy"
+                  />
+                );
+              }
+            } catch {
+              return (
+                <p key={key} className="muted">
+                  [Image preview unavailable]
+                </p>
+              );
+            }
           }
           if (block.type === 'thinking') {
             return (
@@ -54,9 +78,37 @@ function MessageBody({ item }: { item: Message }) {
 }
 
 export function Transcript({ view }: { view: View }) {
+  const transcript = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const content = transcript.current;
+    const viewport = content?.closest('main');
+    if (!content || !viewport) {
+      return;
+    }
+    let followEnd = true;
+    viewport.scrollTop = viewport.scrollHeight;
+    const onScroll = () => {
+      followEnd = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 64;
+    };
+    viewport.addEventListener('scroll', onScroll, { passive: true });
+    const observer = new ResizeObserver(() => {
+      if (followEnd) {
+        viewport.scrollTop = viewport.scrollHeight;
+      }
+    });
+    observer.observe(content);
+    observer.observe(viewport);
+    if (content.parentElement) {
+      observer.observe(content.parentElement);
+    }
+    return () => {
+      viewport.removeEventListener('scroll', onScroll);
+      observer.disconnect();
+    };
+  }, []);
   const messages = view.messages.filter((item) => item.role !== 'system' && item.display !== false);
   return (
-    <section className="transcript" aria-label="Conversation">
+    <section ref={transcript} className="transcript" aria-label="Conversation">
       {messages.length === 0 && !view.partial && (
         <div className="empty">
           <h2>Start a conversation</h2>

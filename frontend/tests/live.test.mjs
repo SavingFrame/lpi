@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
+import { EVENT_BUFFER_LIMIT, imageAttachments } from '../../src/attachments.ts';
 import { emptyView, reduceEvent } from '../../src/client-state.ts';
 import { sessionControls } from '../../src/session-controls.ts';
 import { ApiError, operate, projects, session } from '../src/api.ts';
@@ -189,6 +190,28 @@ test('snapshot boundary drops old events and applies buffered native partials on
   assert.equal(live.getState().snapshot.view.partial.content[0].text, 'hello');
 });
 
+test('image events fit the synchronization buffer and remain in conversation content', async (t) => {
+  const { live, requests, send } = setup(t);
+  const image = { type: 'image', mimeType: 'image/png', data: 'A'.repeat(3 * 1024 * 1024) };
+  send(1, { type: 'message_end', message: { role: 'user', timestamp: 1, content: [image] } });
+  assert.equal(live.getState().status, 'syncing');
+  requests[0].resolve(Response.json(boundary()));
+  await setImmediate();
+  assert.equal(live.getState().status, 'ready');
+  assert.deepEqual(live.getState().snapshot.view.messages[0].content, [image]);
+});
+
+test('shared image validation accepts raster attachments and rejects invalid clipboard data', () => {
+  const image = {
+    type: 'image',
+    mimeType: 'image/png',
+    data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+aXioAAAAASUVORK5CYII=',
+  };
+  assert.deepEqual(imageAttachments([image]), [image]);
+  assert.throws(() => imageAttachments([{ ...image, mimeType: 'image/svg+xml' }]));
+  assert.throws(() => imageAttachments([{ ...image, data: 'not-base64' }]));
+});
+
 test('context usage preserves unknown values and rejects malformed statistics', () => {
   const controls = boundary().controls;
   assert.equal(sessionControls(controls).contextUsage.percent, 30);
@@ -288,7 +311,10 @@ test('mismatched snapshot epoch and bounded buffer overflow require reconnection
   assert.equal(live.getState().status, 'offline');
   live.connect();
   sockets[1].send({ type: 'connected', epoch: 'server-one', cursor: 0 });
-  send(1, { type: 'message_update', message: { ...partial, content: 'x'.repeat(1024 * 1024) } });
+  send(1, {
+    type: 'message_update',
+    message: { ...partial, content: 'x'.repeat(EVENT_BUFFER_LIMIT) },
+  });
   assert.equal(live.getState().status, 'offline');
 });
 

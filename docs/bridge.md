@@ -40,7 +40,9 @@ The endpoint defaults to `ws://127.0.0.1:3141/bridge`. Set `PIM_BRIDGE_URL` for 
 - Browser prompt, steer, follow-up, and abort through public extension APIs.
 - Native prompt lifecycle notices where Pi exposes them. Dialog answers remain terminal-only.
 
-Images, slash commands, model/thinking setters, queue editing, and custom terminal UI adaptation are not exposed. Steer/follow-up use normal Pi semantics and can start a turn when idle.
+Browser image attachments are delivered as structured image content through `pi.sendUserMessage`, including with steer/follow-up and image-only messages. PNG, JPEG, GIF, and WebP are supported, up to four images and 4 MiB total per message. A model with image input support is required. Slash commands, model/thinking setters, queue editing, and custom terminal UI adaptation are not exposed. Steer/follow-up use normal Pi semantics and can start a turn when idle.
+
+For each browser image submission, the extension adds a durable native TUI indicator such as `Pim: 1 image submitted (prompt)`. It records the count and delivery mode as a custom session entry, without duplicating image bytes or adding model context. The indicator renders again after reload/resume while the bridge extension is loaded. It indicates submission, not model acceptance or execution, and queued messages can still be changed or discarded in native Pi. Existing submissions are not backfilled.
 
 Acknowledgment means API dispatch, not persistence, model acceptance, or successful execution. Later failures may still appear in Pi. Never replay uncertain commands automatically.
 
