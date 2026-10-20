@@ -17,7 +17,7 @@ export function reserveManagedFile(file: string): void {
     : join(realpathSync(dirname(file)), basename(file));
   execFileSync(
     'tmux',
-    ['-L', 'pim', 'set-option', '-t', `=${name}`, `@pim_file_${piInventoryId(canonical)}`, '1'],
+    ['-L', 'pim', 'set-option', '-t', `=${name}:`, `@pim_file_${piInventoryId(canonical)}`, '1'],
     { timeout: 5000, stdio: ['ignore', 'pipe', 'pipe'] },
   );
 }

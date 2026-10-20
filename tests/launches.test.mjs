@@ -57,6 +57,7 @@ function setup(t, options = {}) {
       return '';
     }
     if (args[0] === 'show-options') {
+      assert.deepEqual(args, ['show-options', '-t', '=pim-existing:']);
       return options.unbound ? '' : `@pim_file_${id} 1\n`;
     }
     if (started) {

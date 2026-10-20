@@ -84,7 +84,7 @@ export class Launches {
       }
       if (saved) {
         for (const name of names) {
-          const options = await this.run(['show-options', '-t', `=${name}`]);
+          const options = await this.run(['show-options', '-t', `=${name}:`]);
           if (options.includes(`@pim_file_${saved.id} `)) {
             throw new AppError(
               `Pi may still be running in tmux session ${name}. Wait for its bridge or attach with tmux -L pim attach -t ${name}`,
