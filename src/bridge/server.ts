@@ -82,10 +82,30 @@ export class NativeBridges {
 
   private connect(socket: WebSocket): void {
     let native: NativeSession | undefined;
-    const startup = setTimeout(() => socket.terminate(), 5000);
+    const connectionId = randomUUID();
+    function warn(event: string, details: Record<string, unknown>): void {
+      console.warn(
+        '[pim:bridge]',
+        JSON.stringify({
+          timestamp: new Date().toISOString(),
+          event,
+          connectionId,
+          sessionId: native?.session.id,
+          generation: native?.session.generation,
+          ...details,
+        }),
+      );
+    }
+    const startup = setTimeout(() => {
+      warn('attach-timeout', { timeoutMs: 5000 });
+      socket.terminate();
+    }, 5000);
     this.alive.add(socket);
     socket.on('pong', () => this.alive.add(socket));
-    socket.on('error', () => socket.terminate());
+    socket.on('error', (error) => {
+      warn('socket-error', { reason: error.message.slice(0, 512) });
+      socket.terminate();
+    });
     socket.on('close', () => {
       clearTimeout(startup);
       if (native?.socket === socket) {
@@ -118,11 +138,16 @@ export class NativeBridges {
       }
     });
     socket.on('message', (data, binary) => {
+      const phase = native ? 'connected' : 'registration';
+      let frame = 'unparsed';
       try {
         if (binary) {
           throw new Error('Text bridge frames required');
         }
         const raw = record(JSON.parse(data.toString()));
+        frame = ['attach', 'ack', 'status', 'sync', 'event'].includes(String(raw.type))
+          ? String(raw.type)
+          : 'unsupported';
         if (!native) {
           if (raw.type !== 'attach') {
             throw new Error('Attach first');
@@ -213,7 +238,19 @@ export class NativeBridges {
           promptTitle(
             native.snapshot.view.messages.find((message) => message.role === 'user')?.content,
           );
-      } catch {
+      } catch (error) {
+        // JSON parser errors can quote payload contents. Never log frames or parser excerpts.
+        warn('rejected', {
+          phase,
+          frame,
+          reason:
+            error instanceof SyntaxError
+              ? 'Invalid JSON'
+              : error instanceof Error
+                ? error.message.slice(0, 512)
+                : 'Unknown bridge error',
+        });
+        clearTimeout(startup);
         socket.close(1008, 'Bridge registration or protocol rejected');
       }
     });

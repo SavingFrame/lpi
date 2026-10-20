@@ -1,3 +1,4 @@
+import { getSupportedThinkingLevels } from '@earendil-works/pi-ai/models';
 import {
   buildSessionContext,
   type ExtensionAPI,
@@ -26,6 +27,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
   let bridgeUrl = process.env.PIM_BRIDGE_URL ?? 'ws://127.0.0.1:3141/bridge';
   let lastStatus = '';
   let stopping = false;
+  let changingSettings = false;
   const launchId = process.env.PIM_LAUNCH_ID;
   const managedRuntime =
     launchId !== undefined &&
@@ -98,10 +100,16 @@ export default function nativeBridge(pi: ExtensionAPI): void {
         pendingDialog: view.notice,
       },
       controls: {
+        availableModels: ctx.modelRegistry.getAvailable().map(({ provider, id, name }) => ({
+          provider,
+          id,
+          name,
+        })),
         model: ctx.model
           ? { provider: ctx.model.provider, id: ctx.model.id, name: ctx.model.name }
           : null,
         thinkingLevel,
+        availableThinkingLevels: ctx.model ? getSupportedThinkingLevels(ctx.model) : [],
         contextUsage: ctx.getContextUsage() ?? null,
       },
     };
@@ -176,7 +184,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
           },
         });
       });
-      current.on('message', (data, binary) => {
+      current.on('message', async (data, binary) => {
         if (socket !== current || !ctx) {
           return;
         }
@@ -218,6 +226,15 @@ export default function nativeBridge(pi: ExtensionAPI): void {
             if (stopping) {
               throw new Error('Native runtime is stopping');
             }
+            if (changingSettings) {
+              throw new Error('Native settings change in progress');
+            }
+            if (
+              (command.type === 'set_model' || command.type === 'set_thinking_level') &&
+              (!ctx.isIdle() || view.compacting || ctx.hasPendingMessages() || view.notice !== null)
+            ) {
+              throw new Error('Wait until native Pi is idle with no queued messages or dialogs');
+            }
             if (command.type === 'stop_runtime' && !managedRuntime) {
               throw new Error('Only Pim-managed runtimes can be stopped remotely');
             }
@@ -252,7 +269,33 @@ export default function nativeBridge(pi: ExtensionAPI): void {
             });
             return;
           }
-          if (command.type === 'abort') {
+          if (command.type === 'set_model') {
+            const model = ctx.modelRegistry
+              .getAvailable()
+              .find((model) => model.provider === command.provider && model.id === command.modelId);
+            if (!model) {
+              send({ type: 'ack', id, outcome: 'rejected', error: 'Model is unavailable' });
+              return;
+            }
+            changingSettings = true;
+            try {
+              if (!(await pi.setModel(model))) {
+                send({
+                  type: 'ack',
+                  id,
+                  outcome: 'rejected',
+                  error: 'Model authentication is unavailable',
+                });
+                return;
+              }
+            } finally {
+              changingSettings = false;
+            }
+            sync();
+          } else if (command.type === 'set_thinking_level') {
+            pi.setThinkingLevel(command.level);
+            sync();
+          } else if (command.type === 'abort') {
             ctx.abort();
           } else {
             const deliverAs =
@@ -387,7 +430,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
       if (
         await context.ui.confirm(
           'Connect to Pim?',
-          `Share this transcript and allow remote prompts and abort requests through ${bridgeUrl}?`,
+          `Share this transcript and allow remote prompts, model/thinking changes, and abort requests through ${bridgeUrl}?`,
         )
       ) {
         start(context);

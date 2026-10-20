@@ -4,7 +4,7 @@ A single relay server and browser client for native Pi sessions. Pi runs the age
 
 ## Run
 
-Requires Node.js 22.19+ and tmux 3.2+ for browser create/resume. The extension is typechecked against pinned **Pi 1.0.4**.
+Requires Node.js 22.19+ and tmux 3.2+ for browser create/resume. The extension is typechecked against pinned **Pi 1.0.4**, with `pi-ai` pinned to the same version for model capabilities and shared types.
 
 ```sh
 npm ci --ignore-scripts
@@ -34,7 +34,7 @@ pi --extension /absolute/path/to/pim/dist/bridge/extension.js --resume
 
 Adapt the path to your checkout. Loading the extension connects automatically to `ws://127.0.0.1:3141/bridge`. Set `PIM_BRIDGE_URL` to use another endpoint. Connected sessions appear as **Pi · live TUI**; saved files without a connection appear as **Pi · read-only**.
 
-The browser receives current-branch history, assistant partials, tool activity, runtime metadata, and queued-message presence. Prompt, steer, follow-up, and abort run in that same native Pi process. Attach photos/screenshots using the image picker, clipboard paste, or drag-and-drop (PNG, JPEG, GIF, WebP; up to 4 images and 4 MiB total). Image-only messages are supported; the selected model must support images. Model changes, queue editing, and dialog answers remain terminal-only.
+The browser receives current-branch history, assistant partials, tool activity, runtime metadata, and queued-message presence. Prompt, steer, follow-up, and abort run in that same native Pi process. Attach photos/screenshots using the image picker, clipboard paste, or drag-and-drop (PNG, JPEG, GIF, WebP; up to 4 images and 4 MiB total). Image-only messages are supported; the selected model must support images. Model and thinking selectors control connected native Pi when idle with no queued messages or dialogs. Available models come from Pi's authenticated registry. Thinking options come from `pi-ai` model capabilities, including `max` where supported. Pi remains responsible for applying and clamping changes. Queue editing and dialog answers remain terminal-only.
 
 `/pim-disconnect` stops the relay connection without stopping Pi. Closing the browser or Pim does not stop the agent. Closing Pi does.
 

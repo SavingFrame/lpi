@@ -38,10 +38,11 @@ The endpoint defaults to `ws://127.0.0.1:3141/bridge`. Set `PIM_BRIDGE_URL` for 
 - Branch navigation, compaction completion, and final settlement refresh history.
 - Current model, thinking, context usage, and queued-message presence, sampled every second.
 - Browser prompt, steer, follow-up, and abort through public extension APIs.
+- Browser model/thinking selectors through `pi.setModel()` and `pi.setThinkingLevel()`, restricted to idle Pi with no queued messages or dialogs. Models come from the authenticated native registry. Thinking options come from `getSupportedThinkingLevels(ctx.model)` in `@earendil-works/pi-ai/models`, including custom model mappings and `max` where supported. Pi clamps changes; snapshots report the effective value and supported options.
 - Stop runtime for connected Pim-managed instances through `ctx.abort()` and `ctx.shutdown()`. Acceptance is flushed before shutdown cleanup disconnects the bridge. External instances reject this command.
 - Native prompt lifecycle notices where Pi exposes them. Dialog answers remain terminal-only.
 
-Browser image attachments are delivered as structured image content through `pi.sendUserMessage`, including with steer/follow-up and image-only messages. PNG, JPEG, GIF, and WebP are supported, up to four images and 4 MiB total per message. A model with image input support is required. Slash commands, model/thinking setters, queue editing, and custom terminal UI adaptation are not exposed. Steer/follow-up use normal Pi semantics and can start a turn when idle.
+Browser image attachments are delivered as structured image content through `pi.sendUserMessage`, including with steer/follow-up and image-only messages. PNG, JPEG, GIF, and WebP are supported, up to four images and 4 MiB total per message. A model with image input support is required. Slash commands, queue editing, and custom terminal UI adaptation are not exposed. Steer/follow-up use normal Pi semantics and can start a turn when idle.
 
 For each browser image submission, the extension adds a durable native TUI indicator such as `Pim: 1 image submitted (prompt)`. It records the count and delivery mode as a custom session entry, without duplicating image bytes or adding model context. The indicator renders again after reload/resume while the bridge extension is loaded. It indicates submission, not model acceptance or execution, and queued messages can still be changed or discarded in native Pi. Existing submissions are not backfilled.
 
@@ -60,6 +61,12 @@ Disconnection disables commands and retains labeled last-known history. It does 
 Commands carry a connection generation. The extension checks generation, current file/session identity, and consumed command IDs. Server acknowledgments correlate to pending requests. Timeout, malformed acknowledgment, or transport loss makes the outcome unknown and closes the command channel. Commands are never replayed.
 
 Closing Pim does not terminate Pi. Closing Pi stops its agent. Browser create/resume launches native Pi in the dedicated `tmux -L pim` server. Use `tmux -L pim list-sessions`, then `tmux -L pim attach -t <name>` to inspect its native TUI. Managed extensions reserve canonical file IDs in their tmux session before registering, preventing managed resume while a disconnected runtime remains. These reservations survive relay restarts and conservatively accumulate across TUI session switches until that tmux session exits. Stop runtime requests orderly Pi exit, which normally removes its dedicated tmux session. It does not kill tmux directly or delete history. Shutdown can take time; a disconnect alone is still not proof of exit. Do not set `PIM_TMUX_SESSION` or `PIM_LAUNCH_ID` manually when launching outside Pim.
+
+## Troubleshooting
+
+If Pi reports that Pim rejected the bridge, inspect Pim's server stderr for `[pim:bridge]` JSON logs, then retry `/pim-connect`. Rejection logs include the timestamp, connection ID, registration/connected phase, frame type, and underlying validation reason. Established sessions also include their Pim session ID and generation. Socket errors and attachment timeouts are logged too. Frames, transcripts, image data, and JSON parser payload excerpts are not logged. Logs can contain local filesystem paths from filesystem errors.
+
+For example, `Invalid controls.availableThinkingLevels: expected an array` indicates an incompatible or malformed snapshot. `Conflicting native connection or session identity` indicates a duplicate connection or identity mismatch. These are diagnostic observations, not proof that a disconnected Pi process has exited.
 
 ## Verification
 

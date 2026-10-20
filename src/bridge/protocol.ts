@@ -1,7 +1,12 @@
 import { AttachmentError, type ImageAttachment, imageAttachments } from '../attachments.js';
 import { emptyView, message, record, type View } from '../client-state.js';
 import { AppError, object, text } from '../errors.js';
-import { type SessionControls, sessionControls } from '../session-controls.js';
+import {
+  isThinkingLevel,
+  type SessionControls,
+  sessionControls,
+  type ThinkingLevel,
+} from '../session-controls.js';
 
 export const BRIDGE_LIMIT = 8 * 1024 * 1024;
 
@@ -51,6 +56,8 @@ export function bridgeSnapshot(value: unknown): BridgeSnapshot {
 }
 
 export type BridgeCommand =
+  | { type: 'set_model'; provider: string; modelId: string }
+  | { type: 'set_thinking_level'; level: ThinkingLevel }
   | { type: 'abort' }
   | { type: 'stop_runtime' }
   | {
@@ -66,11 +73,21 @@ export function bridgeCommand(value: unknown): BridgeCommand {
   if (type === 'abort' || type === 'stop_runtime') {
     return { type };
   }
+  if (type === 'set_model') {
+    return {
+      type,
+      provider: text(raw.provider, 'provider', 256),
+      modelId: text(raw.modelId, 'model ID', 256),
+    };
+  }
+  if (type === 'set_thinking_level') {
+    if (!isThinkingLevel(raw.level)) {
+      throw new AppError('Invalid thinking level', 400);
+    }
+    return { type, level: raw.level };
+  }
   if (type !== 'prompt' && type !== 'steer' && type !== 'follow_up') {
-    throw new AppError(
-      'Native bridge supports prompt, steer, follow-up, abort, and stop_runtime only',
-      422,
-    );
+    throw new AppError('Unsupported native bridge command', 422);
   }
   let images: ImageAttachment[];
   try {

@@ -1,3 +1,5 @@
+import type { Api, Model, ModelThinkingLevel } from '@earendil-works/pi-ai';
+
 function record(value: unknown): Record<string, unknown> {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) {
     throw new Error('Expected session controls object');
@@ -5,11 +7,7 @@ function record(value: unknown): Record<string, unknown> {
   return value as Record<string, unknown>;
 }
 
-export interface ModelOption {
-  provider: string;
-  id: string;
-  name: string;
-}
+export type ModelOption = Pick<Model<Api>, 'provider' | 'id' | 'name'>;
 
 export interface ContextUsage {
   tokens: number | null;
@@ -17,9 +15,28 @@ export interface ContextUsage {
   percent: number | null;
 }
 
+export type ThinkingLevel = ModelThinkingLevel;
+
+// Wire validation only. Selectable levels come from the native model's capabilities.
+const thinkingLevels = {
+  off: true,
+  minimal: true,
+  low: true,
+  medium: true,
+  high: true,
+  xhigh: true,
+  max: true,
+} satisfies Record<ThinkingLevel, true>;
+
+export function isThinkingLevel(value: unknown): value is ThinkingLevel {
+  return typeof value === 'string' && Object.hasOwn(thinkingLevels, value);
+}
+
 export interface SessionControls {
+  availableModels: ModelOption[];
   model: ModelOption | null;
-  thinkingLevel: string | null;
+  thinkingLevel: ThinkingLevel | null;
+  availableThinkingLevels: ThinkingLevel[];
   contextUsage: ContextUsage | null;
 }
 
@@ -37,9 +54,21 @@ function modelOption(value: unknown): ModelOption {
 
 export function sessionControls(value: unknown): SessionControls {
   const raw = record(value);
-  if (raw.thinkingLevel !== null && typeof raw.thinkingLevel !== 'string') {
-    throw new Error('Invalid session controls');
+  if (!Array.isArray(raw.availableModels)) {
+    throw new Error('Invalid controls.availableModels: expected an array');
   }
+  if (!Array.isArray(raw.availableThinkingLevels)) {
+    throw new Error('Invalid controls.availableThinkingLevels: expected an array');
+  }
+  if (raw.thinkingLevel !== null && !isThinkingLevel(raw.thinkingLevel)) {
+    throw new Error('Invalid controls.thinkingLevel: expected a known level or null');
+  }
+  const availableThinkingLevels = raw.availableThinkingLevels.map((level: unknown) => {
+    if (!isThinkingLevel(level)) {
+      throw new Error('Invalid controls.availableThinkingLevels entry');
+    }
+    return level;
+  });
   let contextUsage: ContextUsage | null = null;
   if (raw.contextUsage !== null) {
     const usage = record(raw.contextUsage);
@@ -61,8 +90,10 @@ export function sessionControls(value: unknown): SessionControls {
     };
   }
   return {
+    availableModels: raw.availableModels.map(modelOption),
     model: raw.model === null ? null : modelOption(raw.model),
     thinkingLevel: raw.thinkingLevel,
+    availableThinkingLevels,
     contextUsage,
   };
 }

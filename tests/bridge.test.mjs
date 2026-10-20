@@ -4,6 +4,7 @@ import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
+import { clampThinkingLevel, getSupportedThinkingLevels } from '@earendil-works/pi-ai/models';
 import { buildSessionContext } from '@earendil-works/pi-coding-agent';
 import { WebSocket } from 'ws';
 import { createApi } from '../dist/api/http.js';
@@ -67,8 +68,10 @@ async function setup(t, timeout = 1000) {
   const snapshot = {
     state: { isStreaming: false, hasPendingMessages: false },
     controls: {
+      availableModels: [],
       model: null,
       thinkingLevel: 'off',
+      availableThinkingLevels: [],
       contextUsage: null,
     },
     view: { ...emptyView(), messages: [entry.message] },
@@ -105,10 +108,30 @@ function fakePi(header, file, entry) {
   const sent = [];
   const notifications = [];
   const statuses = new Map();
-  const state = { idle: true, pending: false, aborts: 0, shutdowns: 0, entries: [entry] };
+  const models = [
+    { provider: 'fake', id: 'first', name: 'First', reasoning: false },
+    {
+      provider: 'fake',
+      id: 'second',
+      name: 'Second',
+      reasoning: true,
+      thinkingLevelMap: { minimal: null, xhigh: null, max: 'max' },
+    },
+  ];
+  const state = {
+    idle: true,
+    pending: false,
+    aborts: 0,
+    shutdowns: 0,
+    entries: [entry],
+    thinkingLevel: 'off',
+    authenticated: true,
+  };
   const ctx = {
     mode: 'tui',
     cwd: header.cwd,
+    model: models[0],
+    modelRegistry: { getAvailable: () => models },
     sessionManager: {
       getSessionFile: () => file,
       getSessionId: () => header.id,
@@ -148,7 +171,17 @@ function fakePi(header, file, entry) {
       appended.push(custom);
       state.entries.push(custom);
     },
-    getThinkingLevel: () => 'off',
+    getThinkingLevel: () => state.thinkingLevel,
+    setThinkingLevel: (level) => {
+      state.thinkingLevel = clampThinkingLevel(ctx.model, level);
+    },
+    setModel: async (model) => {
+      if (!state.authenticated) {
+        return false;
+      }
+      ctx.model = model;
+      return true;
+    },
     sendUserMessage: (message, options) => sent.push({ message, ...options }),
   };
   extension(pi);
@@ -244,6 +277,77 @@ test('native extension streams history, partial responses, tools and routes comm
   assert.match(offline.view.notice, /may still be running/);
   await assert.rejects(
     bridges.command(session.id, generation, { type: 'prompt', message: 'Offline' }),
+  );
+});
+
+test('model and thinking settings update native Pi and synchronize authoritative controls', async (t) => {
+  const { defer, file, header, entry, url, bridges } = await setup(t);
+  const previous = process.env.PIM_BRIDGE_URL;
+  process.env.PIM_BRIDGE_URL = url;
+  const fake = fakePi(header, file, entry);
+  defer(async () => {
+    await fake.emit('session_shutdown');
+    if (previous === undefined) {
+      delete process.env.PIM_BRIDGE_URL;
+    } else {
+      process.env.PIM_BRIDGE_URL = previous;
+    }
+  });
+  await fake.emit('session_start');
+  await waitFor(() => bridges.list()[0]?.connection === 'connected');
+  const session = bridges.list()[0];
+  const modelCommand = { type: 'set_model', provider: 'fake', modelId: 'second' };
+  const thinkingCommand = { type: 'set_thinking_level', level: 'xhigh' };
+  assert.equal(bridges.snapshot(session.id).controls.availableModels.length, 2);
+  assert.deepEqual(bridges.snapshot(session.id).controls.availableThinkingLevels, ['off']);
+  await bridges.command(session.id, session.generation, modelCommand);
+  assert.equal(fake.ctx.model.id, 'second');
+  assert.equal(bridges.snapshot(session.id).controls.model.id, 'second');
+  assert.deepEqual(bridges.snapshot(session.id).controls.availableThinkingLevels, [
+    'off',
+    'low',
+    'medium',
+    'high',
+    'max',
+  ]);
+  assert.deepEqual(
+    bridges.snapshot(session.id).controls.availableThinkingLevels,
+    getSupportedThinkingLevels(fake.ctx.model),
+  );
+  await bridges.command(session.id, session.generation, thinkingCommand);
+  assert.equal(bridges.snapshot(session.id).controls.thinkingLevel, 'max');
+  await bridges.command(session.id, session.generation, {
+    type: 'set_thinking_level',
+    level: 'max',
+  });
+  assert.equal(bridges.snapshot(session.id).controls.thinkingLevel, 'max');
+  await assert.rejects(bridges.command(session.id, session.generation - 1, modelCommand), /stale/);
+  await assert.rejects(
+    bridges.command(session.id, session.generation, { ...modelCommand, modelId: 'missing' }),
+    /unavailable/,
+  );
+  fake.state.authenticated = false;
+  await assert.rejects(
+    bridges.command(session.id, session.generation, modelCommand),
+    /authentication/,
+  );
+  fake.state.authenticated = true;
+  for (const command of [modelCommand, thinkingCommand]) {
+    fake.state.idle = false;
+    await assert.rejects(bridges.command(session.id, session.generation, command), /idle/);
+    fake.state.idle = true;
+    fake.state.pending = true;
+    await assert.rejects(bridges.command(session.id, session.generation, command), /queued/);
+    fake.state.pending = false;
+    await fake.emit('ui_prompt_start', { kind: 'confirm' });
+    await assert.rejects(bridges.command(session.id, session.generation, command), /dialogs/);
+    await fake.emit('ui_prompt_end');
+  }
+  await fake.commands.get('pim-disconnect')('', fake.ctx);
+  await waitFor(() => bridges.get(session.id).connection === 'disconnected');
+  await assert.rejects(
+    bridges.command(session.id, session.generation, modelCommand),
+    /unavailable/,
   );
 });
 
@@ -426,7 +530,52 @@ test('image policy rejects unsupported types, malformed data, excess count and s
   assert.throws(() => bridgeCommand({ type: 'prompt', message: '/new', images: [image] }));
 });
 
+test('bridge rejection logs identify invalid fields and redact payload contents', async (t) => {
+  const logs = [];
+  t.mock.method(console, 'warn', (prefix, line) => {
+    assert.equal(prefix, '[pim:bridge]');
+    logs.push(JSON.parse(line));
+  });
+  const { url, identity, snapshot, open } = await setup(t);
+  const secret = 'PRIVATE_TRANSCRIPT_AND_IMAGE_DATA';
+  const invalid = structuredClone(snapshot);
+  delete invalid.controls.availableThinkingLevels;
+  invalid.view.messages[0].content = secret;
+  const socket = new WebSocket(url);
+  await once(socket, 'open');
+  const closed = once(socket, 'close');
+  socket.send(JSON.stringify({ type: 'attach', session: identity, snapshot: invalid }));
+  assert.equal((await closed)[0], 1008);
+  assert.equal(logs[0].event, 'rejected');
+  assert.equal(logs[0].phase, 'registration');
+  assert.equal(logs[0].frame, 'attach');
+  assert.match(logs[0].reason, /controls.availableThinkingLevels/);
+  assert.equal(typeof logs[0].connectionId, 'string');
+  assert.ok(Number.isFinite(Date.parse(logs[0].timestamp)));
+
+  const { socket: connected, attached } = await open();
+  const connectedClosed = once(connected, 'close');
+  connected.send(JSON.stringify({ type: 'event', event: { type: secret } }));
+  assert.equal((await connectedClosed)[0], 1008);
+  assert.equal(logs[1].phase, 'connected');
+  assert.equal(logs[1].frame, 'event');
+  assert.equal(logs[1].reason, 'Unsupported bridge event');
+  assert.equal(logs[1].sessionId, attached.sessionId);
+  assert.equal(logs[1].generation, attached.generation);
+
+  const malformed = new WebSocket(url);
+  await once(malformed, 'open');
+  const malformedClosed = once(malformed, 'close');
+  malformed.send(`${secret} is not JSON`);
+  assert.equal((await malformedClosed)[0], 1008);
+  assert.equal(logs[2].reason, 'Invalid JSON');
+  assert.equal(logs[2].frame, 'unparsed');
+  assert.equal(JSON.stringify(logs).includes(secret), false);
+});
+
 test('duplicate connections and stale generations are blocked; reloaded instances can reconnect', async (t) => {
+  const logs = [];
+  t.mock.method(console, 'warn', (_prefix, line) => logs.push(JSON.parse(line)));
   const { open, bridges, url, identity, snapshot } = await setup(t);
   const { socket, attached } = await open();
   const conflict = new WebSocket(url);
@@ -435,6 +584,8 @@ test('duplicate connections and stale generations are blocked; reloaded instance
   const conflictClosed = once(conflict, 'close');
   conflict.send(JSON.stringify({ type: 'attach', session: identity, snapshot }));
   assert.equal((await conflictClosed)[0], 1008);
+  assert.equal(logs[0].phase, 'registration');
+  assert.equal(logs[0].reason, 'Conflicting native connection or session identity');
   assert.equal(bridges.get(attached.sessionId).connection, 'connected');
   await assert.rejects(
     bridges.command(attached.sessionId, attached.generation - 1, { type: 'abort' }),
@@ -542,13 +693,13 @@ test('bridge socket needs no token but rejects browser origins and unknown hosts
   }
 });
 
-test('native command policy rejects management, slash commands, and unsupported queue/settings mutations', () => {
+test('native command policy rejects slash commands, unsupported mutations and invalid settings', () => {
   for (const command of [
     { type: 'prompt', message: '/new' },
     { type: 'steer', message: '/compact' },
     { type: 'clear_queue' },
-    { type: 'set_model', provider: 'fake', modelId: 'fake' },
-    { type: 'set_thinking_level', level: 'high' },
+    { type: 'set_model', provider: '', modelId: 'fake' },
+    { type: 'set_thinking_level', level: 'invalid' },
   ]) {
     assert.throws(() => bridgeCommand(command));
   }

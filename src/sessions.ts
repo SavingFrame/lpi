@@ -88,7 +88,13 @@ export class Sessions {
       ...this.events.checkpoint(),
       session,
       state: { sessionName: inspected.name, readOnly: true, bridgeConnected: false },
-      controls: { model: null, thinkingLevel: null, contextUsage: null },
+      controls: {
+        availableModels: [],
+        model: null,
+        thinkingLevel: null,
+        availableThinkingLevels: [],
+        contextUsage: null,
+      },
       view: {
         ...emptyView(),
         messages: inspected.messages.map(message),

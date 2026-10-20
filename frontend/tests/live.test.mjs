@@ -28,8 +28,10 @@ function boundary(cursor = 0, sessionId = id, epoch = 'server-one') {
     },
     state: { isStreaming: false, hasPendingMessages: false },
     controls: {
+      availableModels: [{ provider: 'fake', id: 'first', name: 'First' }],
       model: { provider: 'fake', id: 'first', name: 'First' },
       thinkingLevel: 'medium',
+      availableThinkingLevels: ['off', 'low', 'medium', 'high'],
       contextUsage: { tokens: 60000, contextWindow: 200000, percent: 30 },
     },
     view: emptyView(),
@@ -364,6 +366,15 @@ test('context usage preserves unknown values and rejects malformed statistics', 
   });
   assert.throws(() => sessionControls({ ...controls, contextUsage: { tokens: 1 } }));
   assert.throws(() => sessionControls({ ...controls, model: {} }));
+  assert.deepEqual(sessionControls(controls).availableModels, controls.availableModels);
+  assert.throws(() => sessionControls({ ...controls, availableModels: [{}] }));
+  assert.throws(() => sessionControls({ ...controls, thinkingLevel: 'invalid' }));
+  assert.throws(() => sessionControls({ ...controls, availableThinkingLevels: ['invalid'] }));
+  assert.deepEqual(
+    sessionControls({ ...controls, thinkingLevel: 'max', availableThinkingLevels: ['high', 'max'] })
+      .availableThinkingLevels,
+    ['high', 'max'],
+  );
 });
 
 test('native status refreshes model, thinking, queue presence and context', async (t) => {
@@ -380,12 +391,14 @@ test('native status refreshes model, thinking, queue presence and context', asyn
   });
   assert.equal(live.getState().status, 'syncing');
   const updated = boundary(1);
-  updated.controls.thinkingLevel = 'high';
+  updated.controls.thinkingLevel = 'max';
+  updated.controls.availableThinkingLevels = ['high', 'max'];
   updated.controls.model = { provider: 'fake', id: 'second', name: 'Second' };
   updated.state.hasPendingMessages = true;
   requests[1].resolve(Response.json(updated));
   await setImmediate();
-  assert.equal(live.getState().snapshot.controls.thinkingLevel, 'high');
+  assert.equal(live.getState().snapshot.controls.thinkingLevel, 'max');
+  assert.deepEqual(live.getState().snapshot.controls.availableThinkingLevels, ['high', 'max']);
   assert.equal(live.getState().snapshot.controls.model.id, 'second');
   assert.equal(live.getState().snapshot.state.hasPendingMessages, true);
   for (const [index, type] of ['agent_settled', 'compaction_end'].entries()) {

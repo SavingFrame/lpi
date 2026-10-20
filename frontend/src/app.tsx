@@ -278,8 +278,9 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
       )}
       {session?.connection === 'connected' && (
         <p className="banner">
-          Connected to native Pi. Prompts run in its terminal process. Model changes, queue editing,
-          and dialog answers remain terminal-only.
+          Connected to native Pi. Prompts run in its terminal process. Model and thinking changes
+          require idle Pi with no queued messages or dialogs. Queue editing and dialog answers
+          remain terminal-only.
         </p>
       )}
       {session?.connection === 'connected' && snapshot?.state.hasPendingMessages === true && (
@@ -316,7 +317,20 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
       )}
       {snapshot && <Transcript view={snapshot.view} />}
       <div className="composer">
-        {snapshot && <SessionSettings controls={snapshot.controls} />}
+        {snapshot && (
+          <SessionSettings
+            controls={snapshot.controls}
+            disabled={
+              !active ||
+              snapshot.view.running ||
+              snapshot.view.compacting ||
+              snapshot.state.isStreaming === true ||
+              snapshot.state.hasPendingMessages === true ||
+              snapshot.state.pendingDialog != null
+            }
+            onCommand={(command) => mutation.mutate({ command })}
+          />
+        )}
         <form
           onSubmit={(event) => {
             event.preventDefault();

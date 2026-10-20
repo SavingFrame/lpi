@@ -1,3 +1,5 @@
+import type { ImageContent } from '@earendil-works/pi-ai';
+
 export class AttachmentError extends Error {
   readonly status: number;
 
@@ -13,10 +15,8 @@ export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 export const COMMAND_BODY_LIMIT = 6 * 1024 * 1024;
 export const EVENT_BUFFER_LIMIT = 8 * 1024 * 1024;
 
-export interface ImageAttachment {
-  type: 'image';
+export interface ImageAttachment extends ImageContent {
   mimeType: (typeof IMAGE_TYPES)[number];
-  data: string;
 }
 
 export function imageAttachments(value: unknown): ImageAttachment[] {
