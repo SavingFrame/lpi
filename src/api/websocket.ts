@@ -1,10 +1,16 @@
 import type { Server } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
+import type { NativeBridges } from '../bridge/server.js';
 import type { Config } from '../config.js';
 import type { Events } from '../events.js';
 import { validateRequest } from './security.js';
 
-export function attachWebSockets(server: Server, config: Config, events: Events): () => void {
+export function attachWebSockets(
+  server: Server,
+  config: Config,
+  events: Events,
+  bridges: NativeBridges,
+): () => void {
   const sockets = new WebSocketServer({
     noServer: true,
     maxPayload: 4096,
@@ -13,6 +19,10 @@ export function attachWebSockets(server: Server, config: Config, events: Events)
   server.on('upgrade', (request, socket, head) => {
     try {
       validateRequest(request, config);
+      if (request.url === '/bridge') {
+        bridges.upgrade(request, socket, head);
+        return;
+      }
       if (request.url !== '/events' || sockets.clients.size >= 32) {
         throw new Error('Upgrade rejected');
       }
@@ -33,7 +43,7 @@ export function attachWebSockets(server: Server, config: Config, events: Events)
         continue;
       }
       if (socket.bufferedAmount + Buffer.byteLength(data) > 2 * 1024 * 1024) {
-        socket.terminate(); // Never block RPC stdout on a slow client.
+        socket.terminate(); // Never stall native event delivery for a slow browser.
       } else {
         socket.send(data);
       }
@@ -57,6 +67,7 @@ export function attachWebSockets(server: Server, config: Config, events: Events)
   heartbeat.unref();
   return () => {
     clearInterval(heartbeat);
+    bridges.close();
     unsubscribe();
     for (const socket of sockets.clients) {
       socket.terminate();

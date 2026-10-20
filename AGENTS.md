@@ -4,11 +4,11 @@ Adapted from https://github.com/earendil-works/pi/blob/main/AGENTS.md for this r
 
 ## Project
 
-- Read `PLAN.md` before architectural changes. Native TUI continuity and one owning runtime per managed session are core requirements.
-- The backend was removed. `prototypes/handoff/` is a retained feasibility experiment, not production ownership coordination.
-- `docs/backend.md` is historical reference, not a current API contract.
-- Use normal Pi RPC and JSONL persistence. Do not introduce Pi Durable or experimental server/client packages without discussion.
-- Unknown ownership or a lost connection never authorizes another writer. Require confirmed release before reopening a managed session.
+- Read `PLAN.md` before architectural changes. Native Pi is the only agent runtime and session-file writer.
+- Pim is a single relay server. Extensions connect to it; do not run a web server per Pi instance.
+- Use public Pi extension APIs and normal JSONL persistence. Do not introduce RPC, runtime handoff, Pi Durable, or experimental server/client packages without discussion.
+- A lost connection never authorizes launching another writer. Saved-session discovery is read-only.
+- Tmux launching is planned, not implemented. Keep documentation clear about this boundary.
 
 ## Communication
 
@@ -37,10 +37,10 @@ Adapted from https://github.com/earendil-works/pi/blob/main/AGENTS.md for this r
 - After code or tooling changes, run `npm run check` with full output. Fix all diagnostics before finishing.
 - `npm run check` verifies lint, formatting, and import organization. It does not run tests or type-check the Pi extension.
 - Use `npm run format` for formatting, `npm run lint` for lint-only validation, and `npm run check:fix` for safe fixes. Do not use unsafe fixes without review.
-- Do not run the full test suite or integration harness unless requested. When modifying a test, run that specific file with `node --test prototypes/handoff/<file>.test.mjs` and iterate until it passes.
-- `npm test` runs prototype unit tests. `npm run test:handoff` requires Pi 1.0.4 and tmux.
+- Do not run the full test suite or integration harness unless requested. When modifying a server test, build with `npm run build:server`, then run that specific file with `node --test tests/<file>.test.mjs`. Browser tests use `node --experimental-strip-types --test frontend/tests/live.test.mjs`. Iterate until the modified tests pass.
+- `npm test` runs relay-server and browser unit tests. Native-Pi integration must be requested explicitly.
 - Preserve test isolation: temporary HOME, agent directory, sessions, and settings. No real credentials, user configuration, or paid model calls.
-- Never open one managed JSONL file in multiple Pi runtimes. Do not install the prototype bridge globally.
+- Never open one JSONL file in multiple Pi runtimes. Do not install the bridge globally without permission.
 - Write ad-hoc scripts to temporary files, run them, and remove them afterward. Do not embed multiline scripts in shell commands.
 
 ## Dependencies
@@ -61,5 +61,5 @@ Adapted from https://github.com/earendil-works/pi/blob/main/AGENTS.md for this r
 ## Documentation
 
 - Keep `README.md` and `PLAN.md` consistent with what is actually implemented.
-- Distinguish verified prototype behavior from planned production guarantees.
+- Distinguish verified relay behavior from planned launching and remote-interaction capabilities.
 - When using external reference instructions, adapt only relevant rules. Do not copy pi-monorepo paths or workflows that do not exist here.

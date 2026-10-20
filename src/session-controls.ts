@@ -20,8 +20,6 @@ export interface ContextUsage {
 export interface SessionControls {
   model: ModelOption | null;
   thinkingLevel: string | null;
-  models: ModelOption[];
-  thinkingLevels: string[];
   contextUsage: ContextUsage | null;
 }
 
@@ -39,12 +37,7 @@ function modelOption(value: unknown): ModelOption {
 
 export function sessionControls(value: unknown): SessionControls {
   const raw = record(value);
-  if (
-    !Array.isArray(raw.models) ||
-    !Array.isArray(raw.thinkingLevels) ||
-    raw.thinkingLevels.some((level) => typeof level !== 'string') ||
-    (raw.thinkingLevel !== null && typeof raw.thinkingLevel !== 'string')
-  ) {
+  if (raw.thinkingLevel !== null && typeof raw.thinkingLevel !== 'string') {
     throw new Error('Invalid session controls');
   }
   let contextUsage: ContextUsage | null = null;
@@ -70,8 +63,6 @@ export function sessionControls(value: unknown): SessionControls {
   return {
     model: raw.model === null ? null : modelOption(raw.model),
     thinkingLevel: raw.thinkingLevel,
-    models: raw.models.map(modelOption),
-    thinkingLevels: raw.thinkingLevels as string[],
     contextUsage,
   };
 }

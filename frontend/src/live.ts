@@ -1,4 +1,4 @@
-import { record, reduceRpc } from '../../src/client-state.ts';
+import { record, reduceEvent } from '../../src/client-state.ts';
 import type { ServerEvent } from '../../src/events.ts';
 import { inspect, type Snapshot } from './api.ts';
 
@@ -87,7 +87,7 @@ export class LiveSession {
         }
         const item = raw as unknown as ServerEvent;
         this.cursor = item.cursor;
-        if (item.type === 'ownership' || item.type === 'created' || item.type === 'exit') {
+        if (item.type === 'connection') {
           this.invalidate();
         }
         if (item.sessionId !== this.id) {
@@ -203,29 +203,18 @@ export class LiveSession {
       return;
     }
     if (
-      event.generation !== snapshot.session.ownership.generation ||
-      event.type === 'ownership' ||
-      event.type === 'exit' ||
-      event.type === 'settings-changed' ||
-      (event.type === 'rpc' &&
-        ['compaction_end', 'turn_end', 'agent_settled', 'thinking_level_changed'].includes(
-          String(record(event.data).type),
-        ))
+      event.generation !== snapshot.session.generation ||
+      event.type === 'connection' ||
+      event.type === 'bridge-sync' ||
+      event.type === 'bridge-status' ||
+      (event.type === 'pi-event' &&
+        ['compaction_end', 'agent_settled'].includes(String(record(event.data).type)))
     ) {
       this.refresh();
       return;
     }
     const view =
-      event.type === 'rpc' ? reduceRpc(snapshot.view, record(event.data)) : snapshot.view;
-    const state = { ...snapshot.state };
-    if (event.type === 'rpc') {
-      const rpc = record(event.data);
-      if (rpc.type === 'queue_update') {
-        state.pendingMessageCount = view.steering.length + view.followUp.length;
-      } else if (rpc.type === 'session_info_changed') {
-        state.sessionName = rpc.name;
-      }
-    }
-    this.update({ ...this.current, snapshot: { ...snapshot, cursor: event.cursor, view, state } });
+      event.type === 'pi-event' ? reduceEvent(snapshot.view, record(event.data)) : snapshot.view;
+    this.update({ ...this.current, snapshot: { ...snapshot, cursor: event.cursor, view } });
   }
 }

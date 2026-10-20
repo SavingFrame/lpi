@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
-import { emptyView, reduceRpc } from '../../src/client-state.ts';
+import { emptyView, reduceEvent } from '../../src/client-state.ts';
 import { sessionControls } from '../../src/session-controls.ts';
-import { ApiError, operate, projects } from '../src/api.ts';
+import { ApiError, operate, projects, session } from '../src/api.ts';
 import { LiveSession } from '../src/live.ts';
 
 const id = '11111111-1111-1111-1111-111111111111';
@@ -20,14 +20,14 @@ function boundary(cursor = 0, sessionId = id, epoch = 'server-one') {
       directory: '/tmp/project',
       file: '/tmp/session.jsonl',
       createdAt: '2026-01-01T00:00:00Z',
-      ownership: { phase: 'rpc', generation: 3, interrupted: false },
+      piSessionId: 'native-id',
+      connection: 'connected',
+      generation: 3,
     },
-    state: { pendingMessageCount: 0 },
+    state: { isStreaming: false, hasPendingMessages: false },
     controls: {
       model: { provider: 'fake', id: 'first', name: 'First' },
       thinkingLevel: 'medium',
-      models: [{ provider: 'fake', id: 'first', name: 'First' }],
-      thinkingLevels: ['off', 'medium', 'high'],
       contextUsage: { tokens: 60000, contextWindow: 200000, percent: 30 },
     },
     view: emptyView(),
@@ -72,9 +72,63 @@ function setup(t) {
   const send = (cursor, data, generation = 3) =>
     sockets
       .at(-1)
-      .send({ epoch: 'server-one', cursor, sessionId: id, generation, type: 'rpc', data });
+      .send({ epoch: 'server-one', cursor, sessionId: id, generation, type: 'pi-event', data });
   return { live, sockets, requests, send, invalidations: () => invalidations };
 }
+
+test('native snapshots and authoritative partials synchronize through the browser', async (t) => {
+  const { live, requests, send, sockets } = setup(t);
+  const native = boundary();
+  native.state = { nativeTui: true, isStreaming: true, hasPendingMessages: false };
+  requests[0].resolve(Response.json(native));
+  await setImmediate();
+  assert.equal(live.getState().status, 'ready');
+  send(1, {
+    type: 'message_update',
+    message: { ...partial, content: [{ type: 'text', text: 'Native partial' }] },
+  });
+  assert.equal(live.getState().snapshot.view.partial.content[0].text, 'Native partial');
+  sockets[0].send({
+    epoch: 'server-one',
+    cursor: 2,
+    sessionId: id,
+    generation: 3,
+    type: 'bridge-sync',
+    data: null,
+  });
+  assert.equal(live.getState().status, 'syncing');
+  const changed = structuredClone(native);
+  changed.cursor = 2;
+  changed.view.messages = [{ role: 'user', content: 'Current branch', timestamp: 1 }];
+  requests[1].resolve(Response.json(changed));
+  await setImmediate();
+  assert.equal(live.getState().snapshot.view.messages[0].content, 'Current branch');
+  sockets[0].send({
+    epoch: 'server-one',
+    cursor: 3,
+    sessionId: id,
+    generation: 4,
+    type: 'connection',
+    data: { connection: 'disconnected' },
+  });
+  assert.equal(live.getState().status, 'syncing');
+  changed.cursor = 3;
+  changed.session.connection = 'disconnected';
+  changed.session.generation = 4;
+  changed.state = { readOnly: true, bridgeConnected: false };
+  requests[2].resolve(Response.json(changed));
+  await setImmediate();
+  assert.equal(live.getState().snapshot.session.connection, 'disconnected');
+  assert.equal(live.getState().snapshot.state.bridgeConnected, false);
+});
+
+test('session validation requires native identity and valid connection metadata', () => {
+  const native = boundary().session;
+  assert.equal(session(native).connection, 'connected');
+  assert.throws(() => session({ ...native, piSessionId: undefined }));
+  assert.throws(() => session({ ...native, connection: 'invalid' }));
+  assert.throws(() => session({ ...native, generation: -1 }));
+});
 
 test('project queries preserve discovered folder names', async (t) => {
   t.mock.method(globalThis, 'fetch', async () =>
@@ -87,52 +141,44 @@ test('project queries preserve discovered folder names', async (t) => {
   ]);
 });
 
-test('delta reconstruction uses authoritative block endings and final messages', () => {
-  let view = reduceRpc(emptyView(), { type: 'agent_start' });
-  view = reduceRpc(view, { type: 'message_start', message: partial });
-  for (const update of [
-    { type: 'text_start', contentIndex: 0 },
-    { type: 'text_delta', contentIndex: 0, delta: 'hello' },
-    { type: 'thinking_start', contentIndex: 1 },
-    { type: 'thinking_delta', contentIndex: 1, delta: 'reason' },
-    { type: 'toolcall_start', contentIndex: 2, id: 'call', toolName: 'bash' },
-    { type: 'toolcall_delta', contentIndex: 2, delta: '{"command":' },
-  ]) {
-    view = reduceRpc(view, { type: 'message_update', assistantMessageEvent: update });
-  }
-  assert.equal(view.partial.content[0].text, 'hello');
-  assert.equal(view.partial.content[1].thinking, 'reason');
-  assert.equal(view.partial.content[2].argumentsText, '{"command":');
-  view = reduceRpc(view, {
-    type: 'message_update',
-    assistantMessageEvent: { type: 'text_end', contentIndex: 0, content: 'authoritative' },
-  });
-  assert.equal(view.partial.content[0].text, 'authoritative');
+test('native partials replace content authoritatively and settlement clears transient state', () => {
+  let view = reduceEvent(emptyView(), { type: 'agent_start' });
+  view = reduceEvent(view, { type: 'message_start', message: partial });
+  const streamed = {
+    ...partial,
+    content: [
+      { type: 'text', text: 'hello' },
+      { type: 'thinking', thinking: 'reason' },
+      { type: 'toolCall', id: 'call', name: 'bash', arguments: { command: 'true' } },
+    ],
+  };
+  view = reduceEvent(view, { type: 'message_update', message: streamed });
+  assert.deepEqual(view.partial.content, streamed.content);
   const final = { ...partial, content: [{ type: 'text', text: 'final' }], stopReason: 'stop' };
-  view = reduceRpc(view, { type: 'message_end', message: final });
+  view = reduceEvent(view, { type: 'message_end', message: final });
   assert.equal(view.messages.length, 1);
   assert.equal(view.partial, null);
-  view = reduceRpc(view, { type: 'agent_end' });
+  view = reduceEvent(view, { type: 'agent_end' });
   assert.equal(view.running, true);
-  assert.equal(reduceRpc(view, { type: 'agent_settled' }).running, false);
+  assert.equal(reduceEvent(view, { type: 'agent_settled' }).running, false);
 });
 
 test('distinct messages with the same timestamp are preserved', () => {
   const first = { role: 'user', timestamp: 1, content: 'first' };
-  let view = reduceRpc(emptyView(), { type: 'message_end', message: first });
-  view = reduceRpc(view, { type: 'message_end', message: { ...first, content: 'second' } });
+  let view = reduceEvent(emptyView(), { type: 'message_end', message: first });
+  view = reduceEvent(view, { type: 'message_end', message: { ...first, content: 'second' } });
   assert.deepEqual(
     view.messages.map((item) => item.content),
     ['first', 'second'],
   );
 });
 
-test('snapshot boundary drops old events and applies buffered streaming deltas once', async (t) => {
+test('snapshot boundary drops old events and applies buffered native partials once', async (t) => {
   const { live, requests, send } = setup(t);
   send(1, { type: 'message_start', message: partial });
   send(2, {
     type: 'message_update',
-    assistantMessageEvent: { type: 'text_delta', contentIndex: 0, delta: 'hello' },
+    message: { ...partial, content: [{ type: 'text', text: 'hello' }] },
   });
   const snapshot = boundary(1);
   snapshot.view.partial = partial;
@@ -141,10 +187,6 @@ test('snapshot boundary drops old events and applies buffered streaming deltas o
   assert.equal(live.getState().status, 'ready');
   assert.equal(live.getState().snapshot.cursor, 2);
   assert.equal(live.getState().snapshot.view.partial.content[0].text, 'hello');
-  send(3, { type: 'queue_update', steering: ['next'], followUp: ['later'] });
-  assert.equal(live.getState().snapshot.state.pendingMessageCount, 2);
-  send(4, { type: 'queue_update', steering: [], followUp: [] });
-  assert.equal(live.getState().snapshot.state.pendingMessageCount, 0);
 });
 
 test('context usage preserves unknown values and rejects malformed statistics', () => {
@@ -158,41 +200,35 @@ test('context usage preserves unknown values and rejects malformed statistics', 
     percent: null,
   });
   assert.throws(() => sessionControls({ ...controls, contextUsage: { tokens: 1 } }));
-  assert.throws(() => sessionControls({ ...controls, models: [{}] }));
+  assert.throws(() => sessionControls({ ...controls, model: {} }));
 });
 
-test('settings and turn boundaries refresh authoritative model, thinking and context', async (t) => {
+test('native status refreshes model, thinking, queue presence and context', async (t) => {
   const { live, requests, send, sockets } = setup(t);
   requests[0].resolve(Response.json(boundary()));
   await setImmediate();
-  send(1, { type: 'thinking_level_changed', level: 'high' });
-  assert.equal(live.getState().status, 'syncing');
-  const updated = boundary(1);
-  updated.controls.thinkingLevel = 'high';
-  requests[1].resolve(Response.json(updated));
-  await setImmediate();
-  assert.equal(live.getState().snapshot.controls.thinkingLevel, 'high');
   sockets[0].send({
     epoch: 'server-one',
-    cursor: 2,
+    cursor: 1,
     sessionId: id,
     generation: 3,
-    type: 'settings-changed',
+    type: 'bridge-status',
     data: null,
   });
   assert.equal(live.getState().status, 'syncing');
-  const switched = boundary(2);
-  switched.controls.model = { provider: 'fake', id: 'second', name: 'Second' };
-  switched.controls.thinkingLevel = 'off';
-  switched.controls.thinkingLevels = ['off'];
-  requests[2].resolve(Response.json(switched));
+  const updated = boundary(1);
+  updated.controls.thinkingLevel = 'high';
+  updated.controls.model = { provider: 'fake', id: 'second', name: 'Second' };
+  updated.state.hasPendingMessages = true;
+  requests[1].resolve(Response.json(updated));
   await setImmediate();
+  assert.equal(live.getState().snapshot.controls.thinkingLevel, 'high');
   assert.equal(live.getState().snapshot.controls.model.id, 'second');
-  assert.deepEqual(live.getState().snapshot.controls.thinkingLevels, ['off']);
-  for (const [index, type] of ['turn_end', 'agent_settled', 'compaction_end'].entries()) {
-    send(3 + index, { type });
+  assert.equal(live.getState().snapshot.state.hasPendingMessages, true);
+  for (const [index, type] of ['agent_settled', 'compaction_end'].entries()) {
+    send(2 + index, { type });
     assert.equal(live.getState().status, 'syncing');
-    requests[3 + index].resolve(Response.json(boundary(3 + index)));
+    requests[2 + index].resolve(Response.json(boundary(2 + index)));
     await setImmediate();
     assert.equal(live.getState().status, 'ready');
   }
@@ -218,15 +254,16 @@ test('generation changes disable mutations until a fresh snapshot arrives', asyn
     cursor: 1,
     sessionId: id,
     generation: 4,
-    type: 'ownership',
-    data: { phase: 'stopping' },
+    type: 'connection',
+    data: { connection: 'disconnected' },
   });
   assert.equal(live.getState().status, 'syncing');
   const snapshot = boundary(1);
-  snapshot.session.ownership = { phase: 'unowned', generation: 5, interrupted: false };
+  snapshot.session.connection = 'disconnected';
+  snapshot.session.generation = 4;
   requests[1].resolve(Response.json(snapshot));
   await setImmediate();
-  assert.equal(live.getState().snapshot.session.ownership.phase, 'unowned');
+  assert.equal(live.getState().snapshot.session.connection, 'disconnected');
 });
 
 test('cursor gaps and restart epochs close the stream instead of applying uncertain events', async (t) => {
@@ -251,7 +288,7 @@ test('mismatched snapshot epoch and bounded buffer overflow require reconnection
   assert.equal(live.getState().status, 'offline');
   live.connect();
   sockets[1].send({ type: 'connected', epoch: 'server-one', cursor: 0 });
-  send(1, { type: 'extension_error', error: 'x'.repeat(1024 * 1024) });
+  send(1, { type: 'message_update', message: { ...partial, content: 'x'.repeat(1024 * 1024) } });
   assert.equal(live.getState().status, 'offline');
 });
 
@@ -265,7 +302,7 @@ test('lost mutation responses are unknown and never automatically retried', asyn
     throw new Error('connection lost');
   });
   await assert.rejects(
-    operate(id, 3, 'commands', { type: 'prompt', message: 'hello' }),
+    operate(id, 3, { type: 'prompt', message: 'hello' }),
     (error) => error instanceof ApiError && error.outcome === 'unknown',
   );
   assert.equal(calls, 1);
@@ -278,7 +315,7 @@ test('invalid successful mutation acknowledgments remain unknown', async (t) => 
     return Response.json({ outcome: 'acknowledged', requestId: 'wrong-request' });
   });
   await assert.rejects(
-    operate(id, 3, 'commands', { type: 'abort' }),
+    operate(id, 3, { type: 'abort' }),
     (error) => error instanceof ApiError && error.outcome === 'unknown',
   );
   assert.equal(calls, 1);
@@ -290,9 +327,9 @@ test('correlated mutation acceptance is returned without retrying', async (t) =>
     return Response.json({
       requestId: body.requestId,
       outcome: 'acknowledged',
-      data: { disposition: 'queued' },
+      data: { disposition: 'dispatched' },
     });
   });
-  const result = await operate(id, 3, 'commands', { type: 'steer', message: 'hello' });
-  assert.equal(result.data.disposition, 'queued');
+  const result = await operate(id, 3, { type: 'steer', message: 'hello' });
+  assert.equal(result.data.disposition, 'dispatched');
 });

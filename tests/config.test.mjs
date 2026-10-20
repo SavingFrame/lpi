@@ -1,9 +1,8 @@
 import assert from 'node:assert/strict';
-import { mkdirSync, renameSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
 import { loadConfig } from '../dist/config.js';
-import { Catalog } from '../dist/storage/catalog.js';
 import { fixture } from './helpers.mjs';
 
 function setup(t) {
@@ -13,10 +12,7 @@ function setup(t) {
   mkdirSync(projects);
   const path = join(root, 'config.json');
   const load = (projectRoots, extra = {}) => {
-    writeFileSync(
-      path,
-      JSON.stringify({ dataDirectory: join(root, 'sessions'), projectRoots, ...extra }),
-    );
+    writeFileSync(path, JSON.stringify({ projectRoots, ...extra }));
     return loadConfig(path, home);
   };
   return { root, home, projects, load };
@@ -94,6 +90,17 @@ test('empty roots are valid, including the home root itself', (t) => {
   );
 });
 
+test('network binding defaults to all IPv4 interfaces and accepts explicit IP addresses', (t) => {
+  const { load } = setup(t);
+  assert.equal(load(['~/Projects']).host, '0.0.0.0');
+  for (const host of ['127.0.0.1', '192.168.1.20', '100.64.0.1', '::']) {
+    assert.equal(load(['~/Projects'], { host }).host, host);
+  }
+  for (const host of ['', 'localhost', 123, 'not an address']) {
+    assert.throws(() => load(['~/Projects'], { host }), /bind address/);
+  }
+});
+
 test('invalid roots and the old explicit project schema fail with configuration errors', (t) => {
   const { projects, load } = setup(t);
   assert.throws(() => load([]), /at least one project root/);
@@ -105,21 +112,4 @@ test('invalid roots and the old explicit project schema fail with configuration 
   writeFileSync(join(projects, 'file'), 'file');
   assert.throws(() => load([join(projects, 'file')]), /Project root is unavailable/);
   assert.throws(() => load(['~/Projects'], { projects: [] }), /Replace projects with projectRoots/);
-});
-
-test('session associations survive rediscovery and relocation never silently rebinds them', (t) => {
-  const { root, projects, load } = setup(t);
-  const folder = join(projects, 'pim');
-  mkdirSync(folder);
-  const before = load(['~/Projects']);
-  const data = join(root, 'catalog');
-  const catalog = new Catalog(data, before.projects);
-  const created = catalog.create(before.projects[0]);
-  symlinkSync(projects, join(root, 'alias'));
-  const after = load([join(root, 'alias'), '~/Projects']);
-  const reopened = new Catalog(data, after.projects);
-  assert.equal(reopened.get(created.id).projectId, created.projectId);
-  assert.equal(reopened.get(created.id).directory, folder);
-  renameSync(folder, join(projects, 'renamed'));
-  assert.throws(() => new Catalog(data, load(['~/Projects']).projects), /Missing or relocated/);
 });

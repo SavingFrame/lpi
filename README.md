@@ -1,10 +1,10 @@
 # Pim
 
-A local, single-user browser client and TypeScript server for normal Pi sessions. The server owns RPC runtimes and coordinates ownership conservatively. Native TUI handoff remains a separate, verified prototype.
+A single relay server and browser client for native Pi sessions. Pi runs the agent and writes its normal JSONL. Extensions connect to Pim to stream state and receive remote commands. Pim never opens another agent runtime.
 
 ## Run
 
-Requires Node.js 22.19+. Dependencies include **Pi 1.0.4**, which provides the CLI on npm's PATH when using `npm start`. Pi runs as a subprocess, not an embedded agent SDK. Stopped transcripts use Pi's pure JSONL parsing/context helpers without opening another runtime.
+Requires Node.js 22.19+. The extension is typechecked against pinned **Pi 1.0.4**.
 
 ```sh
 npm ci --ignore-scripts
@@ -14,51 +14,55 @@ cp pim.config.example.json pim.config.json
 npm start -- pim.config.json
 ```
 
-Set `"projectRoots": ["~/Projects", "~/Projects/work"]` in `pim.config.json` (use only folders that exist). The server discovers immediate child directories at startup, including non-Git folders. Configured roots are containers, not projects. Overlapping roots and symlink aliases are deduplicated; folder names are displayed with stable IDs derived from canonical paths. Restart the server after adding folders. Empty roots are allowed.
+Open **http://127.0.0.1:3141**.
 
-The server binds only to `127.0.0.1` and has no authentication. Allowed browser origins must be listed explicitly; Host and Origin checks remain enforced. Local processes can access the agent without credentials. Do not expose it through a public proxy.
+Project roots are containers, for example `["~/Projects"]`. Pim discovers immediate child directories, including non-Git folders, and deduplicates canonical paths. Restart after adding folders.
 
-RPC children reuse the server's environment and existing Pi agent configuration. Project trust follows normal Pi rules. New managed JSONL files and the ownership catalog live in the configured data directory.
+Saved Pi sessions are discovered at startup from `piSessionRoots` (default `~/.pi/agent/sessions`). Only files matching configured project working directories appear. Inspection reads original JSONL without copying or rewriting it. Custom session storage requires explicit roots.
 
-Existing Pi sessions are discovered at startup from `piSessionRoots` (default `~/.pi/agent/sessions`). Pim reads the original files without copying, migrating on disk, or opening a runtime. Only sessions whose header working directory matches a configured project are listed. They appear as **Pi · read-only** and support transcript inspection and manual refresh. Discovery does not prove that an existing TUI released ownership, so prompts, runtime start, and recovery are blocked for these sessions until coordinated native access is implemented. Set `piSessionRoots` to `[]` to disable discovery, or list your custom session storage directories. Custom Pi agent/session-directory settings are not automatically resolved.
+Pim trusts your home LAN and Tailscale network. There is no application authentication or bridge token. Anyone who can reach the server can control connected agents. Network access control is your deployment's responsibility; do not expose Pim publicly.
 
-**Do not open managed files directly in native Pi.** Coordinated CLI access is intentionally blocked until the launcher/bridge contract is implemented.
+The server defaults to `host: "0.0.0.0"` for LAN access. Set `host` to `127.0.0.1` for loopback-only access. Add each LAN/Tailscale browser URL (for example `http://192.168.1.20:3141`) to `origins`. Host and Origin checks remain enforced; allowed Hosts are derived from those URLs, plus localhost/loopback.
 
-Open **http://127.0.0.1:3141** after starting the server. Create a session, then start its runtime before sending prompts. The example configuration allows that browser origin and the Vite development origins. If you change ports, update the allowed origins too.
+## Connect native Pi
+
+Start Pim, then load the compiled extension in normal interactive Pi:
+
+```sh
+pi --extension /absolute/path/to/pim/dist/bridge/extension.js --resume
+```
+
+Adapt the path to your checkout. Loading the extension connects automatically to `ws://127.0.0.1:3141/bridge`. Set `PIM_BRIDGE_URL` to use another endpoint. Connected sessions appear as **Pi · live TUI**; saved files without a connection appear as **Pi · read-only**.
+
+The browser receives current-branch history, assistant partials, tool activity, runtime metadata, and queued-message presence. Prompt, steer, follow-up, and abort run in that same native Pi process. Model changes, queue editing, and dialog answers remain terminal-only.
+
+`/pim-disconnect` stops the relay connection without stopping Pi. Closing the browser or Pim does not stop the agent. Closing Pi does. For now, launch Pi manually inside tmux if it should outlive your terminal connection.
+
+**Server-side tmux launching and browser session creation are planned, not implemented.** There are no RPC runtimes, ownership locks, parking sessions, or handoffs. See [the plan](PLAN.md).
 
 ## Frontend development
 
-Run the backend in one terminal, then run `npm run dev` in another. Open **http://127.0.0.1:5173**. Vite proxies REST and WebSocket traffic to port 3141. Set `PIM_DEV_SERVER` if the backend uses a different port.
-
-`npm run build` builds both server and browser assets; `npm start` serves the production browser build. See [frontend notes](docs/frontend.md).
+Run the compiled server, then `npm run dev`. Open **http://127.0.0.1:5173**. Vite proxies REST/events to port 3141. Set `PIM_DEV_SERVER` for another target and update configured allowed origins when changing ports.
 
 ## Layout
 
-- `frontend/`: React/Vite client, TanStack Query/Router, and focused synchronization tests.
-- `src/client-state.ts`: shared streaming-message and runtime-state projection.
-- `src/api/`: local REST commands, snapshots, bounded WebSocket delivery, and static assets.
-- `src/rpc/`: constrained protocol and supervised JSONL transport.
-- `src/storage/`: session catalog, read-only Pi discovery, durable writes, exclusive coordinator lock.
-- `src/ownership.ts`: generation-checked ownership transitions.
-- `src/coordinator.ts`: session/runtime orchestration.
-- `prototypes/handoff/`: isolated native TUI feasibility experiment.
-- `tests/`: deterministic backend tests with fake RPC children, temporary HOME/configuration, and no model calls.
+- `src/bridge/`: native extension, connection protocol, relay transport.
+- `src/sessions.ts`: combined saved/live inventory and snapshots.
+- `src/storage/`: read-only JSONL discovery and stable inventory IDs.
+- `src/api/`: REST commands, bounded browser events, and static assets.
+- `src/client-state.ts`: shared native-event projection.
+- `frontend/`: React/Vite browser and synchronization tests.
+- `tests/`: isolated relay, discovery, configuration, and API tests.
 
 ## Validation
 
 ```sh
 npm run check
 npm run typecheck
-npm run test:backend
-npm run test:frontend
+npm run build
+npm test
 ```
 
-Backend tests do not launch your installed Pi or use credentials. `npm test` and `npm run test:handoff` remain the separate prototype commands.
+Tests use temporary files, fake Pi contexts, and local/mocked transports without model calls. Real-Pi integration remains unverified.
 
-## Scope
-
-The browser supports project/session selection, creation, runtime start/stop, current-context transcripts, partial responses, tool activity, queues, prompts, steering, follow-ups, abort, model/thinking selection, and current context usage. Reconnects use an authoritative snapshot boundary plus buffered events; uncertain mutations are never replayed automatically.
-
-Dialog answers, production live TUI ownership, event replay, and the separate iOS client are deferred. Real-Pi integration with the installed resource set remains unverified.
-
-See [server API](docs/server.md), [ownership and recovery](docs/ownership.md), [configuration audit](docs/configuration-audit.md), and [the plan](PLAN.md).
+See [server API](docs/server.md), [bridge setup](docs/bridge.md), and [frontend notes](docs/frontend.md).

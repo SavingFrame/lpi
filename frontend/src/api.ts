@@ -1,7 +1,7 @@
-import { message, record, strings, type View } from '../../src/client-state.ts';
+import { message, record, type View } from '../../src/client-state.ts';
 import type { Project } from '../../src/config.ts';
 import { type SessionControls, sessionControls } from '../../src/session-controls.ts';
-import type { Session } from '../../src/storage/catalog.ts';
+import type { Session } from '../../src/sessions.ts';
 
 export interface Snapshot {
   epoch: string;
@@ -22,7 +22,6 @@ export class ApiError extends Error {
 
 export function session(value: unknown): Session {
   const raw = record(value);
-  const owner = record(raw.ownership);
   if (
     typeof raw.id !== 'string' ||
     !/^[a-f0-9-]{36}$/.test(raw.id) ||
@@ -30,16 +29,11 @@ export function session(value: unknown): Session {
     typeof raw.directory !== 'string' ||
     typeof raw.file !== 'string' ||
     typeof raw.createdAt !== 'string' ||
-    (raw.source !== undefined &&
-      (raw.source !== 'pi' ||
-        typeof raw.piSessionId !== 'string' ||
-        owner.phase !== 'unknown' ||
-        owner.generation !== 0)) ||
-    !['unowned', 'starting', 'rpc', 'stopping', 'unknown'].includes(String(owner.phase)) ||
-    typeof owner.generation !== 'number' ||
-    !Number.isSafeInteger(owner.generation) ||
-    owner.generation < 0 ||
-    typeof owner.interrupted !== 'boolean'
+    typeof raw.piSessionId !== 'string' ||
+    !['connected', 'disconnected'].includes(String(raw.connection)) ||
+    typeof raw.generation !== 'number' ||
+    !Number.isSafeInteger(raw.generation) ||
+    raw.generation < 0
   ) {
     throw new Error('Invalid session record');
   }
@@ -78,8 +72,6 @@ export function snapshot(value: unknown): Snapshot {
         }
         return { id: tool.id, name: tool.name, args: tool.args, result: tool.result };
       }),
-      steering: strings(view.steering),
-      followUp: strings(view.followUp),
       running: view.running,
       compacting: view.compacting,
       notice: view.notice,
@@ -113,16 +105,10 @@ async function request(
     }
     if (mutation) {
       const result = record(data);
-      const command = path.endsWith('/commands');
-      if (
-        result.requestId !== requestId ||
-        result.outcome !== (command ? 'acknowledged' : 'completed')
-      ) {
+      if (result.requestId !== requestId || result.outcome !== 'acknowledged') {
         throw new Error('Invalid mutation acknowledgment');
       }
-      if (!command) {
-        session(result.session);
-      } else if (result.data !== null && result.data !== undefined) {
+      if (result.data !== null && result.data !== undefined) {
         record(result.data);
       }
     }
@@ -171,17 +157,12 @@ export async function inspect(id: string, signal: AbortSignal): Promise<Snapshot
   return snapshot(await request(`/sessions/${encodeURIComponent(id)}/snapshot`, undefined, signal));
 }
 
-export async function create(projectId: string): Promise<Session> {
-  return session(record(await request('/sessions', { projectId })).session);
-}
-
 export async function operate(
   id: string,
   generation: number,
-  operation: string,
-  command?: Record<string, unknown>,
+  command: Record<string, unknown>,
 ): Promise<Record<string, unknown>> {
   return record(
-    await request(`/sessions/${encodeURIComponent(id)}/${operation}`, { generation, command }),
+    await request(`/sessions/${encodeURIComponent(id)}/commands`, { generation, command }),
   );
 }

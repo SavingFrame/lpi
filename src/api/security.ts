@@ -4,7 +4,13 @@ import { AppError } from '../errors.js';
 
 export function validateRequest(request: IncomingMessage, config: Config, preflight = false): void {
   const host = request.headers.host;
-  if (host !== `127.0.0.1:${config.port}` && host !== `localhost:${config.port}`) {
+  const allowedHosts = new Set([
+    `127.0.0.1:${config.port}`,
+    `localhost:${config.port}`,
+    `[::1]:${config.port}`,
+    ...config.origins.map((origin) => new URL(origin).host),
+  ]);
+  if (!host || !allowedHosts.has(host)) {
     throw new AppError('Host rejected', 403);
   }
   if (request.headers.origin && !config.origins.includes(request.headers.origin)) {

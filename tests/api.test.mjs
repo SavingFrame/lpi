@@ -7,21 +7,23 @@ import test from 'node:test';
 import { WebSocket } from 'ws';
 import { createApi } from '../dist/api/http.js';
 import { attachWebSockets } from '../dist/api/websocket.js';
-import { Coordinator } from '../dist/coordinator.js';
+import { NativeBridges } from '../dist/bridge/server.js';
 import { Events } from '../dist/events.js';
+import { Sessions } from '../dist/sessions.js';
+import { SessionDiscovery } from '../dist/storage/discovery.js';
 import { fixture } from './helpers.mjs';
 
-test('unauthenticated REST, host/origin checks, WebSocket events and detached client lifetime', async (t) => {
-  const { config, env, catalog, defer } = fixture(t);
+test('relay REST, host/origin checks, WebSocket events and removed runtime endpoints', async (t) => {
+  const { config, defer } = fixture(t);
   const events = new Events();
-  const coordinator = new Coordinator(config, catalog, events, env);
-  const server = createApi(config, coordinator);
-  const closeSockets = attachWebSockets(server, config, events);
+  const bridges = new NativeBridges(config, events);
+  const sessions = new Sessions(new SessionDiscovery([], config.projects), bridges, events);
+  const server = createApi(config, sessions, bridges);
+  const closeSockets = attachWebSockets(server, config, events, bridges);
   defer(async () => {
     closeSockets();
     server.close();
     server.closeAllConnections();
-    await coordinator.shutdown();
   });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');
@@ -33,6 +35,17 @@ test('unauthenticated REST, host/origin checks, WebSocket events and detached cl
   assert.equal(config.projects[0].name, 'test');
   assert.equal((await fetch(`${base}/sessions`)).status, 200);
   assert.equal((await fetch(`${base}/sessions`, { headers })).status, 200);
+  const lanOrigin = 'http://192.168.1.20:3141';
+  const tailscaleOrigin = 'http://pim.example.ts.net:3141';
+  config.origins.push(lanOrigin, tailscaleOrigin);
+  for (const origin of [lanOrigin, tailscaleOrigin]) {
+    const request = get(`${base}/sessions`, {
+      headers: { Host: new URL(origin).host, Origin: origin },
+    });
+    const [response] = await once(request, 'response');
+    assert.equal(response.statusCode, 200);
+    response.resume();
+  }
   const invalidHost = get(`${base}/sessions`, { headers: { Host: 'evil.example' } });
   const [rejected] = await once(invalidHost, 'response');
   assert.equal(rejected.statusCode, 403);
@@ -55,59 +68,33 @@ test('unauthenticated REST, host/origin checks, WebSocket events and detached cl
   const handshake = JSON.parse(String((await connected)[0]));
   assert.equal(handshake.epoch, events.epoch);
   assert.equal(handshake.cursor, 0);
-  const create = await fetch(`${base}/sessions`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ requestId: 'create', projectId: 'test' }),
-  });
-  const { session } = await create.json();
+  const id = '11111111-1111-1111-1111-111111111111';
   const event = once(socket, 'message');
-  const start = await fetch(`${base}/sessions/${session.id}/start`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ requestId: 'start', generation: 0 }),
-  });
-  const active = (await start.json()).session;
-  assert.equal(active.ownership.phase, 'rpc');
-  const snapshotResponse = await fetch(`${base}/sessions/${session.id}/snapshot`, { headers });
-  assert.equal(snapshotResponse.status, 200);
-  const snapshot = await snapshotResponse.json();
-  assert.equal(snapshot.epoch, handshake.epoch);
-  assert.equal(snapshot.session.ownership.generation, active.ownership.generation);
-  assert.equal(JSON.parse(String((await event)[0])).sessionId, session.id);
-  const duplicate = await fetch(`${base}/sessions/${session.id}/start`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ requestId: 'start', generation: 0 }),
-  });
-  assert.equal(duplicate.status, 409);
+  events.publish(id, 1, 'connection', { connection: 'connected' });
+  assert.equal(JSON.parse(String((await event)[0])).sessionId, id);
+  for (const path of ['/sessions', `/sessions/${id}/start`, `/sessions/${id}/stop`]) {
+    assert.equal((await fetch(`${base}${path}`, { method: 'POST', headers })).status, 404);
+  }
+  assert.equal((await fetch(`${base}/sessions/${id}/snapshot`)).status, 404);
   socket.close();
   await once(socket, 'close');
-  assert.equal(catalog.get(session.id).ownership.phase, 'rpc');
-  const badCommand = await fetch(`${base}/sessions/${session.id}/commands`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({
-      requestId: 'config',
-      generation: active.ownership.generation,
-      command: { type: 'set_auto_retry', enabled: false },
-    }),
-  });
-  assert.equal(badCommand.status, 400);
+  assert.deepEqual(sessions.list(), []);
 });
 
 test('production frontend serves deep links and assets without bypassing origin checks', async (t) => {
-  const { root, config, env, catalog, defer } = fixture(t);
+  const { root, config, defer } = fixture(t);
   const directory = join(root, 'frontend');
   mkdirSync(join(directory, 'assets'), { recursive: true });
   writeFileSync(join(directory, 'index.html'), '<!doctype html><title>Pim test</title>');
   writeFileSync(join(directory, 'assets', 'test.js'), 'console.log("test");');
-  const coordinator = new Coordinator(config, catalog, new Events(), env);
-  const server = createApi(config, coordinator, directory);
+  const events = new Events();
+  const bridges = new NativeBridges(config, events);
+  const sessions = new Sessions(new SessionDiscovery([], config.projects), bridges, events);
+  const server = createApi(config, sessions, bridges, directory);
   defer(async () => {
     server.close();
     server.closeAllConnections();
-    await coordinator.shutdown();
+    bridges.close();
   });
   server.listen(0, '127.0.0.1');
   await once(server, 'listening');

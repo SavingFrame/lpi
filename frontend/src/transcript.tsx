@@ -31,11 +31,7 @@ function MessageBody({ item }: { item: Message }) {
             return (
               <details key={key}>
                 <summary>Tool: {String(block.name)}</summary>
-                <pre>
-                  {block.argumentsText
-                    ? String(block.argumentsText)
-                    : JSON.stringify(block.arguments, null, 2)}
-                </pre>
+                <pre>{JSON.stringify(block.arguments, null, 2)}</pre>
               </details>
             );
           }

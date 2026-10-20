@@ -17,11 +17,9 @@
     "build:frontend": "vite build --config frontend/vite.config.ts frontend",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p frontend/tsconfig.json",
     "start": "node dist/main.js",
-    "recover": "node dist/recover.js",
     "test:frontend": "node --experimental-strip-types --test frontend/tests/live.test.mjs",
-    "test:backend": "npm run build:server && node --test tests/*.test.mjs",
-    "test": "node --test prototypes/handoff/*.test.mjs",
-    "test:handoff": "node prototypes/handoff/run.mjs"
+    "test:server": "npm run build:server && node --test tests/*.test.mjs",
+    "test": "npm run test:server && npm run test:frontend"
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.15",

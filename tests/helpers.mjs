@@ -1,10 +1,9 @@
 import { mkdirSync, mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
-import { Catalog } from '../dist/storage/catalog.js';
+import { join } from 'node:path';
 
 export function fixture(t) {
-  const root = mkdtempSync(join(tmpdir(), 'pim-backend-test-'));
+  const root = mkdtempSync(join(tmpdir(), 'pim-relay-test-'));
   const directory = join(root, 'project');
   mkdirSync(directory);
   const home = join(root, 'home');
@@ -21,21 +20,12 @@ export function fixture(t) {
     }
   });
   const config = {
-    dataDirectory: join(root, 'data'),
-    pi: resolve('tests/fixtures/pi.mjs'),
+    host: '127.0.0.1',
     port: 3141,
     origins: ['http://localhost:5173'],
     projectRoots: [root],
     piSessionRoots: [],
     projects: [{ id: 'test', name: 'test', directory }],
   };
-  mkdirSync(config.dataDirectory);
-  const env = {
-    PATH: process.env.PATH,
-    HOME: home,
-    PI_CODING_AGENT_DIR: join(home, '.pi', 'agent'),
-    PI_OFFLINE: '1',
-  };
-  const catalog = new Catalog(config.dataDirectory, config.projects);
-  return { root, config, env, catalog, defer };
+  return { root, home, config, defer };
 }

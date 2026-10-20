@@ -1,52 +1,33 @@
 # Browser client
 
-The client in `frontend/` uses React, TypeScript, Vite, TanStack Query, and TanStack Router. It only controls server-owned sessions. No browser-side agent runtime or independent session-file authority exists.
+The React/Vite client uses TanStack Query and Router. It inspects saved history and controls connected native Pi instances through one relay server. There is no browser-side agent or writable session authority.
 
 ## Run
-
-Production:
 
 ```sh
 npm run build
 npm start -- pim.config.json
 ```
 
-Open `http://127.0.0.1:3141`. The backend serves `frontend/dist`. Browser routes use `/app/projects/:projectId/sessions/:sessionId` so deep links do not conflict with the REST session routes.
+Open `http://127.0.0.1:3141`. The server serves `frontend/dist`; browser routes use `/app/projects/:projectId/sessions/:sessionId`.
 
-Development:
+For development, start the compiled server and run `npm run dev`. Open `http://127.0.0.1:5173`. Vite proxies `/projects`, `/sessions`, and `/events`. `PIM_DEV_SERVER` overrides the target. Configure exact allowed browser origins when changing ports.
 
-```sh
-# Start the compiled backend in one terminal.
-npm run build:server
-npm start -- pim.config.json
+Browser/API authentication is not enabled. Pim trusts reachable home LAN/Tailscale clients; network access control belongs to deployment. Add each browser URL to `origins` in the server configuration. Host/Origin checks, JSON content-type requirements, and production content security policy remain enforced. Do not expose Pim publicly.
 
-# Run Vite in another terminal.
-npm run dev
-```
+## Behavior
 
-Open `http://127.0.0.1:5173`. Vite proxies `/projects`, `/sessions`, and `/events` to `http://127.0.0.1:3141`. `PIM_DEV_SERVER` can override the target. Configure the exact browser origins in `pim.config.json`; the example includes production and development origins. Changing the backend port also requires updating production origins.
+Saved records show **Pi · read-only**. Connected records show **Pi · live TUI** and support prompt, steer, follow-up, and abort. Current model/thinking/context metadata is display-only. Queue editing and dialog answers remain terminal-only.
 
-No authentication is enabled. Loopback binding, Host checks, Origin checks, and JSON content-type requirements remain enforced. A trusted local process can control the agent without credentials. Do not expose the server through a public proxy.
+There are no browser create/start/stop controls. Server-side tmux launching is planned.
 
-## State and commands
+TanStack Query holds project/session queries. The `LiveSession` store handles the selected snapshot and events. Native partial messages replace content authoritatively; no RPC delta reconstruction is needed.
 
-TanStack Query owns project/session catalog queries and mutations. A separate `LiveSession` external store owns the selected session's snapshot and event reducer. The shared reducer in `src/client-state.ts` reconstructs delta-only Pi messages and tracks running state, queues, and active tools.
+Reconnects subscribe first, buffer events, load a snapshot, discard events at or before its epoch/cursor boundary, and apply newer events. Global cursors are checked even for other sessions. Connection/status/branch changes and settlement refresh the snapshot. Gaps, epoch changes, or buffer overflow require reconnecting.
 
-Reconnects subscribe first, buffer events, read a snapshot, discard events at or before its epoch/cursor boundary, and apply newer events. Global cursors are validated even for sessions not currently displayed. Generation changes, compaction completion, turn completion, settled runs, and model/thinking changes trigger fresh inspection. A gap, server epoch change, or full buffer requires reconnecting. Snapshot reads that cannot find a stable observed event boundary remain visibly synchronizing and retry inspection.
+Mutations never retry automatically. Request IDs and connection generations reject duplicates and stale commands. Dispatch is not execution completion. Unknown outcomes preserve the draft and block further commands until the user inspects and acknowledges uncertainty. Tab-scoped storage preserves drafts and protects against reload during submission.
 
-Mutations never retry automatically. Each has a unique request ID and the current ownership generation. Acceptance is not execution completion. Unknown outcomes preserve the draft and block more commands until the user inspects the session and explicitly acknowledges the uncertainty. A pending marker in tab-scoped session storage also protects against reloading during submission.
-
-The composer shows model and thinking selectors plus Pi’s current context usage estimate. Selectors remain available during runs and changes apply to the next model request, including tool continuations. Options come from the owning runtime; model changes refresh thinking capabilities too. Unknown context usage displays `?`, not zero. Disconnected/synchronizing/stopped sessions and uncertain mutations disable settings changes.
-
-Drafts live in tab-scoped session storage. Markdown raw HTML is disabled, and image URLs are not loaded. Production assets use a same-origin content security policy.
-
-## Limits and deferred work
-
-- Transcripts show current runtime context, not the entire branch archive. Stopped sessions use pure JSONL/context projection without opening a writer.
-- Unknown ownership cannot authorize start or reclaim.
-- Dialog requests show a warning, but answers and full pending-dialog lifecycle are deferred. Abort is not guaranteed to dismiss a question.
-- Production TUI handoff, authentication/remote deployment, and the separate iOS client are deferred.
-- Real-Pi integration with installed extensions/configuration remains unverified.
+Markdown raw HTML is disabled and image URLs are not loaded. Closing the browser does not stop Pi.
 
 ## Validation
 
@@ -55,8 +36,6 @@ npm run check
 npm run typecheck
 npm run build
 npm run test:frontend
-# After build:server, focused backend snapshot/API tests:
-node --test tests/snapshot.test.mjs tests/api.test.mjs
 ```
 
-Synchronization tests use mocked browser transport. Backend tests use isolated fake RPC children, temporary HOME/configuration/session directories, and no model calls. A headless Chromium smoke check verified production deep links, runtime start, prompt submission, partial output, reload reconstruction, mobile width, and confirmed stop using only the fake Pi fixture.
+Synchronization tests use mocked browser transport. Relay tests use fake public Pi contexts and isolated files/transports without model calls. Native-Pi integration and remote dialog adapters remain unverified.

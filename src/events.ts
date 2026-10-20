@@ -12,20 +12,13 @@ export interface ServerEvent {
 export class Events {
   readonly epoch = randomUUID();
   private cursor = 0;
-  private readonly revisions = new Map<string, number>();
-
-  checkpoint(sessionId?: string): { epoch: string; cursor: number; revision: number } {
-    return {
-      epoch: this.epoch,
-      cursor: this.cursor,
-      revision: sessionId ? (this.revisions.get(sessionId) ?? 0) : this.cursor,
-    };
+  checkpoint(): { epoch: string; cursor: number } {
+    return { epoch: this.epoch, cursor: this.cursor };
   }
   private readonly listeners = new Set<(event: ServerEvent) => void>();
 
   publish(sessionId: string, generation: number, type: string, data: unknown): void {
     const event = { epoch: this.epoch, cursor: ++this.cursor, sessionId, generation, type, data };
-    this.revisions.set(sessionId, event.cursor);
     for (const listener of this.listeners) {
       listener(event);
     }

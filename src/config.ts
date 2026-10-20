@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { isIP } from 'node:net';
 import { homedir } from 'node:os';
 import { basename, isAbsolute, join, resolve } from 'node:path';
 import { object, text } from './errors.js';
@@ -11,8 +12,7 @@ export interface Project {
 }
 
 export interface Config {
-  dataDirectory: string;
-  pi: string;
+  host: string;
   port: number;
   origins: string[];
   projectRoots: string[];
@@ -79,6 +79,10 @@ export function loadConfig(path: string, homeDirectory = homedir()): Config {
     }
   }
   const projects = [...discovered.values()].sort((a, b) => a.directory.localeCompare(b.directory));
+  const host = raw.host ?? '0.0.0.0';
+  if (typeof host !== 'string' || !isIP(host)) {
+    throw new Error('Host must be an IPv4 or IPv6 bind address');
+  }
   const port = raw.port ?? 3141;
   if (typeof port !== 'number' || !Number.isInteger(port) || port < 1 || port > 65535) {
     throw new Error('Invalid port');
@@ -123,8 +127,7 @@ export function loadConfig(path: string, homeDirectory = homedir()): Config {
     }
   }
   return {
-    dataDirectory: resolve(text(raw.dataDirectory, 'data directory', 4096)),
-    pi: text(raw.pi ?? 'pi', 'Pi executable', 4096),
+    host,
     port,
     origins,
     projectRoots: [...roots].sort(),

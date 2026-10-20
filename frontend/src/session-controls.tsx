@@ -1,64 +1,11 @@
 import type { SessionControls } from '../../src/session-controls';
 
-export function SessionSettings({
-  controls,
-  enabled,
-  onChange,
-}: {
-  controls: SessionControls;
-  enabled: boolean;
-  onChange: (command: Record<string, unknown>) => void;
-}) {
-  const { model, models, thinkingLevel, thinkingLevels, contextUsage } = controls;
-  const selected = model ? JSON.stringify([model.provider, model.id]) : '';
-  const options =
-    model && !models.some((item) => item.provider === model.provider && item.id === model.id)
-      ? [model, ...models]
-      : models;
+export function SessionSettings({ controls }: { controls: SessionControls }) {
+  const { model, thinkingLevel, contextUsage } = controls;
   return (
     <div className="session-settings">
-      <label>
-        Model
-        <select
-          value={selected}
-          disabled={!enabled || models.length === 0}
-          title="Applies to the next model request. The current response is unchanged."
-          onChange={(event) => {
-            const next = options.find(
-              (item) => JSON.stringify([item.provider, item.id]) === event.target.value,
-            );
-            if (next) {
-              onChange({ type: 'set_model', provider: next.provider, modelId: next.id });
-            }
-          }}
-        >
-          {!model && <option value="">No model selected</option>}
-          {options.map((item) => (
-            <option
-              key={JSON.stringify([item.provider, item.id])}
-              value={JSON.stringify([item.provider, item.id])}
-            >
-              {item.provider} / {item.name}
-            </option>
-          ))}
-        </select>
-      </label>
-      <label>
-        Thinking
-        <select
-          value={thinkingLevel ?? ''}
-          disabled={!enabled || thinkingLevels.length <= 1}
-          title="Applies to the next model request. The current response is unchanged."
-          onChange={(event) => onChange({ type: 'set_thinking_level', level: event.target.value })}
-        >
-          {thinkingLevel === null && <option value="">Unavailable</option>}
-          {thinkingLevels.map((level) => (
-            <option key={level} value={level}>
-              {level}
-            </option>
-          ))}
-        </select>
-      </label>
+      <span>Model: {model ? `${model.provider} / ${model.name}` : 'unavailable'}</span>
+      <span>Thinking: {thinkingLevel ?? 'unavailable'}</span>
       <div
         className="context-usage"
         title="Pi's current context estimate, not cumulative session usage. Unknown after compaction until the next assistant response."
@@ -80,9 +27,6 @@ export function SessionSettings({
           />
         )}
       </div>
-      <p className="muted">
-        Changes apply to the next model request, including tool continuations.
-      </p>
     </div>
   );
 }

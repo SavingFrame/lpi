@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import {
   closeSync,
   constants,
@@ -14,7 +13,8 @@ import { isAbsolute, join } from 'node:path';
 import { buildSessionContext, parseSessionEntries } from '@earendil-works/pi-coding-agent';
 import type { Project } from '../config.js';
 import { AppError, object, text } from '../errors.js';
-import type { Session } from './catalog.js';
+import type { Session } from '../sessions.js';
+import { piInventoryId } from './session-id.js';
 
 function header(content: string): { id: string; cwd: string; timestamp: string } {
   const raw = object(JSON.parse(content));
@@ -36,24 +36,12 @@ function header(content: string): { id: string; cwd: string; timestamp: string }
   };
 }
 
-/** Read-only inventory. Discovery is never an ownership claim or a release receipt. */
+/** Read-only inventory of saved Pi sessions. Never opens an agent runtime. */
 export class SessionDiscovery {
   private readonly sessions = new Map<string, Session>();
   readonly warnings: string[] = [];
 
-  constructor(roots: string[], projects: Project[], excludedFiles: string[] = []) {
-    const excluded = new Set(
-      excludedFiles.map((file) => {
-        try {
-          return realpathSync(file);
-        } catch (error) {
-          if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {
-            return file;
-          }
-          throw error;
-        }
-      }),
-    );
+  constructor(roots: string[], projects: Project[]) {
     const visited = new Set<string>();
     let candidates = 0;
     let directories = 0;
@@ -87,7 +75,7 @@ export class SessionDiscovery {
           const path = join(folder, entry.name);
           try {
             const file = realpathSync(path);
-            if (visited.has(file) || excluded.has(file)) {
+            if (visited.has(file)) {
               continue;
             }
             visited.add(file);
@@ -111,17 +99,16 @@ export class SessionDiscovery {
               continue;
             }
             // Paths distinguish copied/forked files even when their header IDs are duplicated.
-            const digest = createHash('sha256').update(`pi-session:${file}`).digest('hex');
-            const id = `${digest.slice(0, 8)}-${digest.slice(8, 12)}-${digest.slice(12, 16)}-${digest.slice(16, 20)}-${digest.slice(20, 32)}`;
+            const id = piInventoryId(file);
             this.sessions.set(id, {
               id,
               projectId: project.id,
               directory,
               file,
               createdAt: metadata.timestamp,
-              source: 'pi',
               piSessionId: metadata.id,
-              ownership: { phase: 'unknown', generation: 0, interrupted: false },
+              connection: 'disconnected',
+              generation: 0,
             });
           } catch {
             this.warnings.push(`Skipped unreadable or invalid Pi session: ${path}`);

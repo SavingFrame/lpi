@@ -1,8 +1,9 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import { bridgeCommand } from '../bridge/protocol.js';
+import type { NativeBridges } from '../bridge/server.js';
 import type { Config } from '../config.js';
-import type { Coordinator } from '../coordinator.js';
 import { AppError, generation, object, text } from '../errors.js';
-import { parseCommand } from '../rpc/protocol.js';
+import type { Sessions } from '../sessions.js';
 import { serveFrontend } from './frontend.js';
 import { validateRequest } from './security.js';
 
@@ -37,7 +38,8 @@ function send(response: ServerResponse, status: number, data: unknown): void {
 
 export function createApi(
   config: Config,
-  coordinator: Coordinator,
+  sessions: Sessions,
+  bridges: NativeBridges,
   frontendDirectory = 'frontend/dist',
 ) {
   const usedRequests = new Set<string>();
@@ -71,22 +73,19 @@ export function createApi(
         return;
       }
       if (request.method === 'GET' && path === '/sessions') {
-        send(response, 200, { sessions: coordinator.list() });
+        send(response, 200, { sessions: sessions.list() });
         return;
       }
-      const match = /^\/sessions\/([a-f0-9-]{36})(?:\/(start|stop|commands|snapshot))?$/.exec(path);
+      const match = /^\/sessions\/([a-f0-9-]{36})(?:\/(commands|snapshot))?$/.exec(path);
       if (request.method === 'GET' && match?.[2] === 'snapshot') {
-        send(response, 200, await coordinator.snapshot(String(match[1])));
+        send(response, 200, sessions.snapshot(String(match[1])));
         return;
       }
       if (request.method === 'GET' && match && !match[2]) {
-        send(response, 200, coordinator.get(String(match[1])));
+        send(response, 200, sessions.get(String(match[1])));
         return;
       }
-      if (
-        request.method !== 'POST' ||
-        (path !== '/sessions' && (!match?.[2] || match[2] === 'snapshot'))
-      ) {
+      if (request.method !== 'POST' || match?.[2] !== 'commands') {
         throw new AppError('Route not found', 404);
       }
       if (inFlight >= 128) {
@@ -104,36 +103,17 @@ export function createApi(
         );
       }
       if (usedRequests.size >= 100_000) {
-        throw new AppError('Request ID capacity reached; restart after releasing runtimes', 503);
+        throw new AppError('Request ID capacity reached; restart the relay', 503);
       }
       usedRequests.add(requestId);
-      if (path === '/sessions') {
-        send(response, 201, {
-          requestId,
-          outcome: 'completed',
-          session: coordinator.create(text(raw.projectId, 'project ID', 64)),
-        });
-        return;
-      }
-      const id = String(match?.[1]);
-      const expected = generation(raw.generation);
-      if (match?.[2] === 'start') {
-        send(response, 200, {
-          requestId,
-          outcome: 'completed',
-          session: await coordinator.start(id, expected),
-        });
-      } else if (match?.[2] === 'stop') {
-        send(response, 200, {
-          requestId,
-          outcome: 'completed',
-          session: await coordinator.stop(id, expected),
-        });
-      } else {
-        const command = parseCommand(raw.command);
-        const data = await coordinator.command(id, expected, command);
-        send(response, 200, { requestId, outcome: 'acknowledged', data });
-      }
+      const id = String(match[1]);
+      sessions.get(id);
+      const data = await bridges.command(
+        id,
+        generation(raw.generation),
+        bridgeCommand(raw.command),
+      );
+      send(response, 200, { requestId, outcome: 'acknowledged', data });
     } catch (error) {
       const known = error instanceof AppError;
       if (!response.destroyed && !response.writableEnded) {

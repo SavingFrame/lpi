@@ -1,8 +1,8 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
-import { Link, Outlet, useNavigate, useParams } from '@tanstack/react-router';
+import { Link, Outlet, useParams } from '@tanstack/react-router';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import { record } from '../../src/client-state';
-import { ApiError, create, operate, projects, sessions } from './api';
+import { ApiError, operate, projects, sessions } from './api';
 import { live, queryClient } from './client';
 import { SessionSettings } from './session-controls';
 import { Transcript } from './transcript';
@@ -12,28 +12,16 @@ export function Shell() {
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
   const sessionQuery = useQuery({ queryKey: ['sessions'], queryFn: sessions });
   const connection = useSyncExternalStore(live.subscribe, live.getState);
-  const navigate = useNavigate();
   useEffect(() => {
     live.connect();
     return live.disconnect;
   }, []);
-  const creation = useMutation({
-    mutationFn: create,
-    onSuccess: (session) => {
-      void queryClient.invalidateQueries({ queryKey: ['sessions'] });
-      void navigate({
-        to: '/app/projects/$projectId/sessions/$sessionId',
-        params: { projectId: session.projectId, sessionId: session.id },
-      });
-    },
-    onError: () => void queryClient.invalidateQueries({ queryKey: ['sessions'] }),
-  });
   return (
     <div className="shell">
       <aside className="sidebar">
         <div className="brand">
           <Link to="/">
-            pim<span> / local agent</span>
+            pim<span> / native Pi relay</span>
           </Link>
         </div>
         <p className={`connection ${connection.status}`} role="status">
@@ -59,15 +47,6 @@ export function Shell() {
                 >
                   {project.name}
                 </Link>
-                <button
-                  type="button"
-                  className="small"
-                  disabled={creation.isPending || connection.status === 'offline'}
-                  onClick={() => creation.mutate(project.id)}
-                  aria-label={`Create session in ${project.name}`}
-                >
-                  New
-                </button>
               </div>
               {sessionQuery.data
                 ?.filter((session) => session.projectId === project.id)
@@ -80,21 +59,15 @@ export function Shell() {
                     params={{ projectId: project.id, sessionId: session.id }}
                     key={session.id}
                   >
-                    <span>{(session.piSessionId ?? session.id).slice(0, 8)}</span>
+                    <span>{session.piSessionId.slice(0, 8)}</span>
                     <small>
-                      {session.source === 'pi' ? 'Pi · read-only' : session.ownership.phase}
-                      {session.ownership.interrupted ? ' · interrupted' : ''}
+                      {session.connection === 'connected' ? 'Pi · live TUI' : 'Pi · read-only'}
                     </small>
                   </Link>
                 ))}
             </section>
           ))}
         </nav>
-        {creation.error && (
-          <p className="error" role="alert">
-            {creation.error.message}
-          </p>
-        )}
         <footer>
           {projectQuery.data?.find((project) => project.id === projectId)?.name ??
             'Select a project'}
@@ -117,10 +90,8 @@ export function Welcome() {
         <br />
         on your PC.
       </h1>
-      <p>Choose a session or create one from the sidebar.</p>
-      <p className="muted">
-        One runtime owns each session. Browser disconnects do not release ownership.
-      </p>
+      <p>Choose a saved session or connect a running native Pi instance.</p>
+      <p className="muted">Pi runs the agent. Pim relays history, events, and commands.</p>
     </div>
   );
 }
@@ -134,8 +105,7 @@ export function SessionPage() {
 }
 
 interface Operation {
-  operation: 'start' | 'stop' | 'commands';
-  command?: Record<string, unknown>;
+  command: Record<string, unknown>;
   submitted?: string;
 }
 
@@ -156,24 +126,22 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
   }, [id]);
   useEffect(() => sessionStorage.setItem(`draft:${id}`, draft), [draft, id]);
   const snapshot = connection.snapshot?.session.id === id ? connection.snapshot : null;
-  const owner = snapshot?.session.ownership;
+  const session = snapshot?.session;
   const mutation = useMutation({
     mutationFn: (operation: Operation) => {
-      if (!owner || connection.status !== 'ready' || uncertain) {
+      if (session?.connection !== 'connected' || connection.status !== 'ready' || uncertain) {
         throw new ApiError('Session is not ready for commands', 'rejected');
       }
       // A reload or route change while awaiting acceptance must also require inspection.
       sessionStorage.setItem(`uncertain:${id}`, 'true');
-      return operate(id, owner.generation, operation.operation, operation.command);
+      return operate(id, session.generation, operation.command);
     },
     onSuccess: (result, variables) => {
       sessionStorage.removeItem(`uncertain:${id}`);
       const disposition =
         result.data === null || result.data === undefined ? null : record(result.data).disposition;
       setOutcome(
-        variables.command?.type === 'set_model' || variables.command?.type === 'set_thinking_level'
-          ? 'Settings updated for the next model request'
-          : `${disposition ? String(disposition) : String(result.outcome)}. Not necessarily finished.`,
+        `${disposition ? String(disposition) : String(result.outcome)}. Not necessarily finished.`,
       );
       if (variables.submitted !== undefined && draft === variables.submitted) {
         setDraft('');
@@ -193,12 +161,12 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
       void queryClient.invalidateQueries({ queryKey: ['sessions'] });
     },
   });
-  const ready =
+  const active =
     connection.status === 'ready' &&
     !mutation.isPending &&
     !uncertain &&
-    snapshot?.session.projectId === projectId;
-  const active = ready && owner?.phase === 'rpc';
+    session?.projectId === projectId &&
+    session.connection === 'connected';
   return (
     <div className="session-pane">
       <header className="session-header">
@@ -209,17 +177,15 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
           <h1>
             {typeof snapshot?.state.sessionName === 'string'
               ? snapshot.state.sessionName
-              : snapshot?.session.source === 'pi'
-                ? 'Existing Pi session'
-                : 'Conversation'}
+              : 'Pi session'}
           </h1>
           <p className="muted">
-            {owner?.phase ?? 'Loading'}
+            {session?.connection ?? 'Loading'}
             {snapshot?.view.compacting
               ? ' · compacting'
               : snapshot?.view.running
                 ? ' · running'
-                : owner?.phase === 'rpc'
+                : session?.connection === 'connected'
                   ? ' · idle'
                   : ''}
           </p>
@@ -232,44 +198,25 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
           >
             Refresh
           </button>
-          {owner?.phase === 'unowned' && (
-            <button
-              type="button"
-              disabled={!ready}
-              onClick={() => mutation.mutate({ operation: 'start' })}
-            >
-              Start runtime
-            </button>
-          )}
-          {owner?.phase === 'rpc' && (
-            <button
-              type="button"
-              className="danger"
-              disabled={!ready}
-              onClick={() => mutation.mutate({ operation: 'stop' })}
-              title="Stop the runtime. This may interrupt active work."
-            >
-              Stop runtime
-            </button>
-          )}
         </div>
       </header>
       {connection.status !== 'ready' && (
         <p className="banner" role="status">
           {connection.status === 'offline'
-            ? 'Disconnected. The agent may still be running.'
-            : 'Synchronizing authoritative session state…'}{' '}
+            ? 'Disconnected. Pi may still be running.'
+            : 'Synchronizing session state…'}{' '}
           {connection.error}
         </p>
       )}
-      {owner?.phase === 'unknown' && snapshot?.session.source !== 'pi' && (
-        <p className="banner error">
-          Ownership is unknown. Starting another writer is blocked. Use offline operator recovery.
+      {session?.connection === 'connected' && (
+        <p className="banner">
+          Connected to native Pi. Prompts run in its terminal process. Model changes, queue editing,
+          and dialog answers remain terminal-only.
         </p>
       )}
-      {owner?.interrupted && (
+      {session?.connection === 'connected' && snapshot?.state.hasPendingMessages === true && (
         <p className="banner">
-          This session has interrupted or uncertain work. History is not an execution checkpoint.
+          Native Pi has queued messages. Inspect or edit the queue in its terminal.
         </p>
       )}
       {snapshot && snapshot.session.projectId !== projectId && (
@@ -299,60 +246,21 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
       )}
       {snapshot && <Transcript view={snapshot.view} />}
       <div className="composer">
-        {snapshot && (
-          <SessionSettings
-            controls={snapshot.controls}
-            enabled={Boolean(active)}
-            onChange={(command) => mutation.mutate({ operation: 'commands', command })}
-          />
-        )}
-        {snapshot &&
-          (snapshot.view.steering.length + snapshot.view.followUp.length > 0 ||
-            Number(snapshot.state.pendingMessageCount ?? 0) > 0) && (
-            <details className="queues" open>
-              <summary>Pending queue</summary>
-              <ul>
-                {[...new Set(snapshot.view.steering)].map((text) => (
-                  <li key={`steer:${text}`}>
-                    Steer: {text} (×{snapshot.view.steering.filter((item) => item === text).length})
-                  </li>
-                ))}
-                {[...new Set(snapshot.view.followUp)].map((text) => (
-                  <li key={`follow:${text}`}>
-                    Follow-up: {text} (×
-                    {snapshot.view.followUp.filter((item) => item === text).length})
-                  </li>
-                ))}
-              </ul>
-              <button
-                type="button"
-                disabled={!active}
-                onClick={() =>
-                  mutation.mutate({ operation: 'commands', command: { type: 'clear_queue' } })
-                }
-              >
-                Clear queue
-              </button>
-            </details>
-          )}
+        {snapshot && <SessionSettings controls={snapshot.controls} />}
         <form
           onSubmit={(event) => {
             event.preventDefault();
             if (active && draft.trim()) {
-              mutation.mutate({
-                operation: 'commands',
-                command: { type: mode, message: draft },
-                submitted: draft,
-              });
+              mutation.mutate({ command: { type: mode, message: draft }, submitted: draft });
             }
           }}
         >
           <textarea
             aria-label="Message"
             placeholder={
-              owner?.phase === 'unowned'
-                ? 'Start the runtime to send a message'
-                : 'What should Pi work on?'
+              session?.connection === 'connected'
+                ? 'What should Pi work on?'
+                : 'Connect native Pi to send a message'
             }
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
@@ -374,7 +282,7 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
               type="button"
               className="danger"
               disabled={!active}
-              onClick={() => mutation.mutate({ operation: 'commands', command: { type: 'abort' } })}
+              onClick={() => mutation.mutate({ command: { type: 'abort' } })}
               title="Abort does not clear queued messages"
             >
               Abort
