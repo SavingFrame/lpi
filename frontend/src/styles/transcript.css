@@ -67,6 +67,12 @@
     vertical-align: bottom;
     margin-left: 12px;
   }
+  .tool-status-indicator {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+    vertical-align: middle;
+  }
   .tool-status {
     margin-left: 12px;
     font-size: 11px;

@@ -30,10 +30,36 @@ export function transcriptEntries(
   const entries: TranscriptEntry[] = [];
   for (const [index, source] of messages.entries()) {
     const key = keys[index] ?? `${source.role}:${source.timestamp}:${index}`;
+    const blocks = Array.isArray(source.content)
+      ? source.content.filter((block) => {
+          if (source.role !== 'assistant') {
+            return true;
+          }
+          if (block.type === 'thinking') {
+            return typeof block.thinking === 'string' && Boolean(block.thinking.trim());
+          }
+          if (block.type === 'text') {
+            return typeof block.text === 'string' && Boolean(block.text.trim());
+          }
+          return true;
+        })
+      : source.content;
+    const hasMetadata =
+      source.summary !== undefined ||
+      source.output !== undefined ||
+      source.errorMessage !== undefined ||
+      source.isError === true;
+    if (
+      source.role === 'assistant' &&
+      !hasMetadata &&
+      (Array.isArray(blocks) ? blocks.length === 0 : !blocks?.trim())
+    ) {
+      continue;
+    }
     if (
       source.role !== 'assistant' ||
-      !Array.isArray(source.content) ||
-      !source.content.some((block) => {
+      !Array.isArray(blocks) ||
+      !blocks.some((block) => {
         const tool =
           block.type === 'toolCall' && typeof block.id === 'string'
             ? tools.get(block.id)
@@ -41,10 +67,16 @@ export function transcriptEntries(
         return tool && tool.name !== 'codemode';
       })
     ) {
-      entries.push({ kind: 'message', key, item: source, source, actions: true });
+      entries.push({
+        kind: 'message',
+        key,
+        item: { ...source, content: blocks },
+        source,
+        actions: true,
+      });
       continue;
     }
-    const lastText = source.content.findLastIndex(
+    const lastText = blocks.findLastIndex(
       (block) => block.type === 'text' && typeof block.text === 'string' && block.text.trim(),
     );
     let content: Record<string, unknown>[] = [];
@@ -68,7 +100,7 @@ export function transcriptEntries(
       });
       content = [];
     };
-    for (const [blockIndex, block] of source.content.entries()) {
+    for (const [blockIndex, block] of blocks.entries()) {
       const tool =
         block.type === 'toolCall' && typeof block.id === 'string' ? tools.get(block.id) : undefined;
       if (!tool || tool.name === 'codemode') {
@@ -90,13 +122,8 @@ export function transcriptEntries(
         });
       }
     }
-    flush(source.content.length);
-    if (
-      source.summary !== undefined ||
-      source.output !== undefined ||
-      source.errorMessage !== undefined ||
-      source.content.length === 0
-    ) {
+    flush(blocks.length);
+    if (hasMetadata) {
       entries.push({
         kind: 'message',
         key: `${key}:tail`,

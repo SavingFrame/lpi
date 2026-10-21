@@ -72,6 +72,64 @@ test('text, thinking, codemode, unknown calls and user messages break groups', (
   );
 });
 
+test('invisible text and thinking do not split calls within or across assistant messages', () => {
+  const invisible = [
+    { type: 'thinking' },
+    { type: 'thinking', thinking: '' },
+    { type: 'thinking', thinking: ' \n\t ' },
+    { type: 'thinking', thinking: null, thinkingSignature: 'encrypted' },
+    { type: 'text' },
+    { type: 'text', text: '' },
+    { type: 'text', text: ' \n\t ' },
+  ];
+  for (const block of invisible) {
+    for (const messages of [
+      [assistant(call('a'), block, call('b'))],
+      [assistant(call('a')), assistant(block, call('b'))],
+      [assistant(call('a')), assistant(block), assistant(call('b'))],
+    ]) {
+      const entries = entriesFor(messages);
+      assert.equal(entries.length, 1);
+      assert.equal(entries[0].kind, 'tools');
+      assert.deepEqual(
+        entries[0].tools.map(({ key }) => key),
+        ['a', 'b'],
+      );
+    }
+  }
+  for (const content of [[], '', ' \n\t ', undefined]) {
+    const entries = entriesFor([
+      assistant(call('a')),
+      { role: 'assistant', timestamp: 1, content },
+      assistant(call('b')),
+    ]);
+    assert.equal(entries.length, 1);
+    assert.equal(entries[0].tools.length, 2);
+  }
+});
+
+test('invisible blocks do not hide visible message metadata', () => {
+  for (const metadata of [
+    { summary: 'Summary' },
+    { output: 'Output' },
+    { errorMessage: 'Error' },
+    { isError: true },
+  ]) {
+    const entries = entriesFor([
+      assistant(call('a')),
+      { ...assistant({ type: 'thinking', thinking: '' }), ...metadata },
+      assistant(call('b')),
+    ]);
+    assert.deepEqual(
+      entries.map((entry) => entry.kind),
+      ['tools', 'message', 'tools'],
+    );
+    for (const [field, value] of Object.entries(metadata)) {
+      assert.equal(entries[1].item[field], value);
+    }
+  }
+});
+
 test('live partial calls append to existing groups with stable group keys', () => {
   const messages = [assistant(call('a')), result('a')];
   const before = entriesFor(messages);

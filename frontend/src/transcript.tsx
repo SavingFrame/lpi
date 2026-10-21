@@ -6,6 +6,7 @@ import { AskHistory } from './ask-history-card';
 import { CodemodeBlock } from './codemode-block';
 import { SafeMarkdown } from './components/safe-markdown';
 import { Button } from './components/ui/button';
+import { ToolStatus } from './tool-status';
 import {
   messageActionTargets,
   messageActionText,
@@ -45,7 +46,7 @@ function ToolGroup({ tools }: { tools: { key: string; tool: TranscriptTool }[] }
       <summary>
         <span className="tool-name">Tools</span>
         <span className="muted">{tools.length} calls</span>
-        <span className={status === 'Failed' ? 'error' : 'muted'}>{status}</span>
+        <ToolStatus status={status} />
         {failures > 0 && <span className="error">{failures} failed</span>}
       </summary>
       <div className="tool-group-calls">
@@ -71,9 +72,7 @@ function RawToolBlock({ tool }: { tool: TranscriptTool }) {
       <summary>
         <span className="tool-name">{tool.name}</span>
         {typeof input === 'string' && <span className="tool-input">{input}</span>}
-        <span className={`tool-status ${tool.status === 'Failed' ? 'error' : ''}`}>
-          {tool.status}
-        </span>
+        <ToolStatus status={tool.status} className="tool-status" />
       </summary>
       <div className="tool-body">
         <div className="muted">Arguments</div>

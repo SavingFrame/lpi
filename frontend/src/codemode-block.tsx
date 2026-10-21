@@ -1,9 +1,15 @@
 import type { ReactNode } from 'react';
 import type { Message } from '../../src/shared/client-state';
 import { codemodeCallInput, codemodeState } from './codemode-state';
+import { ToolStatus } from './tool-status';
 import type { TranscriptTool } from './transcript-state';
 
-const statuses = { running: 'Running', ok: 'Completed', error: 'Failed', cancelled: 'Cancelled' };
+const statuses = {
+  running: 'Running',
+  ok: 'Completed',
+  error: 'Failed',
+  cancelled: 'Cancelled',
+} as const;
 
 export function CodemodeBlock({
   tool,
@@ -20,7 +26,7 @@ export function CodemodeBlock({
         <span className="muted">
           {state.calls.length} {state.calls.length === 1 ? 'call' : 'calls'}
         </span>
-        <span className={tool.status === 'Failed' ? 'error' : 'muted'}>{tool.status}</span>
+        <ToolStatus status={tool.status} />
         {state.wallTime && <span className="muted">{state.wallTime}</span>}
         {state.errors > 0 && (
           <span className="error">
@@ -37,9 +43,7 @@ export function CodemodeBlock({
               <span className="tool-input" title={codemodeCallInput(call)}>
                 {codemodeCallInput(call)}
               </span>
-              <span className={`tool-status ${call.status === 'error' ? 'error' : ''}`}>
-                {statuses[call.status]}
-              </span>
+              <ToolStatus status={statuses[call.status]} className="tool-status" />
               {call.durationMs !== undefined && (
                 <span className="muted codemode-duration">
                   {call.durationMs < 1000
