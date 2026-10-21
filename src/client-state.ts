@@ -1,4 +1,6 @@
-// Shared, dependency-free projection of native Pi events.
+import { type ExtensionSnapshots, extensionSnapshots } from './extension-support/registry.ts';
+
+// Shared, browser-safe projection of native Pi events.
 export interface Message {
   role: string;
   timestamp: number;
@@ -20,6 +22,7 @@ export interface View {
   running: boolean;
   compacting: boolean;
   notice: string | null;
+  extensions: ExtensionSnapshots;
 }
 
 export function record(value: unknown): Record<string, unknown> {
@@ -55,12 +58,20 @@ export function emptyView(): View {
     running: false,
     compacting: false,
     notice: null,
+    extensions: {},
   };
 }
 
 export function reduceEvent(view: View, event: Record<string, unknown>): View {
   const next = { ...view };
   switch (event.type) {
+    case 'extension_support':
+      if (event.notice !== null && typeof event.notice !== 'string') {
+        throw new Error('Invalid extension support notice');
+      }
+      next.extensions = extensionSnapshots(event.extensions);
+      next.notice = event.notice;
+      break;
     case 'agent_start':
       next.running = true;
       break;

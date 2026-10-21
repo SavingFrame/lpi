@@ -16,6 +16,7 @@ import { emptyView, record, reduceEvent } from '../client-state.js';
 import type { Config } from '../config.js';
 import { AppError, text } from '../errors.js';
 import type { Events } from '../events.js';
+import { sessionActivity } from '../session-activity.js';
 import { promptTitle, type Session } from '../sessions.js';
 import { piInventoryId } from '../storage/session-id.js';
 import {
@@ -33,6 +34,7 @@ interface Pending {
 }
 
 interface NativeSession {
+  finished: boolean;
   launchId?: string;
   session: Session;
   socket?: WebSocket;
@@ -192,7 +194,11 @@ export class NativeBridges {
             controls: raw.controls,
             view: { ...native.snapshot.view, notice: state.pendingDialog ?? null },
           });
-          this.events.publish(native.session.id, native.session.generation, 'bridge-status', null);
+          this.events.publish(native.session.id, native.session.generation, 'bridge-status', {
+            state: native.snapshot.state,
+            controls: native.snapshot.controls,
+            notice: native.snapshot.view.notice,
+          });
         } else if (raw.type === 'sync') {
           native.snapshot = bridgeSnapshot(raw.snapshot);
           this.events.publish(native.session.id, native.session.generation, 'bridge-sync', null);
@@ -210,6 +216,7 @@ export class NativeBridges {
               'tool_execution_end',
               'compaction_start',
               'compaction_end',
+              'extension_support',
             ].includes(String(event.type))
           ) {
             throw new Error('Unsupported bridge event');
@@ -218,7 +225,11 @@ export class NativeBridges {
             ...native.snapshot,
             view: reduceEvent(native.snapshot.view, event),
           };
-          next.state = { ...next.state, isStreaming: next.view.running };
+          next.state = {
+            ...next.state,
+            isStreaming: next.view.running,
+            ...(event.type === 'extension_support' ? { pendingDialog: next.view.notice } : {}),
+          };
           if (next.view.tools.length > 512) {
             throw new Error('Native tool limit reached');
           }
@@ -226,6 +237,12 @@ export class NativeBridges {
             throw new Error('Native snapshot limit reached');
           }
           native.snapshot = next;
+          if (event.type === 'agent_start') {
+            native.finished = false;
+          }
+          if (event.type === 'agent_settled') {
+            native.finished = true;
+          }
           this.events.publish(native.session.id, native.session.generation, 'pi-event', event);
         } else {
           throw new Error('Unsupported bridge frame');
@@ -307,6 +324,7 @@ export class NativeBridges {
       throw new Error('Native session inventory limit reached');
     }
     const native: NativeSession = {
+      finished: false,
       launchId: raw.launchId === undefined ? undefined : text(raw.launchId, 'launch ID', 128),
       socket,
       pending: new Map(),
@@ -347,8 +365,18 @@ export class NativeBridges {
     return native ? structuredClone(native.session) : undefined;
   }
 
-  list(): Session[] {
-    return structuredClone([...this.sessions.values()].map((native) => native.session));
+  list() {
+    return structuredClone(
+      [...this.sessions.values()].map((native) => ({
+        ...native.session,
+        activity: sessionActivity(
+          native.session.connection === 'connected',
+          native.snapshot.state,
+          native.snapshot.view,
+          native.finished,
+        ),
+      })),
+    );
   }
 
   get(id: string): Session | undefined {

@@ -1,5 +1,7 @@
 import { message, record, type View } from '../../src/client-state.ts';
 import type { Project } from '../../src/config.ts';
+import { extensionSnapshots } from '../../src/extension-support/registry.ts';
+import type { SessionActivity } from '../../src/session-activity.ts';
 import { type SessionControls, sessionControls } from '../../src/session-controls.ts';
 import type { Session } from '../../src/sessions.ts';
 
@@ -78,6 +80,7 @@ export function snapshot(value: unknown): Snapshot {
       running: view.running,
       compacting: view.compacting,
       notice: view.notice,
+      extensions: extensionSnapshots(view.extensions),
     },
   };
 }
@@ -148,12 +151,25 @@ export async function projects(): Promise<Project[]> {
   });
 }
 
-export async function sessions(): Promise<Session[]> {
+export async function sessions(): Promise<(Session & { activity: SessionActivity })[]> {
   const raw = record(await request('/sessions'));
   if (!Array.isArray(raw.sessions)) {
     throw new Error('Invalid sessions');
   }
-  return raw.sessions.map(session);
+  return raw.sessions.map((value) => {
+    const item = session(value);
+    const { activity } = record(value);
+    if (
+      activity !== 'idle' &&
+      activity !== 'running' &&
+      activity !== 'blocked' &&
+      activity !== 'finished' &&
+      activity !== 'unknown'
+    ) {
+      throw new Error('Invalid session activity');
+    }
+    return { ...item, activity };
+  });
 }
 
 export async function inspect(id: string, signal: AbortSignal): Promise<Snapshot> {

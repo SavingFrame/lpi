@@ -1,0 +1,130 @@
+.ask-questionnaire {
+  margin: 1rem 0;
+  padding: 1rem;
+  border: 1px solid #52525b;
+  border-radius: 0.75rem;
+  background: #18181b;
+  color: #e4e4e7;
+}
+
+.ask-questionnaire h2 {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ask-questionnaire > header p,
+.ask-hint {
+  margin: 0.5rem 0;
+  color: #a1a1aa;
+  font-size: 0.75rem;
+}
+
+.ask-question {
+  min-width: 0;
+  margin: 1rem 0;
+  padding: 0.75rem;
+  border: 1px solid #3f3f46;
+  border-radius: 0.5rem;
+}
+
+.ask-question legend {
+  max-width: 100%;
+  padding: 0 0.25rem;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ask-header {
+  display: inline-block;
+  margin-right: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.25rem;
+  background: #3f3f46;
+  font-size: 0.75rem;
+}
+
+.ask-options {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.ask-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.65rem;
+  border: 1px solid #3f3f46;
+  border-radius: 0.35rem;
+  cursor: pointer;
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}
+
+.ask-option:has(input:checked),
+.ask-option:focus-within {
+  border-color: #7dd3fc;
+  background: #27272a;
+}
+
+.ask-option input {
+  flex-shrink: 0;
+  margin-top: 0.2rem;
+  accent-color: #7dd3fc;
+}
+
+.ask-description {
+  display: block;
+  margin-top: 0.2rem;
+  color: #a1a1aa;
+  font-size: 0.8rem;
+}
+
+.ask-options-and-preview {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 0.75rem;
+}
+
+.ask-preview {
+  min-width: 0;
+  max-height: 24rem;
+  overflow: auto;
+  padding: 0.75rem;
+  border: 1px solid #3f3f46;
+  border-radius: 0.35rem;
+  overflow-wrap: anywhere;
+}
+
+.ask-preview pre {
+  overflow-x: auto;
+  white-space: pre;
+}
+
+.ask-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+}
+
+.ask-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.ask-question:disabled {
+  opacity: 0.6;
+}
+
+@media (max-width: 700px) {
+  .ask-options-and-preview {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

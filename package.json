@@ -17,7 +17,7 @@
     "build:frontend": "vite build --config frontend/vite.config.ts frontend",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p frontend/tsconfig.json",
     "start": "node dist/main.js",
-    "test:frontend": "node --experimental-strip-types --test frontend/tests/live.test.mjs",
+    "test:frontend": "node --experimental-strip-types --test frontend/tests/*.test.mjs",
     "test:server": "npm run build:server && node --test tests/*.test.mjs",
     "test": "npm run test:server && npm run test:frontend"
   },

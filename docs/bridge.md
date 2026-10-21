@@ -40,13 +40,16 @@ The endpoint defaults to `ws://127.0.0.1:3141/bridge`. Set `PIM_BRIDGE_URL` for 
 - Browser prompt, steer, follow-up, and abort through public extension APIs.
 - Browser model/thinking selectors through `pi.setModel()` and `pi.setThinkingLevel()`, restricted to idle Pi with no queued messages or dialogs. Models come from the authenticated native registry. Thinking options come from `getSupportedThinkingLevels(ctx.model)` in `@earendil-works/pi-ai/models`, including custom model mappings and `max` where supported. Pi clamps changes; snapshots report the effective value and supported options.
 - Stop runtime for connected Pim-managed instances through `ctx.abort()` and `ctx.shutdown()`. Acceptance is flushed before shutdown cleanup disconnects the bridge. External instances reject this command.
-- Native prompt lifecycle notices where Pi exposes them. Dialog answers remain terminal-only.
+- Native prompt lifecycle notices where Pi exposes them. Unsupported dialog answers remain terminal-only.
+- Explicit support modules under `src/extension-support/`. Ask User Question uses its public prompt/blocked/answer/verdict events to expose browser questionnaires while keeping native UI. Pending state remains in the native bridge across transport disconnects; reconnect snapshots restore open questions, not unfinished tools after a native restart.
 
-Browser image attachments are delivered as structured image content through `pi.sendUserMessage`, including with steer/follow-up and image-only messages. PNG, JPEG, GIF, and WebP are supported, up to four images and 4 MiB total per message. A model with image input support is required. Slash commands, queue editing, and custom terminal UI adaptation are not exposed. Steer/follow-up use normal Pi semantics and can start a turn when idle.
+Browser image attachments are delivered as structured image content through `pi.sendUserMessage`, including with steer/follow-up and image-only messages. PNG, JPEG, GIF, and WebP are supported, up to four images and 4 MiB total per message. A model with image input support is required. Slash commands, queue editing, and generic custom-terminal-UI adaptation are not exposed. Steer/follow-up use normal Pi semantics and can start a turn when idle.
 
 For each browser image submission, the extension adds a durable native TUI indicator such as `Pim: 1 image submitted (prompt)`. It records the count and delivery mode as a custom session entry, without duplicating image bytes or adding model context. The indicator renders again after reload/resume while the bridge extension is loaded. It indicates submission, not model acceptance or execution, and queued messages can still be changed or discarded in native Pi. Existing submissions are not backfilled.
 
-Acknowledgment means API dispatch, not persistence, model acceptance, or successful execution. Later failures may still appear in Pi. Never replay uncertain commands automatically.
+For Ask extension answers, acknowledgment waits for its correlated acceptance verdict. Selections, custom text, per-question/global notes, previews from matching live tool arguments, and explicit cancellation are supported. The first native or remote answer wins. See [support module details](../src/extension-support/ask-user-question/README.md). Other dialogs remain terminal-only.
+
+For ordinary Pi commands, acknowledgment means API dispatch, not persistence, model acceptance, or successful execution. Later failures may still appear in Pi. Never replay uncertain commands automatically.
 
 ## Connection safety
 
@@ -72,4 +75,4 @@ For example, `Invalid controls.availableThinkingLevels: expected an array` indic
 
 Focused tests run the compiled extension against a fake public Pi context and isolated local HTTP/WebSocket transports. They cover streaming, commands, dialogs, disconnects, connection conflicts, reload reconnects, stale generations, token-free connections, Host/Origin rejection, and unknown outcomes without model calls.
 
-Real native Pi with the installed extensions remains unverified. No automatic recovery of unfinished tools or generic remote custom-dialog support is claimed.
+Real native Pi with the installed extensions remains unverified. Ask support has focused adapter, fake-native bridge, and mocked-browser tests, including reconnects, concurrent questions, terminal closures, rejected answers, and unknown delivery. No automatic recovery of unfinished tools or generic remote custom-dialog support is claimed.

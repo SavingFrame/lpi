@@ -40,7 +40,9 @@ POST bodies require JSON content type, a unique request ID, and the current conn
 }
 ```
 
-Supported commands: `prompt`, `steer`, `follow_up`, `abort`, `set_model`, `set_thinking_level`, and `stop_runtime`. Model changes accept `{ type: "set_model", provider, modelId }`; thinking changes accept `{ type: "set_thinking_level", level }` with `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. Both require idle Pi with no queued messages or dialogs. Pi validates model availability/authentication and clamps thinking to model capabilities. These changes affect the session, not defaults for new sessions. Stop is limited to connected Pim-managed runtimes advertising `state.managedRuntime: true`. It requests abort and graceful shutdown without deleting history. Acknowledgment means acceptance, not confirmed process exit; existing tmux reservation checks still apply before resume. Prompt optionally accepts `streamingBehavior: "steer" | "followUp"`. Messages optionally include `images: [{ type: "image", mimeType: "image/png", data: "<base64>" }]`. PNG, JPEG, GIF, and WebP are supported (four images, 4 MiB total decoded bytes). An empty `message` is accepted when images are present. Slash commands, queue editing, and dialog answers are not exposed.
+Supported commands: `prompt`, `steer`, `follow_up`, `abort`, `set_model`, `set_thinking_level`, `stop_runtime`, and explicit `extension` actions. Model changes accept `{ type: "set_model", provider, modelId }`; thinking changes accept `{ type: "set_thinking_level", level }` with `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. Both require idle Pi with no queued messages or dialogs. Pi validates model availability/authentication and clamps thinking to model capabilities. These changes affect the session, not defaults for new sessions. Stop is limited to connected Pim-managed runtimes advertising `state.managedRuntime: true`. It requests abort and graceful shutdown without deleting history. Acknowledgment means acceptance, not confirmed process exit; existing tmux reservation checks still apply before resume. Prompt optionally accepts `streamingBehavior: "steer" | "followUp"`. Messages optionally include `images: [{ type: "image", mimeType: "image/png", data: "<base64>" }]`. PNG, JPEG, GIF, and WebP are supported (four images, 4 MiB total decoded bytes). An empty `message` is accepted when images are present. Slash commands, queue editing, and unsupported dialog answers are not exposed.
+
+Extension actions use `{ type: "extension", extension: "ask-user-question", action: { toolCallId, answers?, globalNote?, cancel? } }`. Only registered modules are allowed; there is no arbitrary event-bus dispatch. Ask answers require every question answered, with zero-based `questionIndex` and `optionIndexes`, optional custom `text`/per-question `notes`, or explicit `cancel: true`. Ask acknowledgment waits for its correlated authoritative verdict; an explicit rejection does not close the connection. Missing/malformed verdicts are unknown outcomes. See the [module contract](../src/extension-support/ask-user-question/README.md).
 
 Success returns `outcome: "acknowledged"` and `data.disposition: "dispatched"`. This means the extension invoked the public Pi API, not that work completed or persisted. Observe subsequent output and settlement.
 
@@ -52,7 +54,7 @@ Snapshots contain `{ epoch, cursor, session, state, controls, view }`.
 
 - `state`: runtime metadata or read-only file status.
 - `controls`: current model, `availableModels` (provider/id/name from the authenticated native registry), `scopedModels` (provider/id/name from `ctx.scopedModels`, not a separate favorites store), effective thinking level, `availableThinkingLevels` (from `pi-ai` capabilities for the current native model), and context usage. Disconnected saved-file snapshots have no available models.
-- `view`: current-context messages, authoritative assistant partial, active tools, running/compacting flags, and notices.
+- `view`: current-context messages, authoritative assistant partial, active tools, running/compacting flags, notices, and `extensions` containing registered module-specific pending state. Read-only/disconnected snapshots have no actionable extension state.
 
 Connected snapshots come from the extension's received stream. The server captures the cached snapshot and event boundary synchronously. This is not a checkpoint of the native process.
 
@@ -69,7 +71,7 @@ Browser clients connect to `/events`. REST remains the command channel. The hand
 Subsequent events contain `epoch`, `cursor`, `sessionId`, `generation`, `type`, and `data`. Types are:
 
 - `connection`: bridge attachment/disconnection metadata.
-- `pi-event`: supported native agent/message/tool events.
+- `pi-event`: supported native agent/message/tool events and Pim `extension_support` notifications. A support notification carries `{ extensions, notice }`, replaces validated module state, and updates the waiting notice without reloading history.
 - `bridge-sync`: refreshed branch/activity snapshot.
 - `bridge-status`: changed runtime metadata.
 
@@ -89,4 +91,4 @@ All reachable LAN/Tailscale clients are trusted. Browser/API and bridge access h
 
 Slow clients disconnect without stalling Pi. Closing the relay disconnects bridges but never terminates native Pi.
 
-Questions and approvals remain terminal-only. Abort is not assumed to dismiss a dialog. Tests use fake Pi contexts and isolated transports; installed native-Pi integration remains unverified.
+Ask User Question has an explicit browser support module. Other questions and approvals remain terminal-only unless a support module is added. Abort is not assumed to dismiss a dialog. Tests use fake Pi contexts and isolated transports; installed native-Pi integration remains unverified.

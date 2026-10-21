@@ -6,7 +6,8 @@ import {
 } from '@earendil-works/pi-coding-agent';
 import { WebSocket } from 'ws';
 import { emptyView, record, reduceEvent, type View } from '../client-state.js';
-import { text } from '../errors.js';
+import { AppError, text } from '../errors.js';
+import { nativeExtensionSupport } from '../extension-support/native.js';
 import { reserveManagedFile } from '../tmux-binding.js';
 import { BRIDGE_LIMIT, bridgeCommand } from './protocol.js';
 
@@ -22,6 +23,8 @@ export default function nativeBridge(pi: ExtensionAPI): void {
   let sessionFile: string | undefined;
   let sessionId: string | undefined;
   let view: View = emptyView();
+  let support: ReturnType<typeof nativeExtensionSupport> | undefined;
+  let nativeNotice: string | null = null;
   let enabled = false;
   let attempt = 0;
   let bridgeUrl = process.env.PIM_BRIDGE_URL ?? 'ws://127.0.0.1:3141/bridge';
@@ -118,6 +121,18 @@ export default function nativeBridge(pi: ExtensionAPI): void {
         contextUsage: ctx.getContextUsage() ?? null,
       },
     };
+  }
+
+  function notice(): string | null {
+    return support?.notice() ?? nativeNotice;
+  }
+
+  function supportChanged(): void {
+    if (!ctx || !support) {
+      return;
+    }
+    view.extensions = support.snapshot();
+    forward({ type: 'extension_support', extensions: view.extensions, notice: notice() }, ctx);
   }
 
   function sync(): void {
@@ -255,6 +270,30 @@ export default function nativeBridge(pi: ExtensionAPI): void {
             });
             return;
           }
+          if (command.type === 'extension') {
+            const commandGeneration = generation;
+            try {
+              if (!support) {
+                throw new AppError('Native extension support is unavailable', 422);
+              }
+              await support.execute(command, id);
+            } catch (error) {
+              if (socket !== current || generation !== commandGeneration) {
+                return;
+              }
+              // Only a local preflight or the extension's explicit verdict can reject safely.
+              if (!(error instanceof AppError) || error.outcome === 'unknown') {
+                throw error;
+              }
+              send({ type: 'ack', id, outcome: 'rejected', error: error.message });
+              return;
+            }
+            // A reconnect must not receive an old connection's acknowledgment.
+            if (socket === current && generation === commandGeneration) {
+              send({ type: 'ack', id, outcome: 'acknowledged' });
+            }
+            return;
+          }
           // Never report rejection after dispatch. A thrown action has an uncertain outcome.
           if (command.type === 'stop_runtime') {
             stopping = true;
@@ -381,6 +420,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
     if (ctx.mode !== 'tui') {
       return;
     }
+    support?.observe(event);
     // Track transient state even offline so reconnect can recover an in-progress response.
     try {
       view = { ...reduceEvent(view, event), messages: [] };
@@ -418,13 +458,26 @@ export default function nativeBridge(pi: ExtensionAPI): void {
   }
 
   pi.on('session_start', (_event, context) => {
+    stop();
+    support?.dispose();
+    support = undefined;
+    nativeNotice = null;
     ctx = context;
     view = { ...emptyView(), running: !context.isIdle() };
     if (context.mode === 'tui') {
+      support = nativeExtensionSupport(
+        pi,
+        supportChanged,
+        (toolCallId) => view.tools.find((tool) => tool.id === toolCallId)?.args,
+      );
       start(context);
     }
   });
-  pi.on('session_shutdown', () => stop());
+  pi.on('session_shutdown', () => {
+    stop();
+    support?.dispose();
+    support = undefined;
+  });
   pi.registerCommand('pim-connect', {
     description: 'Connect this native session to Pim. Optional argument: bridge WebSocket URL.',
     handler: async (args, context) => {
@@ -435,7 +488,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
       if (
         await context.ui.confirm(
           'Connect to Pim?',
-          `Share this transcript and allow remote prompts, model/thinking changes, and abort requests through ${bridgeUrl}?`,
+          `Share this transcript and allow remote prompts, model/thinking changes, supported extension answers, and abort requests through ${bridgeUrl}?`,
         )
       ) {
         start(context);
@@ -470,12 +523,14 @@ export default function nativeBridge(pi: ExtensionAPI): void {
   });
   pi.on('ui_prompt_start', (event, context) => {
     ctx = context;
-    view.notice = `Native Pi is waiting for ${event.kind}. Answer in the terminal.`;
+    nativeNotice = `Native Pi is waiting for ${event.kind}. Answer in the terminal.`;
+    view.notice = notice();
     sync();
   });
   pi.on('ui_prompt_end', (_event, context) => {
     ctx = context;
-    view.notice = null;
+    nativeNotice = null;
+    view.notice = notice();
     sync();
   });
 }

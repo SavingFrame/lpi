@@ -1,6 +1,7 @@
 import { EVENT_BUFFER_LIMIT } from '../../src/attachments.ts';
 import { record, reduceEvent } from '../../src/client-state.ts';
 import type { ServerEvent } from '../../src/events.ts';
+import { sessionControls } from '../../src/session-controls.ts';
 import { inspect, type Snapshot } from './api.ts';
 
 export interface LiveState {
@@ -88,7 +89,17 @@ export class LiveSession {
         }
         const item = raw as unknown as ServerEvent;
         this.cursor = item.cursor;
-        if (item.type === 'connection') {
+        if (
+          ['connection', 'bridge-status', 'bridge-sync'].includes(item.type) ||
+          (item.type === 'pi-event' &&
+            [
+              'agent_start',
+              'agent_settled',
+              'compaction_start',
+              'compaction_end',
+              'extension_support',
+            ].includes(String(record(item.data).type)))
+        ) {
           this.invalidate();
         }
         if (item.sessionId !== this.id) {
@@ -206,16 +217,43 @@ export class LiveSession {
     if (
       event.generation !== snapshot.session.generation ||
       event.type === 'connection' ||
-      event.type === 'bridge-sync' ||
-      event.type === 'bridge-status' ||
-      (event.type === 'pi-event' &&
-        ['compaction_end', 'agent_settled'].includes(String(record(event.data).type)))
+      event.type === 'bridge-sync'
     ) {
       this.refresh();
       return;
     }
-    const view =
-      event.type === 'pi-event' ? reduceEvent(snapshot.view, record(event.data)) : snapshot.view;
-    this.update({ ...this.current, snapshot: { ...snapshot, cursor: event.cursor, view } });
+    if (event.type === 'bridge-status') {
+      const data = record(event.data);
+      const state = record(data.state);
+      if (
+        typeof state.isStreaming !== 'boolean' ||
+        typeof state.hasPendingMessages !== 'boolean' ||
+        (data.notice !== null && typeof data.notice !== 'string')
+      ) {
+        throw new Error('Invalid native status');
+      }
+      const controls = sessionControls(data.controls);
+      this.update({
+        ...this.current,
+        snapshot: {
+          ...snapshot,
+          cursor: event.cursor,
+          state,
+          controls,
+          view: { ...snapshot.view, notice: data.notice },
+        },
+      });
+      return;
+    }
+    const nativeEvent = event.type === 'pi-event' ? record(event.data) : null;
+    const view = nativeEvent ? reduceEvent(snapshot.view, nativeEvent) : snapshot.view;
+    const state = nativeEvent
+      ? {
+          ...snapshot.state,
+          isStreaming: view.running,
+          ...(nativeEvent.type === 'extension_support' ? { pendingDialog: view.notice } : {}),
+        }
+      : snapshot.state;
+    this.update({ ...this.current, snapshot: { ...snapshot, cursor: event.cursor, state, view } });
   }
 }

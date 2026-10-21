@@ -3,8 +3,20 @@ import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
 import { EVENT_BUFFER_LIMIT, imageAttachments } from '../../src/attachments.ts';
 import { emptyView, reduceEvent } from '../../src/client-state.ts';
+import {
+  answer as askAnswer,
+  prompt as askPrompt,
+} from '../../src/extension-support/ask-user-question/tests/fixtures.mjs';
+import { sessionActivity } from '../../src/session-activity.ts';
 import { sessionControls } from '../../src/session-controls.ts';
-import { ApiError, operate, projects, session } from '../src/api.ts';
+import {
+  ApiError,
+  operate,
+  snapshot as parseSnapshot,
+  projects,
+  session,
+  sessions,
+} from '../src/api.ts';
 import { LiveSession } from '../src/live.ts';
 import { transcriptState } from '../src/transcript-state.ts';
 
@@ -133,6 +145,59 @@ test('session validation requires native identity and valid connection metadata'
   assert.throws(() => session({ ...native, piSessionId: undefined }));
   assert.throws(() => session({ ...native, connection: 'invalid' }));
   assert.throws(() => session({ ...native, generation: -1 }));
+});
+
+test('activity distinguishes observed completion, work, dialogs and unknown connections', () => {
+  const view = emptyView();
+  assert.equal(sessionActivity(true, {}, view, false), 'idle');
+  assert.equal(sessionActivity(true, {}, view, true), 'finished');
+  assert.equal(sessionActivity(true, {}, { ...view, running: true }, true), 'running');
+  assert.equal(sessionActivity(true, {}, { ...view, compacting: true }, true), 'running');
+  assert.equal(sessionActivity(true, { isStreaming: true }, view, false), 'running');
+  assert.equal(sessionActivity(true, { hasPendingMessages: true }, view, true), 'idle');
+  assert.equal(
+    sessionActivity(true, { pendingDialog: 'Confirm?' }, { ...view, running: true }, false),
+    'blocked',
+  );
+  assert.equal(sessionActivity(false, { pendingDialog: 'Confirm?' }, view, true), 'unknown');
+});
+
+test('session inventory validates activity values', async (t) => {
+  let activity = 'running';
+  t.mock.method(globalThis, 'fetch', async () =>
+    Response.json({ sessions: [{ ...boundary().session, activity }] }),
+  );
+  assert.equal((await sessions())[0].activity, 'running');
+  activity = 'invalid';
+  await assert.rejects(sessions(), /Invalid session activity/);
+});
+
+test('unselected session activity refreshes inventory without loading its transcript', async (t) => {
+  const { live, requests, sockets, invalidations } = setup(t);
+  requests[0].resolve(Response.json(boundary()));
+  await setImmediate();
+  const initial = invalidations();
+  const events = [
+    ['pi-event', { type: 'agent_start' }],
+    ['bridge-status', null],
+    ['pi-event', { type: 'agent_settled' }],
+    ['bridge-sync', null],
+    ['pi-event', { type: 'compaction_start' }],
+    ['pi-event', { type: 'compaction_end' }],
+  ];
+  for (const [index, [type, data]] of events.entries()) {
+    sockets[0].send({
+      epoch: 'server-one',
+      cursor: index + 1,
+      sessionId: otherId,
+      generation: 1,
+      type,
+      data,
+    });
+  }
+  assert.equal(invalidations(), initial + events.length);
+  assert.equal(requests.length, 1);
+  assert.equal(live.getState().snapshot.session.id, id);
 });
 
 test('project queries preserve discovered folder names', async (t) => {
@@ -383,38 +448,109 @@ test('context usage preserves unknown values and rejects malformed statistics', 
   );
 });
 
-test('native status refreshes model, thinking, queue presence and context', async (t) => {
+test('native status updates controls, queue and notices without fetching history', async (t) => {
   const { live, requests, send, sockets } = setup(t);
   requests[0].resolve(Response.json(boundary()));
   await setImmediate();
-  sockets[0].send({
-    epoch: 'server-one',
-    cursor: 1,
-    sessionId: id,
-    generation: 3,
-    type: 'bridge-status',
-    data: null,
-  });
-  assert.equal(live.getState().status, 'syncing');
-  const updated = boundary(1);
+  send(1, { type: 'message_update', message: partial });
+  const previous = live.getState().snapshot.view;
+  const updated = boundary();
   updated.controls.thinkingLevel = 'max';
   updated.controls.availableThinkingLevels = ['high', 'max'];
   updated.controls.model = { provider: 'fake', id: 'second', name: 'Second' };
+  updated.controls.contextUsage.percent = 50;
   updated.state.hasPendingMessages = true;
-  requests[1].resolve(Response.json(updated));
-  await setImmediate();
-  assert.equal(live.getState().snapshot.controls.thinkingLevel, 'max');
-  assert.deepEqual(live.getState().snapshot.controls.availableThinkingLevels, ['high', 'max']);
-  assert.equal(live.getState().snapshot.controls.model.id, 'second');
-  assert.equal(live.getState().snapshot.state.hasPendingMessages, true);
-  for (const [index, type] of ['agent_settled', 'compaction_end'].entries()) {
-    send(2 + index, { type });
-    assert.equal(live.getState().status, 'syncing');
-    requests[2 + index].resolve(Response.json(boundary(2 + index)));
-    await setImmediate();
-    assert.equal(live.getState().status, 'ready');
-  }
+  updated.state.pendingDialog = 'Answer in terminal';
+  sockets[0].send({
+    epoch: 'server-one',
+    cursor: 2,
+    sessionId: id,
+    generation: 3,
+    type: 'bridge-status',
+    data: { state: updated.state, controls: updated.controls, notice: updated.state.pendingDialog },
+  });
+  const current = live.getState().snapshot;
+  assert.equal(live.getState().status, 'ready');
+  assert.equal(current.cursor, 2);
+  assert.equal(current.controls.thinkingLevel, 'max');
+  assert.deepEqual(current.controls.availableThinkingLevels, ['high', 'max']);
+  assert.equal(current.controls.model.id, 'second');
+  assert.equal(current.controls.contextUsage.percent, 50);
+  assert.equal(current.state.hasPendingMessages, true);
+  assert.equal(current.view.notice, 'Answer in terminal');
+  assert.equal(current.view.messages, previous.messages);
+  assert.equal(current.view.partial, previous.partial);
+  assert.equal(current.view.tools, previous.tools);
+  assert.equal(requests.length, 1);
 });
+
+test('run and compaction lifecycle events update locally without fetching snapshots', async (t) => {
+  const { live, requests, send } = setup(t);
+  requests[0].resolve(Response.json(boundary()));
+  await setImmediate();
+  send(1, { type: 'agent_start' });
+  send(2, { type: 'compaction_start' });
+  assert.equal(live.getState().snapshot.state.isStreaming, true);
+  assert.equal(live.getState().snapshot.view.compacting, true);
+  send(3, { type: 'message_update', message: partial });
+  send(4, { type: 'tool_execution_start', toolCallId: 'call', toolName: 'read' });
+  send(5, { type: 'agent_settled' });
+  send(6, { type: 'compaction_end' });
+  const current = live.getState().snapshot;
+  assert.equal(live.getState().status, 'ready');
+  assert.equal(current.cursor, 6);
+  assert.equal(current.state.isStreaming, false);
+  assert.equal(current.view.running, false);
+  assert.equal(current.view.compacting, false);
+  assert.equal(current.view.partial, null);
+  assert.deepEqual(current.view.tools, []);
+  assert.equal(requests.length, 1);
+});
+
+test('buffered status updates respect snapshot cursors without another fetch', async (t) => {
+  const { live, requests, sockets } = setup(t);
+  for (const cursor of [1, 2]) {
+    const updated = boundary();
+    updated.state.hasPendingMessages = cursor === 2;
+    sockets[0].send({
+      epoch: 'server-one',
+      cursor,
+      sessionId: id,
+      generation: 3,
+      type: 'bridge-status',
+      data: { state: updated.state, controls: updated.controls, notice: null },
+    });
+  }
+  requests[0].resolve(Response.json(boundary(1)));
+  await setImmediate();
+  assert.equal(live.getState().status, 'ready');
+  assert.equal(live.getState().snapshot.cursor, 2);
+  assert.equal(live.getState().snapshot.state.hasPendingMessages, true);
+  assert.equal(requests.length, 1);
+});
+
+for (const invalid of [
+  { state: {}, controls: boundary().controls, notice: null },
+  { state: boundary().state, controls: {}, notice: null },
+  { state: boundary().state, controls: boundary().controls, notice: 42 },
+]) {
+  test('invalid status payload closes the stream without applying it', async (t) => {
+    const { live, requests, sockets } = setup(t);
+    requests[0].resolve(Response.json(boundary()));
+    await setImmediate();
+    const previous = live.getState().snapshot;
+    sockets[0].send({
+      epoch: 'server-one',
+      cursor: 1,
+      sessionId: id,
+      generation: 3,
+      type: 'bridge-status',
+      data: invalid,
+    });
+    assert.equal(live.getState().status, 'offline');
+    assert.equal(live.getState().snapshot, previous);
+  });
+}
 
 test('selection change ignores an outstanding response for the previous session', async (t) => {
   const { live, requests } = setup(t);
@@ -517,4 +653,97 @@ test('correlated mutation acceptance is returned without retrying', async (t) =>
   });
   const result = await operate(id, 3, { type: 'steer', message: 'hello' });
   assert.equal(result.data.disposition, 'dispatched');
+});
+
+test('Ask browser state applies open and close events without reloading the conversation', async (t) => {
+  const { live, requests, send } = setup(t);
+  const native = boundary();
+  native.view.partial = partial;
+  requests[0].resolve(Response.json(native));
+  await setImmediate();
+  const previous = live.getState().snapshot.view;
+  send(1, {
+    type: 'extension_support',
+    extensions: { 'ask-user-question': [askPrompt(), askPrompt('second')] },
+    notice: 'Answer supported questions below or in the terminal.',
+  });
+  const current = live.getState().snapshot;
+  assert.equal(current.view.extensions['ask-user-question'].length, 2);
+  assert.equal(current.view.messages, previous.messages);
+  assert.equal(current.view.partial, previous.partial);
+  assert.equal(sessionActivity(true, current.state, current.view, false), 'blocked');
+  assert.equal(requests.length, 1);
+  send(2, {
+    type: 'extension_support',
+    extensions: { 'ask-user-question': [askPrompt('second')] },
+    notice: 'Waiting',
+  });
+  assert.equal(
+    live.getState().snapshot.view.extensions['ask-user-question'][0].toolCallId,
+    'second',
+  );
+  send(3, { type: 'extension_support', extensions: {}, notice: null });
+  assert.deepEqual(live.getState().snapshot.view.extensions, {});
+  assert.equal(live.getState().snapshot.state.pendingDialog, null);
+  assert.equal(requests.length, 1);
+});
+
+test('Ask closure buffered during snapshot loading cannot reopen a stale questionnaire', async (t) => {
+  const { live, requests, send } = setup(t);
+  send(1, { type: 'extension_support', extensions: {}, notice: null });
+  const native = boundary();
+  native.view.extensions = { 'ask-user-question': [askPrompt()] };
+  native.view.notice = 'Waiting for input';
+  requests[0].resolve(Response.json(native));
+  await setImmediate();
+  assert.equal(live.getState().status, 'ready');
+  assert.deepEqual(live.getState().snapshot.view.extensions, {});
+  assert.equal(live.getState().snapshot.view.notice, null);
+  assert.equal(live.getState().snapshot.cursor, 1);
+});
+
+test('Ask pending questions restore after reconnect but remain unavailable until synchronization completes', async (t) => {
+  const { live, requests, sockets } = setup(t);
+  requests[0].resolve(Response.json(boundary()));
+  await setImmediate();
+  sockets[0].close();
+  assert.equal(live.getState().status, 'offline');
+  live.connect();
+  sockets[1].send({ type: 'connected', epoch: 'server-one', cursor: 1 });
+  assert.equal(live.getState().status, 'syncing');
+  const native = boundary(1);
+  native.session.generation = 5;
+  native.view.extensions = { 'ask-user-question': [askPrompt()] };
+  requests[1].resolve(Response.json(native));
+  await setImmediate();
+  assert.equal(live.getState().status, 'ready');
+  assert.equal(live.getState().snapshot.session.generation, 5);
+  assert.deepEqual(live.getState().snapshot.view.extensions, native.view.extensions);
+});
+
+test('Ask malformed or unregistered extension state never becomes an actionable browser form', async (t) => {
+  const { live, requests, send } = setup(t);
+  requests[0].resolve(Response.json(boundary()));
+  await setImmediate();
+  const previous = live.getState().snapshot;
+  send(1, { type: 'extension_support', extensions: { arbitrary: [] }, notice: null });
+  assert.equal(live.getState().status, 'offline');
+  assert.equal(live.getState().snapshot, previous);
+  const native = boundary();
+  native.view.extensions = { 'ask-user-question': [askPrompt(), askPrompt()] };
+  assert.throws(() => parseSnapshot(native));
+});
+
+test('Ask answers use the existing correlated, generation-checked command endpoint without retries', async (t) => {
+  const command = { type: 'extension', extension: 'ask-user-question', action: askAnswer() };
+  let calls = 0;
+  t.mock.method(globalThis, 'fetch', async (_path, options) => {
+    calls++;
+    const payload = JSON.parse(options.body);
+    assert.deepEqual(payload.command, command);
+    assert.equal(payload.generation, 3);
+    throw new Error('response lost');
+  });
+  await assert.rejects(operate(id, 3, command), (error) => error.outcome === 'unknown');
+  assert.equal(calls, 1);
 });

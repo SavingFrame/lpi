@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef } from 'react';
+import { LoaderCircle } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { imageAttachments } from '../../src/attachments';
 import type { Message, View } from '../../src/client-state';
@@ -124,38 +124,10 @@ function MessageBody({ item, tools }: { item: Message; tools?: Map<string, Trans
 }
 
 export function Transcript({ view }: { view: View }) {
-  const transcript = useRef<HTMLElement>(null);
-  useLayoutEffect(() => {
-    const content = transcript.current;
-    const viewport = content?.closest('main');
-    if (!content || !viewport) {
-      return;
-    }
-    let followEnd = true;
-    viewport.scrollTop = viewport.scrollHeight;
-    const onScroll = () => {
-      followEnd = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 64;
-    };
-    viewport.addEventListener('scroll', onScroll, { passive: true });
-    const observer = new ResizeObserver(() => {
-      if (followEnd) {
-        viewport.scrollTop = viewport.scrollHeight;
-      }
-    });
-    observer.observe(content);
-    observer.observe(viewport);
-    if (content.parentElement) {
-      observer.observe(content.parentElement);
-    }
-    return () => {
-      viewport.removeEventListener('scroll', onScroll);
-      observer.disconnect();
-    };
-  }, []);
   const { groups, tools, unpaired } = transcriptState(view);
   return (
-    <section ref={transcript} className="transcript" aria-label="Conversation">
-      {groups.length === 0 && unpaired.length === 0 && (
+    <section className="transcript" aria-label="Conversation">
+      {groups.length === 0 && unpaired.length === 0 && !view.running && !view.compacting && (
         <div className="empty">
           <h2>Start a conversation</h2>
           <p>Prompts run on your PC. Closing this browser does not stop the agent.</p>
@@ -195,6 +167,20 @@ export function Transcript({ view }: { view: View }) {
           </article>
         ) : null;
       })}
+      {(view.running || view.compacting) && (
+        <div
+          className="flex items-center gap-2 py-4 text-xs text-sky-300"
+          role="status"
+          aria-live="polite"
+        >
+          <LoaderCircle
+            size={14}
+            className="animate-spin motion-reduce:animate-none"
+            aria-hidden="true"
+          />
+          {view.compacting ? 'Pi is compacting context…' : 'Pi is running…'}
+        </div>
+      )}
     </section>
   );
 }

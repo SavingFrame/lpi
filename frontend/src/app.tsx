@@ -1,10 +1,13 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useParams } from '@tanstack/react-router';
-import { ArrowUp, Folder, Power, RefreshCw, Square, Terminal } from 'lucide-react';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { ArrowDown, ArrowUp, Folder, Power, RefreshCw, Square, Terminal } from 'lucide-react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { ImageAttachment } from '../../src/attachments';
 import { record } from '../../src/client-state';
+import { ExtensionPanels } from '../../src/extension-support/web';
+import type { SessionActivity } from '../../src/session-activity';
 import { ApiError, operate, projects, sessions } from './api';
+import { chatScroll } from './chat-scroll';
 import { live, queryClient } from './client';
 import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
@@ -13,6 +16,23 @@ import { ImageAttachments } from './image-attachments';
 import { LaunchSession } from './launch-session';
 import { SessionSettings } from './session-controls';
 import { Transcript } from './transcript';
+
+const activityStyles: Record<SessionActivity, { color: string; description: string }> = {
+  running: { color: 'text-sky-300 border-sky-900', description: 'Pi is working or compacting.' },
+  blocked: {
+    color: 'text-amber-300 border-amber-900',
+    description: 'Pi needs input. Supported extension questions can be answered in the browser.',
+  },
+  idle: { color: 'text-zinc-400 border-zinc-700', description: 'Connected, waiting for work.' },
+  finished: {
+    color: 'text-emerald-300 border-emerald-900',
+    description: 'The latest observed run ended. Task success is not guaranteed.',
+  },
+  unknown: {
+    color: 'text-zinc-500 border-zinc-800',
+    description: 'Live activity is unavailable. Pi may still be running.',
+  },
+};
 
 export function Shell() {
   const { projectId, sessionId } = useParams({ strict: false });
@@ -64,6 +84,11 @@ export function Shell() {
             const project = projectQuery.data?.find((project) => project.id === session.projectId);
             const title = session.title || 'Untitled session';
             const updatedAt = session.updatedAt ?? session.createdAt;
+            const activity =
+              connection.status === 'offline' || connection.status === 'connecting'
+                ? 'unknown'
+                : session.activity;
+            const status = activityStyles[activity];
             return (
               <Link
                 className={`session-link ${sessionId === session.id ? 'selected' : ''}`}
@@ -76,9 +101,15 @@ export function Shell() {
                 <span>{title}</span>
                 <small>
                   {project?.name ?? 'Project'} ·{' '}
-                  <Badge variant="outline" className="px-1 py-0 text-[10px] font-normal">
-                    {session.connection === 'connected' ? 'live' : 'read-only'}
+                  <Badge
+                    variant="outline"
+                    className={`gap-1 px-1.5 py-0 text-[10px] font-normal ${status.color}`}
+                    title={status.description}
+                  >
+                    <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
+                    {activity}
                   </Badge>
+                  {session.connection === 'disconnected' && <span>read-only</span>}
                 </small>
                 <small>
                   <time dateTime={updatedAt}>{new Date(updatedAt).toLocaleString()}</time>
@@ -145,6 +176,22 @@ interface Operation {
 }
 
 function SessionPane({ id, projectId }: { id: string; projectId: string }) {
+  const pane = useRef<HTMLDivElement>(null);
+  const scrolling = useRef<ReturnType<typeof chatScroll> | null>(null);
+  const [following, setFollowing] = useState(true);
+  useLayoutEffect(() => {
+    const content = pane.current;
+    const viewport = content?.closest('main');
+    if (!content || !viewport) {
+      return;
+    }
+    const controller = chatScroll(viewport, content, setFollowing);
+    scrolling.current = controller;
+    return () => {
+      controller.disconnect();
+      scrolling.current = null;
+    };
+  }, []);
   const connection = useSyncExternalStore(live.subscribe, live.getState);
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
   const projectName =
@@ -180,7 +227,9 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
       setOutcome(
         variables.command.type === 'stop_runtime'
           ? 'Shutdown requested. Runtime exit is not yet confirmed.'
-          : `${disposition ? String(disposition) : String(result.outcome)}. Not necessarily finished.`,
+          : variables.command.type === 'extension'
+            ? 'Answer accepted by the native extension.'
+            : `${disposition ? String(disposition) : String(result.outcome)}. Not necessarily finished.`,
       );
       if (variables.submitted !== undefined && draft === variables.submitted) {
         setDraft('');
@@ -210,7 +259,7 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
     session?.projectId === projectId &&
     session.connection === 'connected';
   return (
-    <div className="session-pane">
+    <div ref={pane} className="session-pane">
       <header className="session-header">
         <div>
           <p className="eyebrow">
@@ -268,19 +317,20 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
           </Button>
         </div>
       </header>
-      {connection.status !== 'ready' && (
-        <p className="banner" role="status">
-          {connection.status === 'offline'
-            ? 'Disconnected. Pi may still be running.'
-            : 'Synchronizing session state…'}{' '}
-          {connection.error}
-        </p>
-      )}
+      {connection.status !== 'ready' &&
+        (connection.status !== 'syncing' || !snapshot || connection.error) && (
+          <p className="banner" role="status">
+            {connection.status === 'offline'
+              ? 'Disconnected. Pi may still be running.'
+              : 'Synchronizing session state…'}{' '}
+            {connection.error}
+          </p>
+        )}
       {session?.connection === 'connected' && (
         <p className="banner">
           Connected to native Pi. Prompts run in its terminal process. Model and thinking changes
-          require idle Pi with no queued messages or dialogs. Queue editing and dialog answers
-          remain terminal-only.
+          require idle Pi with no queued messages or dialogs. Supported extension questions appear
+          below. Other dialogs and queue editing remain terminal-only.
         </p>
       )}
       {session?.connection === 'connected' && snapshot?.state.hasPendingMessages === true && (
@@ -316,7 +366,28 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
         </div>
       )}
       {snapshot && <Transcript view={snapshot.view} />}
+      {snapshot && (
+        <ExtensionPanels
+          key={`${snapshot.session.id}:${snapshot.session.generation}`}
+          extensions={snapshot.view.extensions}
+          disabled={!active}
+          onCommand={(command) => mutation.mutate({ command })}
+        />
+      )}
       <div className="composer">
+        {!following && (
+          <Button
+            type="button"
+            variant="outline"
+            size="icon"
+            className="absolute -top-12 left-1/2 -translate-x-1/2 rounded-full shadow-lg"
+            aria-label="Go to bottom"
+            title="Go to bottom"
+            onClick={() => scrolling.current?.follow()}
+          >
+            <ArrowDown aria-hidden="true" />
+          </Button>
+        )}
         {snapshot && (
           <SessionSettings
             controls={snapshot.controls}
@@ -340,6 +411,7 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
               (draft.trim() || attachments.length) &&
               !(mode === 'prompt' && snapshot?.view.running)
             ) {
+              scrolling.current?.follow();
               mutation.mutate({
                 command: { type: mode, message: draft.trim() ? draft : '', images: attachments },
                 submitted: draft,

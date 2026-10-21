@@ -2,6 +2,7 @@ import type { NativeBridges } from './bridge/server.js';
 import { emptyView, message } from './client-state.js';
 import { AppError } from './errors.js';
 import type { Events } from './events.js';
+import type { SessionActivity } from './session-activity.js';
 import { inspectSavedSession, type SessionDiscovery } from './storage/discovery.js';
 
 export interface Session {
@@ -54,7 +55,7 @@ export class Sessions {
     this.events = events;
   }
 
-  list(): Session[] {
+  list(): (Session & { activity: SessionActivity })[] {
     const native = this.bridges.list();
     const ids = new Set(native.map((session) => session.id));
     const visibleNative = native.filter(
@@ -62,7 +63,13 @@ export class Sessions {
         session.connection === 'connected' ||
         (this.bridges.snapshot(session.id)?.view.messages.length ?? 0) > 0,
     );
-    return [...this.discovery.list().filter((session) => !ids.has(session.id)), ...visibleNative];
+    return [
+      ...this.discovery
+        .list()
+        .filter((session) => !ids.has(session.id))
+        .map((session) => ({ ...session, activity: 'unknown' as const })),
+      ...visibleNative,
+    ];
   }
 
   get(id: string): Session {

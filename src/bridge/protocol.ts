@@ -2,6 +2,11 @@ import { AttachmentError, type ImageAttachment, imageAttachments } from '../atta
 import { emptyView, message, record, type View } from '../client-state.js';
 import { AppError, object, text } from '../errors.js';
 import {
+  type ExtensionCommand,
+  extensionCommand,
+  extensionSnapshots,
+} from '../extension-support/registry.js';
+import {
   isThinkingLevel,
   type SessionControls,
   sessionControls,
@@ -51,11 +56,13 @@ export function bridgeSnapshot(value: unknown): BridgeSnapshot {
       running: view.running,
       compacting: view.compacting,
       notice: view.notice,
+      extensions: extensionSnapshots(view.extensions),
     },
   };
 }
 
 export type BridgeCommand =
+  | ExtensionCommand
   | { type: 'set_model'; provider: string; modelId: string }
   | { type: 'set_thinking_level'; level: ThinkingLevel }
   | { type: 'abort' }
@@ -70,6 +77,9 @@ export type BridgeCommand =
 export function bridgeCommand(value: unknown): BridgeCommand {
   const raw = object(value);
   const type = text(raw.type, 'command type', 64);
+  if (type === 'extension') {
+    return extensionCommand(raw);
+  }
   if (type === 'abort' || type === 'stop_runtime') {
     return { type };
   }

@@ -32,11 +32,27 @@ Start Pim, then load the compiled extension in normal interactive Pi:
 pi --extension /absolute/path/to/pim/dist/bridge/extension.js --resume
 ```
 
-Adapt the path to your checkout. Loading the extension connects automatically to `ws://127.0.0.1:3141/bridge`. Set `PIM_BRIDGE_URL` to use another endpoint. Connected sessions appear as **Pi · live TUI**; saved files without a connection appear as **Pi · read-only**.
+Adapt the path to your checkout. Loading the extension connects automatically to `ws://127.0.0.1:3141/bridge`. Set `PIM_BRIDGE_URL` to use another endpoint. The sidebar shows live activity for every session: **running**, **blocked** (Pi needs input), **idle**, or **finished**. Finished means the latest run was observed ending during the current bridge connection, not that the task succeeded. Disconnected sessions show **unknown** activity and remain read-only because Pi may still be running.
 
-The browser receives current-branch history, assistant partials, tool activity, runtime metadata, and queued-message presence. Prompt, steer, follow-up, and abort run in that same native Pi process. Attach photos/screenshots using the image picker, clipboard paste, or drag-and-drop (PNG, JPEG, GIF, WebP; up to 4 images and 4 MiB total). Image-only messages are supported; the selected model must support images. A searchable model input and colored thinking slider control connected native Pi when idle with no queued messages or dialogs. The model picker groups Pi scoped models (`enabledModels` / `--models`) first, while keeping all available models selectable. Available models come from Pi's authenticated registry. Thinking options come from `pi-ai` model capabilities, including `max` where supported. Pi remains responsible for applying and clamping changes. Queue editing and dialog answers remain terminal-only.
+The browser receives current-branch history, assistant partials, tool activity, runtime metadata, and queued-message presence. Prompt, steer, follow-up, and abort run in that same native Pi process. Attach photos/screenshots using the image picker, clipboard paste, or drag-and-drop (PNG, JPEG, GIF, WebP; up to 4 images and 4 MiB total). Image-only messages are supported; the selected model must support images. A searchable model input and colored thinking slider control connected native Pi when idle with no queued messages or dialogs. The model picker groups Pi scoped models (`enabledModels` / `--models`) first, while keeping all available models selectable. Available models come from Pi's authenticated registry. Thinking options come from `pi-ai` model capabilities, including `max` where supported. Pi remains responsible for applying and clamping changes. Queue editing and unsupported dialog answers remain terminal-only.
 
 `/pim-disconnect` stops the relay connection without stopping Pi. Closing the browser or Pim does not stop the agent. Closing Pi does.
+
+## Extension support
+
+Browser support is explicit, with one module per extension under
+[`src/extension-support/`](src/extension-support/README.md). Ordinary tools still run in
+native Pi without an adapter; custom terminal UI does not automatically become a web UI.
+
+The first module supports **`@juicesharp/rpiv-ask-user-question`** (`ask_user_question`),
+using its public event contract inspected at version 2.13.9. Questions appear below the
+transcript with single/multi-select, custom answers, notes, previews, and cancellation.
+Answer in the browser or native terminal; the extension accepts only the first answer.
+Pending questions survive bridge reconnects. Unknown answer outcomes are never replayed.
+Install/load the Ask extension normally in Pi, then rebuild Pim, restart the relay, and
+reload its bridge in native Pi while idle. Refresh the browser to load the new client.
+Pim does not install extensions or replace their tools. Other extensions need their own
+support module. Real native-Pi integration remains unverified.
 
 ## Create or resume from the browser
 
@@ -55,6 +71,8 @@ Resume refuses files reserved by managed runtimes, even while their bridges are 
 
 Startup timeouts and lost responses are uncertain outcomes. Inspect recent sessions and tmux before trying again. No automatic launch replay is provided. For connected Pim-managed runtimes, **Stop runtime** requests graceful Pi shutdown after confirmation, interrupting active work without deleting history. Pi exit normally removes its dedicated tmux session. Acceptance is not proof of exit; resume still checks tmux reservations. Externally launched runtimes must be stopped in their terminal. Real native-Pi integration remains unverified. See [the plan](PLAN.md).
 
+The browser applies live message, lifecycle, and status metadata updates directly from WebSocket events. HTTP snapshots establish initial/reconnected state and reconcile explicit native branch syncs. Background snapshot refreshes keep the existing transcript visible.
+
 ## Frontend development
 
 The browser uses React, Vite, Tailwind CSS v4, and locally owned shadcn/ui components with a dark zinc theme and Lucide icons.
@@ -64,6 +82,7 @@ Run the compiled server, then `npm run dev`. Open **http://127.0.0.1:5173**. Vit
 ## Layout
 
 - `src/bridge/`: native extension, connection protocol, relay transport.
+- `src/extension-support/`: per-extension native bindings, contracts, browser components, and tests.
 - `src/sessions.ts`: combined saved/live inventory and snapshots.
 - `src/storage/`: read-only JSONL discovery and stable inventory IDs.
 - `src/api/`: REST commands, bounded browser events, and static assets.

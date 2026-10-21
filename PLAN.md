@@ -26,7 +26,9 @@ There is no RPC runtime, writable managed catalog, ownership coordinator, parkin
 - Current-branch snapshots, assistant partials, tool activity, model/thinking/context metadata, and queued-message presence.
 - Searchable browser model picker with Pi scoped-model grouping and a colored, supported-level thinking slider through public Pi APIs, gated on idle state with no queued messages or dialogs. Model availability comes from the native registry; thinking options come from `pi-ai` model capabilities, including model-specific mappings and `max`. Pi applies and clamps changes.
 - Browser prompt, steering, follow-up, and abort routed into the connected native Pi runtime, including image attachments from file selection, paste, or drag-and-drop.
-- One React/Vite browser client with snapshot/event reconnect synchronization.
+- One React/Vite browser client with snapshot/event reconnect synchronization. Live status metadata and lifecycle events update locally; HTTP snapshots remain for initial load, reconnects, generation changes, and explicit branch syncs.
+- Live sidebar activity for all sessions: running, blocked on a native dialog, idle, finished after an observed run ends, or unknown when disconnected. Completion is connection-local and does not imply task success.
+- Explicit per-extension support modules with separate shared/native/browser registrations. Ask User Question (`@juicesharp/rpiv-ask-user-question`, public contract inspected at 2.13.9) supports browser selections, custom text, notes, previews, and cancellation through public events, preserving native UI. Pending questions survive transport reconnects; answers require authoritative verdicts and are never automatically replayed. Coverage uses fake native contexts and mocked browser transport; real native-Pi integration remains unverified.
 - Connection generations, request correlation, bounded delivery, and unknown mutation outcomes without automatic replay.
 - Deterministic tests using temporary files, fake public Pi contexts, local transports, and mocked browser transport. No model calls.
 
@@ -62,7 +64,7 @@ Implemented, with real-Pi integration still unverified:
 ## Later
 
 - Refresh saved-session discovery without restarting the relay.
-- Remote questions and approvals through explicit adapters while preserving native UI.
+- Additional extension support modules, including approvals where public APIs permit, while preserving native UI.
 - Remote queue inspection/editing and additional supported commands.
 - A separate iOS client over the trusted network.
 - Real-Pi integration coverage for lifecycle, reload, branch navigation, compaction, pending dialogs, and reconnects.
