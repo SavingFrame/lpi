@@ -10,6 +10,7 @@ import {
   messageActionTargets,
   messageActionText,
   type TranscriptTool,
+  transcriptEntries,
   transcriptState,
 } from './transcript-state';
 
@@ -21,6 +22,38 @@ function ToolBlock({ tool }: { tool: TranscriptTool }) {
     <AskHistory tool={tool}>
       <RawToolBlock tool={tool} />
     </AskHistory>
+  );
+}
+
+function ToolGroup({ tools }: { tools: { key: string; tool: TranscriptTool }[] }) {
+  const first = tools[0];
+  if (tools.length === 1 && first) {
+    return <ToolBlock tool={first.tool} />;
+  }
+  const failures = tools.filter(({ tool }) => tool.status === 'Failed').length;
+  const status = tools.some(({ tool }) => tool.status === 'Running')
+    ? 'Running'
+    : tools.some(({ tool }) => tool.status === 'Pending')
+      ? 'Pending'
+      : tools.some(({ tool }) => tool.status === 'No result')
+        ? 'No result'
+        : failures > 0
+          ? 'Failed'
+          : 'Completed';
+  return (
+    <details className="tool-block tool-group" open>
+      <summary>
+        <span className="tool-name">Tools</span>
+        <span className="muted">{tools.length} calls</span>
+        <span className={status === 'Failed' ? 'error' : 'muted'}>{status}</span>
+        {failures > 0 && <span className="error">{failures} failed</span>}
+      </summary>
+      <div className="tool-group-calls">
+        {tools.map(({ key, tool }) => (
+          <ToolBlock key={key} tool={tool} />
+        ))}
+      </div>
+    </details>
   );
 }
 
@@ -244,45 +277,52 @@ export function Transcript({
             {group.streaming && <span className="muted">streaming</span>}
           </header>
           <div className="flex flex-col gap-3">
-            {group.messages.map((item, messageIndex) => (
-              <div key={group.messageKeys[messageIndex]}>
-                {item.isError === true && <p className="error">Error</p>}
-                {item.role === 'toolResult' && item.toolName === 'codemode' ? (
-                  <ToolBlock
-                    tool={{
-                      name: 'codemode',
-                      args: undefined,
-                      result: item,
-                      status: item.isError === true ? 'Failed' : 'Completed',
-                    }}
-                  />
-                ) : item.role === 'toolResult' ? (
-                  <AskHistory
-                    tool={{
-                      name: String(item.toolName),
-                      args: undefined,
-                      result: item,
-                      status: item.isError === true ? 'Failed' : 'Completed',
-                    }}
-                  >
-                    <details>
-                      <summary>Tool output</summary>
-                      <MessageBody item={item} />
-                    </details>
-                  </AskHistory>
-                ) : (
-                  <MessageBody
-                    item={item}
-                    tools={tools}
-                    actions={
-                      actionTargets.has(item) && (
-                        <MessageActions item={item} onPreview={onPreview} />
-                      )
-                    }
-                  />
-                )}
-              </div>
-            ))}
+            {transcriptEntries(group.messages, group.messageKeys, tools).map((entry) => {
+              if (entry.kind === 'tools') {
+                return <ToolGroup key={entry.key} tools={entry.tools} />;
+              }
+              const { item, source } = entry;
+              return (
+                <div key={entry.key}>
+                  {item.isError === true && <p className="error">Error</p>}
+                  {item.role === 'toolResult' && item.toolName === 'codemode' ? (
+                    <ToolBlock
+                      tool={{
+                        name: 'codemode',
+                        args: undefined,
+                        result: item,
+                        status: item.isError === true ? 'Failed' : 'Completed',
+                      }}
+                    />
+                  ) : item.role === 'toolResult' ? (
+                    <AskHistory
+                      tool={{
+                        name: String(item.toolName),
+                        args: undefined,
+                        result: item,
+                        status: item.isError === true ? 'Failed' : 'Completed',
+                      }}
+                    >
+                      <details>
+                        <summary>Tool output</summary>
+                        <MessageBody item={item} />
+                      </details>
+                    </AskHistory>
+                  ) : (
+                    <MessageBody
+                      item={item}
+                      tools={tools}
+                      actions={
+                        entry.actions &&
+                        actionTargets.has(source) && (
+                          <MessageActions item={source} onPreview={onPreview} />
+                        )
+                      }
+                    />
+                  )}
+                </div>
+              );
+            })}
           </div>
         </article>
       ))}

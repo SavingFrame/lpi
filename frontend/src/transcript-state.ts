@@ -17,6 +17,98 @@ interface TranscriptGroup {
   streaming: boolean;
 }
 
+export type TranscriptEntry =
+  | { kind: 'message'; key: string; item: Message; source: Message; actions: boolean }
+  | { kind: 'tools'; key: string; tools: { key: string; tool: TranscriptTool }[] };
+
+/** Group adjacent ordinary calls, including calls in separate assistant messages. */
+export function transcriptEntries(
+  messages: Message[],
+  keys: string[],
+  tools: Map<string, TranscriptTool>,
+): TranscriptEntry[] {
+  const entries: TranscriptEntry[] = [];
+  for (const [index, source] of messages.entries()) {
+    const key = keys[index] ?? `${source.role}:${source.timestamp}:${index}`;
+    if (
+      source.role !== 'assistant' ||
+      !Array.isArray(source.content) ||
+      !source.content.some((block) => {
+        const tool =
+          block.type === 'toolCall' && typeof block.id === 'string'
+            ? tools.get(block.id)
+            : undefined;
+        return tool && tool.name !== 'codemode';
+      })
+    ) {
+      entries.push({ kind: 'message', key, item: source, source, actions: true });
+      continue;
+    }
+    const lastText = source.content.findLastIndex(
+      (block) => block.type === 'text' && typeof block.text === 'string' && block.text.trim(),
+    );
+    let content: Record<string, unknown>[] = [];
+    let start = 0;
+    const flush = (end: number) => {
+      if (content.length === 0) {
+        return;
+      }
+      entries.push({
+        kind: 'message',
+        key: `${key}:${start}`,
+        item: {
+          ...source,
+          content,
+          summary: undefined,
+          output: undefined,
+          errorMessage: undefined,
+        },
+        source,
+        actions: lastText >= start && lastText < end,
+      });
+      content = [];
+    };
+    for (const [blockIndex, block] of source.content.entries()) {
+      const tool =
+        block.type === 'toolCall' && typeof block.id === 'string' ? tools.get(block.id) : undefined;
+      if (!tool || tool.name === 'codemode') {
+        if (content.length === 0) {
+          start = blockIndex;
+        }
+        content.push(block);
+        continue;
+      }
+      flush(blockIndex);
+      const previous = entries.at(-1);
+      if (previous?.kind === 'tools') {
+        previous.tools.push({ key: String(block.id), tool });
+      } else {
+        entries.push({
+          kind: 'tools',
+          key: `${key}:${blockIndex}`,
+          tools: [{ key: String(block.id), tool }],
+        });
+      }
+    }
+    flush(source.content.length);
+    if (
+      source.summary !== undefined ||
+      source.output !== undefined ||
+      source.errorMessage !== undefined ||
+      source.content.length === 0
+    ) {
+      entries.push({
+        kind: 'message',
+        key: `${key}:tail`,
+        item: { ...source, content: [] },
+        source,
+        actions: lastText === -1,
+      });
+    }
+  }
+  return entries;
+}
+
 /** Text available to message actions, excluding reasoning and tool content. */
 export function messageActionText(item: Message): string | null {
   if (item.role !== 'user' && item.role !== 'assistant') {

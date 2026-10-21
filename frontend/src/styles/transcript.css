@@ -192,4 +192,50 @@
   .codemode-notice {
     padding: 0 12px 10px;
   }
+  .tool-group > summary {
+    cursor: pointer;
+  }
+  .tool-group > summary > span + span {
+    margin-left: 12px;
+  }
+  .tool-group-calls {
+    padding: 0 4px 4px;
+  }
+  .tool-group-calls .tool-block {
+    margin: 0;
+    border: 0;
+    border-radius: 0;
+  }
+  .tool-group-calls .tool-block > summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .tool-group-calls .tool-block > summary::-webkit-details-marker {
+    display: none;
+  }
+  .tool-group-calls .tool-block > summary::before {
+    content: "▸";
+    flex: 0 0 auto;
+  }
+  .tool-group-calls .tool-block[open] > summary::before {
+    transform: rotate(90deg);
+  }
+  .tool-group-calls .tool-name,
+  .tool-group-calls .tool-status {
+    flex: 0 0 auto;
+  }
+  .tool-group-calls .tool-input {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+    margin-left: 0;
+    font-family: ui-monospace, monospace;
+  }
+  .tool-group-calls .tool-status {
+    margin-left: auto;
+  }
 }
