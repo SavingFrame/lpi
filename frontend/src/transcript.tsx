@@ -7,6 +7,7 @@ import { CodemodeBlock } from './codemode-block';
 import { Disclosure } from './components/disclosure';
 import { SafeMarkdown } from './components/safe-markdown';
 import { Button } from './components/ui/button';
+import { EditToolBody } from './edit-tool-body';
 import { ToolStatus } from './tool-status';
 import {
   messageActionTargets,
@@ -75,6 +76,7 @@ function RawToolBlock({ tool }: { tool: TranscriptTool }) {
   return (
     <Disclosure
       className="tool-block"
+      defaultOpen={tool.name === 'edit'}
       summary={
         <>
           <span className="tool-name">{tool.name}</span>
@@ -85,23 +87,25 @@ function RawToolBlock({ tool }: { tool: TranscriptTool }) {
     >
       {() => (
         <div className="tool-body">
-          <div className="muted">Arguments</div>
-          <pre>{JSON.stringify(args, null, 2) ?? 'Unavailable'}</pre>
-          {tool.result ? (
-            <>
-              <div className="muted">Output</div>
-              <MessageBody item={tool.result} />
-            </>
-          ) : tool.progress !== undefined ? (
-            <>
-              <div className="muted">Progress</div>
-              <pre>{JSON.stringify(tool.progress, null, 2)}</pre>
-            </>
-          ) : (
-            <p className="muted">
-              {tool.status === 'No result' ? 'No result available.' : 'Waiting for output.'}
-            </p>
-          )}
+          <EditToolBody tool={tool}>
+            <div className="muted">Arguments</div>
+            <pre>{JSON.stringify(args, null, 2) ?? 'Unavailable'}</pre>
+            {tool.result ? (
+              <>
+                <div className="muted">Output</div>
+                <MessageBody item={tool.result} />
+              </>
+            ) : tool.progress !== undefined ? (
+              <>
+                <div className="muted">Progress</div>
+                <pre>{JSON.stringify(tool.progress, null, 2)}</pre>
+              </>
+            ) : (
+              <p className="muted">
+                {tool.status === 'No result' ? 'No result available.' : 'Waiting for output.'}
+              </p>
+            )}
+          </EditToolBody>
         </div>
       )}
     </Disclosure>
@@ -283,6 +287,9 @@ export const Transcript = memo(
             </header>
             <div className="flex flex-col gap-3">
               {transcriptEntries(group.messages, group.messageKeys, tools).map((entry) => {
+                if (entry.kind === 'tool') {
+                  return <ToolBlock key={entry.key} tool={entry.tool} />;
+                }
                 if (entry.kind === 'tools') {
                   return <ToolGroup key={entry.key} tools={entry.tools} />;
                 }
@@ -290,10 +297,11 @@ export const Transcript = memo(
                 return (
                   <div key={entry.key}>
                     {item.isError === true && <p className="error">Error</p>}
-                    {item.role === 'toolResult' && item.toolName === 'codemode' ? (
+                    {item.role === 'toolResult' &&
+                    (item.toolName === 'codemode' || item.toolName === 'edit') ? (
                       <ToolBlock
                         tool={{
-                          name: 'codemode',
+                          name: String(item.toolName),
                           args: undefined,
                           result: item,
                           status: item.isError === true ? 'Failed' : 'Completed',
@@ -309,7 +317,18 @@ export const Transcript = memo(
                         }}
                       >
                         <Disclosure summary="Tool output">
-                          {() => <MessageBody item={item} />}
+                          {() => (
+                            <EditToolBody
+                              tool={{
+                                name: String(item.toolName),
+                                args: undefined,
+                                result: item,
+                                status: item.isError === true ? 'Failed' : 'Completed',
+                              }}
+                            >
+                              <MessageBody item={item} />
+                            </EditToolBody>
+                          )}
                         </Disclosure>
                       </AskHistory>
                     ) : (

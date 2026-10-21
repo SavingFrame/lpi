@@ -5,17 +5,22 @@ export function Disclosure({
   summary,
   children,
   className,
+  defaultOpen = false,
 }: {
   summary: ReactNode;
   children: () => ReactNode;
   className?: string;
+  defaultOpen?: boolean;
 }) {
-  const [visited, setVisited] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
+  const [visited, setVisited] = useState(defaultOpen);
   return createElement(
     'details',
     {
       className,
+      open: open || undefined,
       onToggle: (event: ToggleEvent<HTMLDetailsElement>) => {
+        setOpen(event.currentTarget.open);
         if (event.currentTarget.open) {
           setVisited(true);
         }

@@ -36,7 +36,9 @@ Adapt the path to your checkout. Loading the extension connects automatically to
 
 The sidebar groups sessions into collapsible projects, ordered by recent activity, with stable folder colors and a **+** button to create a session in each project. Project headers summarize needs-input, running, and unviewed turns. Blue accents mark running sessions, amber marks input requests, and bright green checkmarks mark unviewed turns. Viewed completions retain a muted green checkmark when idle. Selection has a separate outline. Older sessions expand per project; running, waiting, unviewed completions, and the selected session stay visible within expanded project groups.
 
-The browser receives current-branch history, assistant partials, tool activity, runtime metadata, and queued-message presence. Prompt, steer, follow-up, and abort run in that same native Pi process. Attach photos/screenshots using the image picker, clipboard paste, or drag-and-drop (PNG, JPEG, GIF, WebP; up to 4 images and 4 MiB total). Image-only messages are supported; the selected model must support images. A searchable model input and colored thinking slider control connected native Pi when idle with no queued messages or dialogs. The model picker groups Pi scoped models (`enabledModels` / `--models`) first, while keeping all available models selectable. Available models come from Pi's authenticated registry. Thinking options come from `pi-ai` model capabilities, including `max` where supported. Pi remains responsible for applying and clamping changes. Queue editing and unsupported dialog answers remain terminal-only.
+The browser receives current-branch history, assistant partials, tool activity, runtime metadata, and queued-message presence. Send automatically uses prompt while Pi is idle and steer while it is running, with no mode selector. Messages and abort run in that same native Pi process. Attach photos/screenshots using the image picker, clipboard paste, or drag-and-drop (PNG, JPEG, GIF, WebP; up to 4 images and 4 MiB total). Image-only messages are supported; the selected model must support images. A searchable model input and colored thinking slider control connected native Pi when idle with no queued messages or dialogs. The model picker groups Pi scoped models (`enabledModels` / `--models`) first, while keeping all available models selectable. Available models come from Pi's authenticated registry. Thinking options come from `pi-ai` model capabilities, including `max` where supported. Pi remains responsible for applying and clamping changes. Queue editing and unsupported dialog answers remain terminal-only.
+
+Completed `edit` calls show applied changes with `@pierre/diffs`, including unified/split views, line numbers, syntax highlighting, and word-level changes. Edit calls appear outside generic tool groups and start expanded, showing applied changes or failure output immediately. They can be collapsed; raw arguments and output remain available under the diff. The viewer uses Pi's saved unified patch, not reconstructed arguments or current file contents. Results without a usable patch keep the ordinary output display. Nested codemode calls do not expose individual patches and retain their existing previews.
 
 `/pim-disconnect` stops the relay connection without stopping Pi. Closing the browser or Pim does not stop the agent. Closing Pi does.
 
@@ -95,7 +97,15 @@ The browser applies live message, lifecycle, and status metadata updates directl
 
 The browser uses React, Vite, Tailwind CSS v4, and locally owned shadcn/ui components with a dark zinc theme and Lucide icons. Markdown uses `react-markdown` through one shared safe-rendering component, with raw HTML disabled, image placeholders, and the library's default URL sanitizer.
 
+Production CSP allows inline CSS for the diff viewer's shadow-DOM styles and syntax tokens. Inline scripts, eval, and external script/style sources remain blocked.
+
 Run the compiled server, then `npm run dev`. Open **http://127.0.0.1:5173**. Vite proxies REST/events to port 3141. Set `PIM_DEV_SERVER` for another target and update configured allowed origins when changing ports.
+
+## Mobile app (planned)
+
+An iOS-first React Native + Expo app using Tamagui is planned. The `mobile/` folder
+currently contains documentation only. See the [mobile overview](mobile/README.md) and
+[implementation plan](mobile/PLAN.md) for navigation, scope, and the shared-client refactor.
 
 ## Layout
 
@@ -120,5 +130,7 @@ npm test
 Tests use temporary files, fake Pi contexts, and local/mocked transports without model calls. Run only affected test files during development; see [test scope and suite selection](tests/README.md). The npm test scripts use concise output with detailed failures.
 
 `npm run test:browser` separately checks scroll behavior with real Chromium layout in an isolated fixture. It requires installed Chromium (`CHROMIUM_BIN` overrides the executable), uses a temporary profile, and is not part of `npm test`. See [browser validation](docs/frontend.md#validation) for scope and requirements. Real-Pi integration remains unverified.
+
+Run `node --experimental-strip-types --test frontend/tests/browser/edit-diff.mjs` for the isolated Chromium diff-viewer regression. It serves the fixture through Pim's production static-file handler and checks CSP, visible rows, view switching, escaping, and raw-output fallback.
 
 See [server API](docs/server.md), [bridge setup](docs/bridge.md), and [frontend notes](docs/frontend.md).

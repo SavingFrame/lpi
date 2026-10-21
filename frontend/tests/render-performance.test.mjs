@@ -17,6 +17,19 @@ test('collapsed disclosures do not construct or render hidden bodies', () => {
   assert.equal(html, '<details class="tool-block"><summary>Output</summary></details>');
 });
 
+test('default-open disclosures mount their bodies immediately', () => {
+  let calls = 0;
+  const html = renderToStaticMarkup(
+    createElement(Disclosure, { summary: 'Edit', defaultOpen: true }, () => {
+      calls++;
+      return createElement('pre', null, 'Applied changes');
+    }),
+  );
+  assert.equal(calls, 1);
+  assert.match(html, /<details open="">/);
+  assert.match(html, /Applied changes/);
+});
+
 test('completed tool projections compare equal while all display changes invalidate', () => {
   const tool = {
     name: 'read',

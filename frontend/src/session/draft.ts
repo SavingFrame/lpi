@@ -1,8 +1,17 @@
 import type { ImageAttachment } from '../../../src/shared/attachments.ts';
+import type { BridgeCommand } from '../../../src/shared/commands.ts';
 
 export interface ComposerDraft {
   text: string;
   images: ImageAttachment[];
+}
+
+export function composerCommand(draft: ComposerDraft, running: boolean): BridgeCommand {
+  return {
+    type: running ? 'steer' : 'prompt',
+    message: draft.text.trim() ? draft.text : '',
+    images: draft.images,
+  };
 }
 
 /** Navigation may fill an empty composer, but never replaces an unsent draft. */

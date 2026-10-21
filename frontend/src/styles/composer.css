@@ -87,7 +87,4 @@
   .composer-footer > .muted {
     flex: 1;
   }
-  .composer-footer select {
-    margin-left: 6px;
-  }
 }

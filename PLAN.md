@@ -25,10 +25,11 @@ There is no RPC runtime, writable managed catalog, ownership coordinator, parkin
 - Opt-in native extension with token-free WebSocket transport on a trusted LAN/Tailscale network. The thin extension entry point wires separate native session-state, command-dispatch, transport, and image-entry rendering modules; session state survives transport disconnects.
 - Current-branch snapshots, assistant partials, tool activity, model/thinking/context metadata, and queued-message presence.
 - Searchable browser model picker with Pi scoped-model grouping and a colored, supported-level thinking slider through public Pi APIs, gated on idle state with no queued messages or dialogs. Model availability comes from the native registry; thinking options come from `pi-ai` model capabilities, including model-specific mappings and `max`. Pi applies and clamps changes.
-- Browser prompt, steering, follow-up, and abort routed into the connected native Pi runtime, including image attachments from file selection, paste, or drag-and-drop.
+- Browser messages automatically use prompt while Pi is idle and steer while running, with no mode selector. Messages and abort route into the connected native Pi runtime, including image attachments from file selection, paste, or drag-and-drop. The relay also supports explicit follow-up commands.
 - One React/Vite browser client with snapshot/event reconnect synchronization. Live status metadata and lifecycle events update locally; HTTP snapshots remain for initial load, reconnects, generation changes, and explicit branch syncs. Tab-wide launch guards use a separate tested controller; composer acceptance and read eligibility have pure state helpers. Ordered feature styles retain the existing cascade, and one `react-markdown` wrapper enforces the transcript/extension Markdown policy.
 - Project-grouped, collapsible sidebar with per-project session creation, stable folder colors, relative timestamps, project activity counts, and distinct running/input/completion accents. Selection is visually separate from activity. Live activity is running, blocked on a native dialog, idle, or unavailable when disconnected (shown as a saved/read-only session). Turn-ended notifications are separate from runtime activity and do not imply task success.
 - Session-detail tree loading and a searchable right-side tree panel (conversation entries by default, optional tools/metadata, nested branch groups with equal sibling indentation and collapse controls, fully visible linear conversations, distinct user/assistant row colors, projected conversation-tip branch counts, wider-panel toggle, active-path navigation), with expandable sidebar branches derived passively from the same browser cache (no per-session sidebar tree requests), native labels/prompt previews, explicit active-position markers only for connected runtimes, and parent-session origin hints on separate fork/clone/derived session rows. Explicit tree/sidebar/per-message clicks switch the existing synchronized, idle native runtime directly, without a confirmation step, through public command-context navigation with generation/identity/expected-leaf checks and completion/cancellation acknowledgments. Busy/disconnected clicks and plain preview URLs stay read-only, without deferred switching or automatic replay. User-message navigation fills only an empty composer, preserving unsent drafts. Entry provenance survives compaction/context edits. Preview mode blocks sending and read acknowledgment; no file rollback, model-generated summary, browser fork creation, or parallel runtime launch is implied. Fake-native and read-only HTTP coverage passes; real native-Pi integration remains unverified.
+- Browser edit-result viewers using `@pierre/diffs` and Pi's saved unified patches, with unified/split views, syntax/word highlighting, standalone edit calls expanded by default, and raw-output fallback. Ordinary tools remain grouped with lazy disclosure mounting. No file reads, reconstructed edits, or native runtime changes. Nested codemode calls retain preview-only metadata. Isolated Chromium coverage checks rendering and layout; real native-Pi integration remains unverified.
 - Shared, durable session-level completion/read metadata in a separate SQLite database (`PIM_STATE_DIR` or `~/.local/state/pim/pim.sqlite`), using built-in `node:sqlite`. Observed settlement creates an opaque completion ID; conditional viewed acknowledgments cannot clear a newer completion. Read changes broadcast to all clients. Browser acknowledgment requires a loaded transcript, visible tab, and following the bottom. Restarts/reconnects preserve read status; historical/offline settlements are not inferred from saved JSONL.
 - Explicit per-extension support modules with separate shared/native/browser registrations. Ask User Question (`@juicesharp/rpiv-ask-user-question`, public contract inspected at 2.13.9) supports browser selections, custom text, notes, previews, and cancellation through public events, preserving native UI. Pending questions survive transport reconnects; answers require authoritative verdicts and are never automatically replayed. Coverage uses fake native contexts and mocked browser transport; real native-Pi integration remains unverified.
 - Browser-safe shared contracts and validators under `src/shared/`, with common native-event/status projection for relay and browser caches. Frontend types do not depend on server implementations; extension-specific contracts remain in support modules.
@@ -64,12 +65,24 @@ Implemented, with real-Pi integration still unverified:
 - Pi remains alive independently of browser and relay connections. Browser Stop runtime requests graceful shutdown for connected Pim-managed runtimes after confirmation, without deleting history. It aborts active work; acknowledgment is not proof of exit. Managed resume still checks tmux reservations.
 - Launching stays separate from transport and read-only discovery.
 
+## Mobile client and shared-client refactor (planned)
+
+An iOS-first React Native + Expo + Tamagui client is planned over the trusted LAN/Tailscale
+network. Its detailed scope, navigation, shared-client architecture, delivery stages, and
+validation requirements live in [mobile/PLAN.md](mobile/PLAN.md); see also the
+[mobile overview](mobile/README.md). The mobile folder contains documentation only.
+
+The work includes extracting shared browser/mobile behavior with platform adapters and
+migrating browser consumers. Backend/API changes are allowed when they simplify both
+clients, while preserving existing browser functionality and all runtime-safety constraints.
+No mobile scaffold, client extraction, or device verification has been completed.
+
 ## Later
 
 - Refresh saved-session discovery without restarting the relay.
 - Additional extension support modules, including approvals where public APIs permit, while preserving native UI.
 - Remote queue inspection/editing and additional supported commands.
-- A separate iOS client over the trusted network.
+- Mobile capabilities beyond the [initial core scope](mobile/PLAN.md#product-and-navigation).
 - Real-Pi integration coverage for lifecycle, reload, branch navigation, compaction, pending dialogs, and reconnects.
 
 Custom terminal UI does not automatically translate to a browser interface. Abort is not assumed to dismiss a pending dialog.

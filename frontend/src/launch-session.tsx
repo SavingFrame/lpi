@@ -4,6 +4,7 @@ import { LoaderCircle, Plus } from 'lucide-react';
 import { useState, useSyncExternalStore } from 'react';
 import { projects } from './api';
 import { launches } from './client';
+import { ConfirmButton } from './components/confirm-button';
 import { Button } from './components/ui/button';
 
 export function LaunchSession({
@@ -21,6 +22,15 @@ export function LaunchSession({
   const state = useSyncExternalStore(launches.subscribe, () => launches.getState(resumeId));
   const pending = state.status === 'pending';
   const uncertain = state.status === 'uncertain';
+  async function start() {
+    const session = await launches.start(projectId ?? selected, resumeId);
+    if (session) {
+      void navigate({
+        to: '/app/projects/$projectId/sessions/$sessionId',
+        params: { projectId: session.projectId, sessionId: session.id },
+      });
+    }
+  }
   return (
     <div className="flex flex-col gap-2">
       {!resumeId && !projectId && (
@@ -39,50 +49,46 @@ export function LaunchSession({
           ))}
         </select>
       )}
-      <Button
-        type="button"
-        variant="outline"
-        size={compact ? 'icon' : 'sm'}
-        className={compact ? 'project-new-session' : undefined}
-        aria-label={
-          compact
-            ? `New session in ${projectQuery.data?.find((project) => project.id === projectId)?.name ?? 'project'}`
-            : undefined
-        }
-        title={compact ? 'New session in this project' : undefined}
-        disabled={state.status !== 'ready' || !(projectId ?? selected)}
-        onClick={async () => {
-          if (
-            resumeId &&
-            !window.confirm(
-              'Resume this saved session? Confirm no Pi process outside Pim is still using it. Pim checks its own tmux runtimes, but cannot detect every external writer.',
+      {resumeId ? (
+        <ConfirmButton
+          key={resumeId}
+          variant="outline"
+          size="sm"
+          disabled={state.status !== 'ready' || !(projectId ?? selected)}
+          message="Resume this saved session? Confirm no Pi process outside Pim is still using it. Pim checks its own tmux runtimes, but cannot detect every external writer."
+          confirmLabel="Resume session"
+          onConfirm={() => void start()}
+        >
+          {pending ? 'Waiting for Pi…' : 'Resume session'}
+        </ConfirmButton>
+      ) : (
+        <Button
+          type="button"
+          variant="outline"
+          size={compact ? 'icon' : 'sm'}
+          className={compact ? 'project-new-session' : undefined}
+          aria-label={
+            compact
+              ? `New session in ${projectQuery.data?.find((project) => project.id === projectId)?.name ?? 'project'}`
+              : undefined
+          }
+          title={compact ? 'New session in this project' : undefined}
+          disabled={state.status !== 'ready' || !(projectId ?? selected)}
+          onClick={() => void start()}
+        >
+          {compact ? (
+            pending ? (
+              <LoaderCircle size={15} className="working-icon" aria-hidden="true" />
+            ) : (
+              <Plus size={15} aria-hidden="true" />
             )
-          ) {
-            return;
-          }
-          const session = await launches.start(projectId ?? selected, resumeId);
-          if (session) {
-            void navigate({
-              to: '/app/projects/$projectId/sessions/$sessionId',
-              params: { projectId: session.projectId, sessionId: session.id },
-            });
-          }
-        }}
-      >
-        {compact ? (
-          pending ? (
-            <LoaderCircle size={15} className="working-icon" aria-hidden="true" />
+          ) : pending ? (
+            'Waiting for Pi…'
           ) : (
-            <Plus size={15} aria-hidden="true" />
-          )
-        ) : pending ? (
-          'Waiting for Pi…'
-        ) : resumeId ? (
-          'Resume session'
-        ) : (
-          'New session'
-        )}
-      </Button>
+            'New session'
+          )}
+        </Button>
+      )}
       {state.error && (
         <p className="error text-xs" role="alert">
           {state.error.message}

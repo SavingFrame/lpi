@@ -23,7 +23,7 @@ test('adjacent mixed calls group across messages and paired results retain outpu
   const messages = [
     assistant(call('a')),
     result('a'),
-    assistant(call('b', 'edit'), call('c', 'bash')),
+    assistant(call('b', 'write'), call('c', 'bash')),
     result('b', true),
     result('c'),
   ];
@@ -36,7 +36,7 @@ test('adjacent mixed calls group across messages and paired results retain outpu
   );
   assert.deepEqual(
     entries[0].tools.map(({ tool }) => tool.name),
-    ['read', 'edit', 'bash'],
+    ['read', 'write', 'bash'],
   );
   assert.deepEqual(
     entries[0].tools.map(({ tool }) => tool.status),
@@ -44,6 +44,42 @@ test('adjacent mixed calls group across messages and paired results retain outpu
   );
   assert.equal(entries[0].tools[1].tool.result, messages[3]);
   assert.equal(messages[0].content.length, 1, 'projection does not modify source messages');
+});
+
+test('edits stay standalone in call order for saved and live transcripts', () => {
+  const messages = [
+    assistant(call('a'), call('b', 'bash')),
+    assistant(call('edit-1', 'edit'), call('edit-2', 'edit'), call('c'), call('d', 'bash')),
+    result('edit-1'),
+    result('edit-2', true),
+  ];
+  const entries = entriesFor(messages);
+  assert.deepEqual(
+    entries.map((entry) => entry.kind),
+    ['tools', 'tool', 'tool', 'tools'],
+  );
+  assert.deepEqual(
+    entries[0].tools.map(({ key }) => key),
+    ['a', 'b'],
+  );
+  assert.equal(entries[1].tool.status, 'Completed');
+  assert.equal(entries[2].tool.status, 'Failed');
+  assert.equal(entries[2].tool.result, messages[3]);
+  assert.deepEqual(
+    entries[3].tools.map(({ key }) => key),
+    ['c', 'd'],
+  );
+  const live = entriesFor([assistant(call('a'))], {
+    running: true,
+    partial: assistant(call('edit-live', 'edit'), call('b')),
+    tools: [{ id: 'edit-live', name: 'edit', args: { path: 'example.ts' } }],
+  });
+  assert.deepEqual(
+    live.map((entry) => entry.kind),
+    ['tools', 'tool', 'tools'],
+  );
+  assert.equal(live[1].tool.status, 'Running');
+  assert.equal(live[1].key, 'edit-live');
 });
 
 test('text, thinking, codemode, unknown calls and user messages break groups', () => {

@@ -178,6 +178,9 @@ test('production frontend serves deep links and assets without bypassing origin 
   assert.match(page.headers.get('Content-Type'), /text\/html/);
   assert.match(page.headers.get('Content-Security-Policy'), /frame-ancestors 'none'/);
   assert.match(page.headers.get('Content-Security-Policy'), /img-src 'self' data:/);
+  const policy = page.headers.get('Content-Security-Policy');
+  assert.match(policy, /(?:^|; )style-src 'self' 'unsafe-inline';/);
+  assert.match(policy, /(?:^|; )script-src 'self';/);
   assert.match(await page.text(), /Pim test/);
   const asset = await fetch(`${base}/assets/test.js`);
   assert.equal(asset.status, 200);

@@ -2,10 +2,29 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ApiError } from '../src/api.ts';
 import { SessionCommands } from '../src/session/commands.ts';
-import { restoreComposerDraft, settleComposerDraft } from '../src/session/draft.ts';
+import {
+  composerCommand,
+  restoreComposerDraft,
+  settleComposerDraft,
+} from '../src/session/draft.ts';
 
 const id = '11111111-1111-1111-1111-111111111111';
 const image = { type: 'image', mimeType: 'image/png', data: 'original' };
+
+test('composer sends prompts while idle and steers while running, including image-only drafts', () => {
+  for (const text of ['Review this screenshot', '   ']) {
+    const draft = { text, images: [image] };
+    for (const running of [false, true, false]) {
+      const command = composerCommand(draft, running);
+      assert.deepEqual(command, {
+        type: running ? 'steer' : 'prompt',
+        message: text.trim() ? text : '',
+        images: draft.images,
+      });
+      assert.equal(command.images, draft.images);
+    }
+  }
+});
 
 for (const outcome of ['rejected', 'unknown']) {
   test(`${outcome} commands preserve composer text and image references without replay`, async () => {

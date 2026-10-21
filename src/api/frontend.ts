@@ -29,8 +29,10 @@ export async function serveFrontend(
       'Content-Type': types[extname(file)] ?? 'application/octet-stream',
       'Cache-Control': page ? 'no-store' : 'public, max-age=31536000, immutable',
       'X-Content-Type-Options': 'nosniff',
+      // The diff viewer injects shadow-DOM styles and token style attributes.
+      // Allow inline CSS only. Inline scripts, eval and external sources stay blocked.
       'Content-Security-Policy':
-        "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'",
+        "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'",
     });
     response.end(data);
     return true;

@@ -1,12 +1,17 @@
 import { ArrowDown, ArrowUp, Square } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { BridgeCommand } from '../../../src/shared/commands';
 import type { Snapshot } from '../../../src/shared/snapshots';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { ImageAttachments } from '../image-attachments';
 import { SessionSettings } from '../session-controls';
-import { type ComposerDraft, restoreComposerDraft, settleComposerDraft } from './draft';
+import {
+  type ComposerDraft,
+  composerCommand,
+  restoreComposerDraft,
+  settleComposerDraft,
+} from './draft';
 
 export function Composer({
   id,
@@ -38,18 +43,17 @@ export function Composer({
     images: [],
   }));
   const [readingImages, setReadingImages] = useState(false);
-  const [mode, setMode] = useState<'prompt' | 'steer' | 'follow_up'>('prompt');
+  const input = useRef<HTMLTextAreaElement>(null);
+  useEffect(() => {
+    input.current?.focus({ preventScroll: true });
+  }, []);
   useEffect(() => sessionStorage.setItem(`draft:${id}`, draft.text), [draft.text, id]);
   useEffect(() => {
     if (restoredDraft) {
       setDraft((current) => restoreComposerDraft(current, restoredDraft));
     }
   }, [restoredDraft]);
-  const canSend =
-    active &&
-    !readingImages &&
-    Boolean(draft.text.trim() || draft.images.length) &&
-    !(mode === 'prompt' && snapshot?.view.running);
+  const canSend = active && !readingImages && Boolean(draft.text.trim() || draft.images.length);
   return (
     <div className="composer">
       {!following && (
@@ -87,11 +91,9 @@ export function Composer({
           }
           const submitted = draft;
           onFollow();
-          const accepted = await onCommand({
-            type: mode,
-            message: submitted.text.trim() ? submitted.text : '',
-            images: submitted.images,
-          });
+          const accepted = await onCommand(
+            composerCommand(submitted, snapshot?.view.running === true),
+          );
           setDraft((current) => settleComposerDraft(current, submitted, accepted));
         }}
       >
@@ -102,6 +104,7 @@ export function Composer({
           onBusy={setReadingImages}
         >
           <Textarea
+            ref={input}
             aria-label="Message"
             disabled={previewing}
             placeholder={
@@ -136,19 +139,6 @@ export function Composer({
           />
         </ImageAttachments>
         <div className="composer-footer">
-          <label>
-            Send as{' '}
-            <select
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:ring-1 focus-visible:ring-ring"
-              value={mode}
-              disabled={previewing}
-              onChange={(event) => setMode(event.target.value as typeof mode)}
-            >
-              <option value="prompt">Prompt</option>
-              <option value="steer">Steer</option>
-              <option value="follow_up">Follow-up</option>
-            </select>
-          </label>
           <span className="muted" role="status">
             {pending ? 'Submitting…' : outcome ? outcome : 'Draft stays in this tab.'}
           </span>

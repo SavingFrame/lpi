@@ -30,9 +30,10 @@ interface TranscriptGroup {
 
 export type TranscriptEntry =
   | { kind: 'message'; key: string; item: Message; source: Message; actions: boolean }
+  | { kind: 'tool'; key: string; tool: TranscriptTool }
   | { kind: 'tools'; key: string; tools: { key: string; tool: TranscriptTool }[] };
 
-/** Group adjacent ordinary calls, including calls in separate assistant messages. */
+/** Group ordinary calls across messages. Edits stay standalone and break groups. */
 export function transcriptEntries(
   messages: Message[],
   keys: string[],
@@ -122,6 +123,10 @@ export function transcriptEntries(
         continue;
       }
       flush(blockIndex);
+      if (tool.name === 'edit') {
+        entries.push({ kind: 'tool', key: String(block.id), tool });
+        continue;
+      }
       const previous = entries.at(-1);
       if (previous?.kind === 'tools') {
         previous.tools.push({ key: String(block.id), tool });
