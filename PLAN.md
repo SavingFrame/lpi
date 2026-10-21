@@ -22,7 +22,7 @@ There is no RPC runtime, writable managed catalog, ownership coordinator, parkin
 
 - Configured project discovery and read-only saved-session inventory.
 - Bounded JSONL inspection through Pi's pure parsing/context helpers, without opening a runtime.
-- Opt-in native extension with token-free WebSocket transport on a trusted LAN/Tailscale network.
+- Opt-in native extension with token-free WebSocket transport on a trusted LAN/Tailscale network. The thin extension entry point wires separate native session-state, command-dispatch, transport, and image-entry rendering modules; session state survives transport disconnects.
 - Current-branch snapshots, assistant partials, tool activity, model/thinking/context metadata, and queued-message presence.
 - Searchable browser model picker with Pi scoped-model grouping and a colored, supported-level thinking slider through public Pi APIs, gated on idle state with no queued messages or dialogs. Model availability comes from the native registry; thinking options come from `pi-ai` model capabilities, including model-specific mappings and `max`. Pi applies and clamps changes.
 - Browser prompt, steering, follow-up, and abort routed into the connected native Pi runtime, including image attachments from file selection, paste, or drag-and-drop.

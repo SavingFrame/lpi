@@ -71,6 +71,22 @@ If Pi reports that Pim rejected the bridge, inspect Pim's server stderr for `[pi
 
 For example, `Invalid controls.availableThinkingLevels: expected an array` indicates an incompatible or malformed snapshot. `Conflicting native connection or session identity` indicates a duplicate connection or identity mismatch. These are diagnostic observations, not proof that a disconnected Pi process has exited.
 
+## Implementation layout
+
+The loadable entry point remains `src/bridge/extension.ts` (compiled to
+`dist/bridge/extension.js`). Its native implementation lives in `src/bridge/native/`:
+
+- `state.ts`: Pi context, branch snapshots, transient activity, and support-module lifecycle.
+- `commands.ts`: generation/identity preflight, consumed IDs, and public Pi API dispatch.
+- `transport.ts`: outbound WebSocket lifecycle, reconnects, bounded sends, status sampling,
+  partial throttling, and connection-scoped acknowledgments.
+- `image-entry.ts`: persisted image-submission indicator rendering.
+
+Constructing these modules starts no sockets or timers. Session hooks and explicit connect
+commands start transport resources. Disconnecting the transport preserves native pending
+questions and transient activity; session replacement or shutdown disposes support listeners.
+Late asynchronous command results cannot acknowledge a replacement connection.
+
 ## Verification
 
 Focused tests run the compiled extension against a fake public Pi context and isolated local HTTP/WebSocket transports. They cover streaming, commands, dialogs, disconnects, connection conflicts, reload reconnects, stale generations, token-free connections, Host/Origin rejection, and unknown outcomes without model calls.
