@@ -1,4 +1,5 @@
 import { record, reduceEvent, type View, view } from './client-state.ts';
+import { pendingQueue } from './queue.ts';
 import { type SessionControls, sessionControls } from './session-controls.ts';
 import { readState, type SessionReadState } from './session-read-state.ts';
 import { type Session, session } from './sessions.ts';
@@ -36,6 +37,7 @@ export function nativeStatus(value: unknown): NativeStatus {
   return {
     state: {
       ...state,
+      queue: pendingQueue(state.queue),
       isStreaming: state.isStreaming,
       hasPendingMessages: state.hasPendingMessages,
     },
@@ -73,12 +75,14 @@ export function snapshot(value: unknown): Snapshot {
   ) {
     throw new Error('Invalid snapshot');
   }
+  const state = record(raw.state);
+  pendingQueue(state.queue);
   return {
     epoch: raw.epoch,
     cursor: raw.cursor,
     session: session(raw.session),
     readState: readState(raw.readState),
-    state: record(raw.state),
+    state,
     controls: sessionControls(raw.controls),
     view: view(raw.view),
   };

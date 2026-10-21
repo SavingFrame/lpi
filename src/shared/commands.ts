@@ -18,6 +18,7 @@ export type BridgeCommand =
   | { type: 'set_model'; provider: string; modelId: string }
   | { type: 'set_thinking_level'; level: ThinkingLevel }
   | { type: 'navigate_tree'; targetId: string; expectedLeafId: string | null }
+  | { type: 'clear_queue'; expectedRevision: string }
   | { type: 'abort' }
   | { type: 'stop_runtime' }
   | {
@@ -35,6 +36,9 @@ export function bridgeCommand(value: unknown): BridgeCommand {
   }
   if (type === 'abort' || type === 'stop_runtime') {
     return { type };
+  }
+  if (type === 'clear_queue') {
+    return { type, expectedRevision: text(raw.expectedRevision, 'queue revision', 128) };
   }
   if (type === 'navigate_tree') {
     return {

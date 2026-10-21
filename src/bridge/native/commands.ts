@@ -63,6 +63,9 @@ export class NativeCommands {
       if (command.type === 'navigate_tree') {
         this.validateNavigation(command, context, connection);
       }
+      if (command.type === 'clear_queue') {
+        this.state.queue.validate(command.expectedRevision);
+      }
       if (this.changingSettings) {
         throw new Error('Native settings change in progress');
       }
@@ -89,6 +92,10 @@ export class NativeCommands {
       };
     }
 
+    if (command.type === 'clear_queue') {
+      this.state.queue.clear();
+      return { id, outcome: 'acknowledged', sync: true };
+    }
     if (command.type === 'navigate_tree') {
       try {
         await this.navigation.navigate(command.targetId, (fresh) =>

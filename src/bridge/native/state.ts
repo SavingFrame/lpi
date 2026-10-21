@@ -1,14 +1,16 @@
-import { getSupportedThinkingLevels } from '@earendil-works/pi-ai/models';
+import { getSupportedThinkingLevels } from '@earendil-works/pi-ai';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { nativeExtensionSupport } from '../../extension-support/native.js';
 import { historyMessages } from '../../pi-history.js';
 import { emptyView, reduceEvent, type View } from '../../shared/client-state.js';
 import type { NativeIdentity } from '../../shared/commands.js';
 import type { NativeStatus } from '../../shared/snapshots.js';
+import { NativeQueue } from './queue.js';
 
 /** Session-scoped Pi state, retained independently of the relay connection. */
 export class NativeState {
   context: ExtensionContext | undefined;
+  readonly queue = new NativeQueue();
   readonly managedRuntime: boolean;
   private readonly pi: ExtensionAPI;
   private current: View = emptyView();
@@ -41,6 +43,7 @@ export class NativeState {
     this.nativeNotice = null;
     this.current = { ...emptyView(), running: !context.isIdle() };
     if (context.mode === 'tui') {
+      this.queue.start(() => this.context);
       this.support = nativeExtensionSupport(
         this.pi,
         () => {
@@ -68,6 +71,7 @@ export class NativeState {
   }
 
   dispose(): void {
+    this.queue.dispose();
     this.support?.dispose();
     this.support = undefined;
   }
@@ -95,6 +99,7 @@ export class NativeState {
         leafId: context.sessionManager.getLeafId(),
         isStreaming: !context.isIdle(),
         hasPendingMessages: context.hasPendingMessages(),
+        queue: this.queue.snapshot(),
         sessionName: context.sessionManager.getSessionName(),
         pendingDialog: this.current.notice,
       },

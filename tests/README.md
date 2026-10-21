@@ -21,6 +21,9 @@ node --experimental-strip-types --test --test-reporter=spec frontend/tests/live-
 | Inventory, completion/read metadata, status and launch correlation | `tests/bridge-inventory.test.mjs` |
 | Ask native-to-relay integration | `tests/bridge-ask.test.mjs` |
 | Native state/command/transport units | `tests/native-bridge.test.mjs` |
+| Queue hook lifecycle, revisions, clearing and wire validation | `tests/native-queue.test.mjs` |
+| Opt-in real-Pi queue adapter with an isolated fake provider | `node --test tests/integration/native-queue.mjs` |
+| Real Chromium queue visibility, draft copying and clear consent | `node --test frontend/tests/browser/pending-queue.mjs` |
 | Browser snapshot/reconnect boundaries | `frontend/tests/live.test.mjs` |
 | Browser status, lifecycle and read broadcasts | `frontend/tests/live-status.test.mjs` |
 | Ask relay-to-browser synchronization | `frontend/tests/live-ask.test.mjs` |
@@ -42,4 +45,4 @@ Other feature tests remain beside these suites. `bridge-fixture.mjs` owns relay 
 - Markdown tests retain table semantics, alignment and security assertions without depending on exact wrapper nesting or placeholder tags.
 - Native, relay and browser safety assertions remain separate where they protect different trust boundaries. Do not remove them merely because their names look similar.
 
-A new test should cover a distinct user-visible behavior, contract or regression. Avoid adding cases for library behavior unrelated to Pim's configuration or for every implementation detail. Real-layout coverage complements controller units; fake native contexts do not establish real-Pi integration. Real native-Pi lifecycle, reload, navigation, compaction and dialogs remain unverified.
+A new test should cover a distinct user-visible behavior, contract or regression. Avoid adding cases for library behavior unrelated to Pim's configuration or for every implementation detail. Real-layout coverage complements controller units; fake native contexts do not establish real-Pi integration. The opt-in queue integration test starts both the installed bundled launcher and unbundled native Pi CLI in JSON mode. It symlinks the actual `src/bridge` folder into the isolated agent directory, verifies that normal global discovery loads its `index.ts` without an explicit bridge path, and runs a source-based queue probe. No extension compilation or host-class injection is used. It loads the real queue adapter, clears queued steering/follow-up messages, verifies they never reach a fake provider, and verifies explicitly requeued replacements do. It uses temporary HOME, settings, working directory and sessions, no credentials, no network provider and no TUI. The opt-in source integration test does not require a build; compiled native unit tests still require `npm run build:server`. Set `PIM_TEST_PI_CLI` to an absolute CLI entry path to also verify a separate/global Pi installation with the same isolation. Real TUI/bridge integration and native-Pi reload, navigation, compaction and dialogs remain unverified.

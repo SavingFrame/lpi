@@ -9,10 +9,21 @@ Pi runs the agent and keeps its normal session files. Pim connects to that same 
 - Browse live and saved sessions, grouped by project.
 - Follow streaming responses, tool activity, and code diffs.
 - Send prompts, steer running agents, and attach images.
+- Inspect queued steering/follow-up text and clear the native session queue.
 - Switch models and thinking levels.
 - Explore conversation branches and continue from earlier messages.
 - Create, resume, and stop Pim-managed sessions.
 - Track running agents, input requests, and unread completions across browsers.
+
+Queue access uses an unsupported, isolated `AgentSession` prototype hook, verified with Pi 1.3.0.
+It does not replace the TUI editor or start another runtime. Access initializes on native prompting
+or queue rendering; unavailable access disables clearing. Clear removes all session-queued
+messages, including attachments and queued extension messages, but never messages already
+delivered. Copy text to the draft before clearing to revise and explicitly send again. Images
+are not copied. Pi's separate TUI compaction-input queue is not exposed. Pi loads the extension
+and its dependencies directly from TypeScript, so the hook imports the host Pi class rather than
+a separate compiled SDK class. Bundled and unbundled Pi 1.3.0 source loading and queue access are
+verified in isolated JSON-mode tests. No dependency patch or fork is installed.
 
 An iOS-first mobile app is also in development, currently with read-only session previews.
 
@@ -31,6 +42,22 @@ Pi + extension ─┘                  └─ iOS app
 ```
 
 The agent always runs in Pi, not in the server or clients. Closing a client or the server does not stop your agents.
+
+## Pi extension entry
+
+With Pim's dependencies installed, symlink the source folder into Pi's extension directory:
+
+```sh
+mkdir -p ~/.pi/agent/extensions
+ln -s /absolute/path/to/pim/src/bridge ~/.pi/agent/extensions/pim
+```
+
+Pi discovers `src/bridge/index.ts` and loads TypeScript through Jiti. No extension build or
+separate loader shim is required. The relay server and frontend still use their normal builds.
+Use only one Pim entry; replace older `pim.js` or `pim.ts` entries instead of keeping both.
+Reload or restart Pi after changing the entry; restarting the Pim server alone does not reload
+extensions inside Pi. For copying later, preserve the source tree and installed dependencies:
+`src/bridge` also imports shared and extension-support modules from elsewhere under `src/`.
 
 ## Self-hosted
 

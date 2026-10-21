@@ -11,13 +11,24 @@ npm start -- pim.config.json
 
 No token or secret file is needed. The Pi working directory must match a discovered project.
 
-Launch normal Pi with the compiled extension:
+Pi loads the extension directly from its TypeScript source folder. No extension build is needed:
 
 ```sh
-pi --extension /absolute/path/to/pim/dist/bridge/extension.js --resume
+pi --extension /absolute/path/to/pim/src/bridge --resume
 ```
 
-Loading the extension opts into connection on session startup, including after switching sessions. This explicit command is for Pi instances without the bridge globally configured. Browser create/resume relies on Pi’s existing global extension configuration and does not pass `--extension`. Enable the compiled bridge there before using browser launching, and do not configure both a wrapper and an explicit path for the same extension.
+For global discovery and browser launching, symlink that folder:
+
+```sh
+ln -s /absolute/path/to/pim/src/bridge ~/.pi/agent/extensions/pim
+```
+
+Pi discovers `index.ts` and transpiles the source graph with Jiti. Loading compiled extension
+modules directly is not supported because their SDK imports can select a different Pi class
+from the running bundled CLI. When copying, preserve the surrounding source tree and installed
+dependencies; the bridge imports shared modules outside its own directory.
+
+Loading the extension opts into connection on session startup, including after switching sessions. The explicit command is for Pi instances without the bridge globally configured. Browser create/resume relies on Pi's existing global extension configuration and does not pass `--extension`. Replace older `pim.js` or `pim.ts` entries, and do not load the same extension both globally and explicitly.
 
 To reconnect manually or select another endpoint, run:
 
@@ -40,12 +51,12 @@ The endpoint defaults to `ws://127.0.0.1:3141/bridge`. Set `PIM_BRIDGE_URL` for 
 - Current model, thinking, context usage, and queued-message presence, sampled every second.
 - Browser prompt, steer, follow-up, and abort through public extension APIs.
 - Native `leafId` metadata and provenance-preserving finalized messages for sidebar/per-message branch previews. Idle browser navigation validates the expected native leaf and target, then uses public `ExtensionCommandContext.navigateTree()`. A single-use, opaque internal `pim-tree` command obtains a fresh command context through `pi.sendUserMessage(..., { expandPromptTemplates: true })`; it is not an arbitrary remote slash-command facility or terminal proxy. It requests no summary/model turn. Completion/cancellation is acknowledged, while dispatch exceptions and timeouts remain unknown and are not replayed. Native pre-navigation hooks still run and may require terminal input.
-- Browser model/thinking selectors through `pi.setModel()` and `pi.setThinkingLevel()`, restricted to idle Pi with no queued messages or dialogs. Models come from the authenticated native registry. Thinking options come from `getSupportedThinkingLevels(ctx.model)` in `@earendil-works/pi-ai/models`, including custom model mappings and `max` where supported. Pi clamps changes; snapshots report the effective value and supported options.
+- Browser model/thinking selectors through `pi.setModel()` and `pi.setThinkingLevel()`, restricted to idle Pi with no queued messages or dialogs. Models come from the authenticated native registry. Thinking options come from `getSupportedThinkingLevels(ctx.model)` from the `@earendil-works/pi-ai` root export, including custom model mappings and `max` where supported. Pi clamps changes; snapshots report the effective value and supported options.
 - Stop runtime for connected Pim-managed instances through `ctx.abort()` and `ctx.shutdown()`. Acceptance is flushed before shutdown cleanup disconnects the bridge. External instances reject this command.
 - Native prompt lifecycle notices where Pi exposes them. Unsupported dialog answers remain terminal-only.
 - Explicit support modules under `src/extension-support/`. Ask User Question uses its public prompt/blocked/answer/verdict events to expose browser questionnaires while keeping native UI. Pending state remains in the native bridge across transport disconnects; reconnect snapshots restore open questions, not unfinished tools after a native restart.
 
-Browser image attachments are delivered as structured image content through `pi.sendUserMessage`, including with steer/follow-up and image-only messages. PNG, JPEG, GIF, and WebP are supported, up to four images and 4 MiB total per message. A model with image input support is required. Slash commands, queue editing, and generic custom-terminal-UI adaptation are not exposed. Steer/follow-up use normal Pi semantics and can start a turn when idle.
+Browser image attachments are delivered as structured image content through `pi.sendUserMessage`, including with steer/follow-up and image-only messages. PNG, JPEG, GIF, and WebP are supported, up to four images and 4 MiB total per message. A model with image input support is required. Arbitrary slash commands, per-item queue editing, and generic custom-terminal-UI adaptation are not exposed. Queue text inspection and clear-all cancellation use the isolated, unsupported `AgentSession` hook; copying text into the draft does not restore attachments or automatically resend. Steer/follow-up use normal Pi semantics and can start a turn when idle.
 
 For each browser image submission, the extension adds a durable native TUI indicator such as `Pim: 1 image submitted (prompt)`. It records the count and delivery mode as a custom session entry, without duplicating image bytes or adding model context. The indicator renders again after reload/resume while the bridge extension is loaded. It indicates submission, not model acceptance or execution, and queued messages can still be changed or discarded in native Pi. Existing submissions are not backfilled.
 
@@ -75,8 +86,8 @@ For example, `Invalid controls.availableThinkingLevels: expected an array` indic
 
 ## Implementation layout
 
-The loadable entry point remains `src/bridge/extension.ts` (compiled to
-`dist/bridge/extension.js`). Its native implementation lives in `src/bridge/native/`:
+The loadable source-folder entry is `src/bridge/index.ts`. Its native implementation lives
+in `src/bridge/native/`:
 
 - `state.ts`: Pi context, branch snapshots, transient activity, and support-module lifecycle.
 - `commands.ts`: generation/identity preflight, consumed IDs, and public Pi API dispatch.
@@ -84,6 +95,7 @@ The loadable entry point remains `src/bridge/extension.ts` (compiled to
   partial throttling, and connection-scoped acknowledgments.
 - `image-entry.ts`: persisted image-submission indicator rendering.
 - `navigation.ts`: single-use command-context navigation, completion/cancellation, and bounded unknown outcomes.
+- `queue.ts`: capture the host session, inspect its queue, validate queue revisions, and clear pending messages.
 
 Constructing these modules starts no sockets or timers. Session hooks and explicit connect
 commands start transport resources. Disconnecting the transport preserves native pending
@@ -94,4 +106,4 @@ Late asynchronous command results cannot acknowledge a replacement connection.
 
 Focused tests run the compiled extension against a fake public Pi context and isolated local HTTP/WebSocket transports. They cover streaming, commands, dialogs, disconnects, connection conflicts, reload reconnects, stale generations, token-free connections, Host/Origin rejection, and unknown outcomes without model calls.
 
-Real native Pi with the installed extensions remains unverified. Ask support has focused adapter, fake-native bridge, and mocked-browser tests, including reconnects, concurrent questions, terminal closures, rejected answers, and unknown delivery. No automatic recovery of unfinished tools or generic remote custom-dialog support is claimed.
+The opt-in `tests/integration/native-queue.mjs` test loads the actual symlinked source folder in isolated JSON-mode Pi processes and uses a fake provider to verify queue inspection, clearing and explicit requeueing. Local bundled/unbundled and separate global Pi installations pass. Full native TUI/relay integration with the installed extensions remains unverified. Ask support has focused adapter, fake-native bridge, and mocked-browser tests, including reconnects, concurrent questions, terminal closures, rejected answers, and unknown delivery. No automatic recovery of unfinished tools or generic remote custom-dialog support is claimed.

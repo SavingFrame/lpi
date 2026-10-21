@@ -58,8 +58,7 @@ export function LaunchSession({
           variant="outline"
           size="sm"
           disabled={state.status !== 'ready' || !(projectId ?? selected)}
-          message="Resume this saved session? Confirm no Pi process outside Pim is still using it. Pim checks its own tmux runtimes, but cannot detect every external writer."
-          confirmLabel="Resume session"
+          confirmLabel="Resume"
           onConfirm={() => void start()}
         >
           {pending ? 'Waiting for Pi…' : 'Resume session'}

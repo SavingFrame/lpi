@@ -249,12 +249,8 @@ function SessionPane({
           <p className="banner">
             Connected to native Pi. Prompts run in its terminal process. Model and thinking changes
             require idle Pi with no queued messages or dialogs. Supported extension questions appear
-            below. Other dialogs and queue editing remain terminal-only.
-          </p>
-        )}
-        {session?.connection === 'connected' && snapshot?.state.hasPendingMessages === true && (
-          <p className="banner">
-            Native Pi has queued messages. Inspect or edit the queue in its terminal.
+            below. Queued messages can be inspected and cleared above the composer. Other dialogs
+            remain terminal-only.
           </p>
         )}
         {snapshot && snapshot.session.projectId !== projectId && (

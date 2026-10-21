@@ -5,7 +5,7 @@ import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createEventBus } from '@earendil-works/pi-coding-agent';
 import { WebSocketServer } from 'ws';
-import extension from '../dist/bridge/extension.js';
+import extension from '../dist/bridge/index.js';
 import { NativeCommands } from '../dist/bridge/native/commands.js';
 import { NativeState } from '../dist/bridge/native/state.js';
 import { NativeTransport } from '../dist/bridge/native/transport.js';

@@ -47,7 +47,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
       if (
         await context.ui.confirm(
           'Connect to Pim?',
-          `Share this transcript and allow remote prompts, branch navigation, model/thinking changes, supported extension answers, and abort requests through ${transport.url}?`,
+          `Share this transcript and allow remote prompts, branch navigation, model/thinking changes, supported extension answers, queue inspection/clearing, and abort requests through ${transport.url}?`,
         )
       ) {
         state.resume(context);

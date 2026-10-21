@@ -22,9 +22,10 @@ There is no RPC runtime, writable managed catalog, ownership coordinator, parkin
 
 - Configured project discovery and read-only saved-session inventory.
 - Bounded JSONL inspection through Pi's pure parsing/context helpers, without opening a runtime.
-- Opt-in native extension with token-free WebSocket transport on a trusted LAN/Tailscale network. The thin extension entry point wires separate native session-state, command-dispatch, transport, and image-entry rendering modules; session state survives transport disconnects.
+- Opt-in native extension with token-free WebSocket transport on a trusted LAN/Tailscale network. Pi loads `src/bridge/index.ts` from a symlinked source folder through Jiti, including the native adapter's host `AgentSession` import. No extension build, separate loader shim, or host-class injection is needed. The bridge wires separate native session-state, command-dispatch, transport, and image-entry rendering modules; session state survives transport disconnects.
 - Full current-branch transcript snapshots, assistant partials, tool activity, model/thinking/context metadata, and queued-message presence. Live snapshots, saved sessions, and branch previews preserve original messages across compaction and context edits, with compaction summaries in chronological order rather than replacing history.
 - Searchable browser model picker with Pi scoped-model grouping and a colored, supported-level thinking slider through public Pi APIs, gated on idle state with no queued messages or dialogs. Model availability comes from the native registry; thinking options come from `pi-ai` model capabilities, including model-specific mappings and `max`. Pi applies and clamps changes.
+- Browser queue inspection and clear-all cancellation through an isolated, unsupported `AgentSession` hook. Queue snapshots carry revisions so stale clear requests reject; copied text appends to the existing draft and resending is explicit. Attachments are cleared but not copied; Pi's separate TUI compaction-input queue is excluded. Queue access can remain unavailable until native prompting/queue rendering captures the matching session. Isolated real-Pi JSON-mode queue behavior was verified with a fake provider for local bundled/unbundled launchers and a separate global installation, through a symlinked source folder with no compiled-extension imports; full TUI/bridge integration remains unverified.
 - Browser messages automatically use prompt while Pi is idle and steer while running, with no mode selector. Messages and abort route into the connected native Pi runtime, including image attachments from file selection, paste, or drag-and-drop. The relay also supports explicit follow-up commands.
 - One React/Vite browser client with snapshot/event reconnect synchronization. Live status metadata and lifecycle events update locally; HTTP snapshots remain for initial load, reconnects, generation changes, and explicit branch syncs. Tab-wide launch guards use a separate tested controller; composer acceptance and read eligibility have pure state helpers. Ordered feature styles retain the existing cascade, and one `react-markdown` wrapper enforces the transcript/extension Markdown policy.
 - Project-grouped, collapsible sidebar with per-project session creation, stable folder colors, relative timestamps, project activity counts, and distinct running/input/completion accents. Selection is visually separate from activity. Live activity is running, blocked on a native dialog, idle, or unavailable when disconnected (shown as a saved/read-only session). Turn-ended notifications are separate from runtime activity and do not imply task success.
@@ -47,7 +48,7 @@ Real native Pi with the installed extension set remains unverified.
 - Reject simultaneous bridge registrations for the same canonical session path. This detects connected duplicates, not arbitrary Pi processes outside the bridge.
 - Do not automatically reopen an existing file after a connection loss.
 - JSONL preserves history, not checkpointed recovery of unfinished tools.
-- Remote commands use public extension APIs. No unrestricted shell or terminal-input proxy is planned.
+- Remote commands use public extension APIs except the explicitly accepted queue adapter: it captures the existing `AgentSession` through prototype hooks to read/clear its actual queue. This unsupported exception was tested against Pi 1.3.0 in isolated JSON mode with a fake provider. It needs upgrade regression coverage; no runtime creation, dependency patch, TUI replacement, unrestricted shell, or terminal-input proxy is introduced.
 - LAN/Tailscale clients are trusted. No application authentication or bridge token. Network access control belongs to deployment; Host/Origin checks remain enforced.
 
 ## Native Pi launching in tmux
@@ -95,7 +96,7 @@ are recorded in the mobile README.
 
 - Refresh saved-session discovery without restarting the relay.
 - Additional extension support modules, including approvals where public APIs permit, while preserving native UI.
-- Remote queue inspection/editing and additional supported commands.
+- Additional supported commands and upstream public extension queue access.
 - Mobile capabilities beyond the [initial core scope](mobile/PLAN.md#product-and-navigation).
 - Real-Pi integration coverage for lifecycle, reload, branch navigation, compaction, pending dialogs, and reconnects.
 

@@ -8,6 +8,7 @@ import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { ImageAttachments } from '../image-attachments';
 import { SessionSettings } from '../session-controls';
+import { PendingMessages } from './pending-queue';
 
 export function Composer({
   id,
@@ -81,6 +82,21 @@ export function Composer({
             snapshot.state.hasPendingMessages === true ||
             snapshot.state.pendingDialog != null
           }
+          onCommand={onCommand}
+        />
+      )}
+      {snapshot && !previewing && (
+        <PendingMessages
+          snapshot={snapshot}
+          active={active}
+          canCopy={!draftState.loading && !pending && !uncertain}
+          onCopy={(text) => {
+            controller.update((current) => ({
+              ...current,
+              text: [current.text, text].filter(Boolean).join('\n\n'),
+            }));
+            input.current?.focus({ preventScroll: true });
+          }}
           onCommand={onCommand}
         />
       )}

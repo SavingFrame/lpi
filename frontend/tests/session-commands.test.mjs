@@ -21,6 +21,7 @@ const commands = [
     action: { toolCallId: 'ask', cancel: true },
   },
   { type: 'navigate_tree', targetId: 'earlier', expectedLeafId: 'current' },
+  { type: 'clear_queue', expectedRevision: 'queue-revision' },
 ];
 
 async function setup() {
@@ -237,6 +238,7 @@ for (const [command, outcome] of [
   [commands[6], 'Shutdown requested. Runtime exit is not yet confirmed.'],
   [commands[7], 'Answer accepted by the native extension.'],
   [commands[8], 'Native branch switched.'],
+  [commands[9], 'Queued messages cleared.'],
 ]) {
   test(`${command.type} retains its acknowledgment semantics`, async () => {
     const { lane, acknowledge } = await setup();

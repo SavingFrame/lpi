@@ -8,7 +8,7 @@ import { createEventBus } from '@earendil-works/pi-coding-agent';
 import { WebSocket } from 'ws';
 import { createApi } from '../dist/api/http.js';
 import { attachWebSockets } from '../dist/api/websocket.js';
-import extension from '../dist/bridge/extension.js';
+import extension from '../dist/bridge/index.js';
 import { NativeBridges } from '../dist/bridge/server.js';
 import { Events } from '../dist/events.js';
 import { Sessions } from '../dist/sessions.js';
