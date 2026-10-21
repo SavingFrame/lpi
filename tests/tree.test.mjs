@@ -72,7 +72,7 @@ test('tree contracts validate bounded ancestry and navigation requires an expect
   );
 });
 
-test('provenance survives context edits and compaction, while tree metadata excludes tool output', () => {
+test('transcript preserves raw history through context edits and repeated compaction on its branch', () => {
   const history = [
     entry('first', null, 'user', 'Original'),
     entry('reply', 'first', 'assistant', 'Old reply'),
@@ -86,7 +86,7 @@ test('provenance survives context edits and compaction, while tree metadata excl
     },
   ];
   assert.equal(historyMessages(history)[0].entryId, 'first');
-  assert.equal(historyMessages(history)[0].content, 'Replacement');
+  assert.equal(historyMessages(history)[0].content, 'Original');
   history.push({
     type: 'compaction',
     id: 'compact',
@@ -96,8 +96,53 @@ test('provenance survives context edits and compaction, while tree metadata excl
     tokensBefore: 100,
     timestamp,
   });
-  assert.equal(historyMessages(history)[0].entryId, 'compact');
-  assert.equal(historyMessages(history)[0].role, 'compactionSummary');
+  history.push(
+    entry('next', 'compact', 'user', 'Continue'),
+    {
+      type: 'context_edit',
+      id: 'omit',
+      parentId: 'next',
+      targetId: 'reply',
+      replacement: null,
+      timestamp,
+    },
+    {
+      type: 'compaction',
+      id: 'compact-again',
+      parentId: 'omit',
+      firstKeptEntryId: 'next',
+      summary: 'Second summary',
+      tokensBefore: 200,
+      timestamp,
+    },
+    entry('latest', 'compact-again', 'assistant', 'Continued'),
+    entry('sibling', 'reply', 'user', 'Other branch'),
+  );
+  const original = structuredClone(history);
+  const messages = historyMessages(history, 'latest');
+  assert.deepEqual(
+    messages.map((message) => message.entryId),
+    ['first', 'reply', 'compact', 'next', 'compact-again', 'latest'],
+  );
+  assert.equal(messages[0].content, 'Original');
+  assert.equal(messages[1].content, 'Old reply');
+  assert.deepEqual(
+    messages
+      .filter((message) => message.role === 'compactionSummary')
+      .map((message) => message.summary),
+    ['Summary', 'Second summary'],
+  );
+  assert.deepEqual(
+    historyMessages(history).map((message) => message.entryId),
+    ['first', 'reply', 'sibling'],
+  );
+  assert.deepEqual(
+    historyMessages(history, 'reply').map((message) => message.entryId),
+    ['first', 'reply'],
+  );
+  assert.deepEqual(historyMessages(history, null), []);
+  assert.deepEqual(historyMessages([]), []);
+  assert.deepEqual(history, original);
   assert.equal(
     historyNodes([entry('tool', null, 'toolResult', 'private tool output')])[0].preview,
     '',

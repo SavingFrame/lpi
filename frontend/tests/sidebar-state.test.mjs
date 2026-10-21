@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { activityCounts, groupSessions, visibleSessions } from '../../src/client/inventory.ts';
 import { hasUnreadCompletion } from '../../src/shared/session-read-state.ts';
-import { activityCounts, groupSessions, projectColor, relativeTime } from '../src/sidebar-state.ts';
+import { projectColor, relativeTime } from '../src/sidebar-state.ts';
 
 const projects = [
   { id: 'a', name: 'same', directory: '/projects/a' },
@@ -78,6 +79,26 @@ test('unread completions survive disconnection and remain separate from running 
     false,
   );
   assert.equal(hasUnreadCompletion({ completionId: null, viewedCompletionId: null }), false);
+});
+
+test('recent sessions retain selected, active, and unread rows while older history expands', () => {
+  const items = [
+    session('recent', 'a', 'idle'),
+    session('older', 'a', 'idle'),
+    session('selected', 'a', 'idle'),
+    session('running', 'a', 'running'),
+    session('blocked', 'a', 'blocked'),
+    {
+      ...session('unread', 'a', 'idle'),
+      readState: { completionId: 'turn', viewedCompletionId: null },
+    },
+  ];
+  assert.deepEqual(
+    visibleSessions(items, 'selected', false, 1).map((item) => item.id),
+    ['recent', 'selected', 'running', 'blocked', 'unread'],
+  );
+  assert.equal(visibleSessions(items, 'selected', true, 1), items);
+  assert.equal(items.length, 6);
 });
 
 test('project colors remain stable and relative times are compact', () => {

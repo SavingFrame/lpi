@@ -2,6 +2,12 @@
   "name": "pim",
   "private": true,
   "type": "module",
+  "workspaces": [
+    "mobile"
+  ],
+  "overrides": {
+    "react-native-gesture-handler": "3.3.0"
+  },
   "engines": {
     "node": ">=22.19"
   },
@@ -15,7 +21,7 @@
     "build": "npm run build:server && npm run build:frontend",
     "build:server": "tsc -p tsconfig.json",
     "build:frontend": "vite build --config frontend/vite.config.ts frontend",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p frontend/tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p frontend/tsconfig.json && npm run typecheck --workspace @pim/mobile",
     "start": "node dist/main.js",
     "test:frontend": "node --experimental-strip-types --test --test-reporter=spec frontend/tests/*.test.mjs",
     "test:browser": "node --test --test-reporter=spec frontend/tests/browser/chat-scroll.mjs",

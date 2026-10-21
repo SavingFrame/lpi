@@ -1,6 +1,6 @@
+import type { ComposerDraft } from '../../src/client/drafts.ts';
 import { imageAttachments } from '../../src/shared/attachments.ts';
 import type { BranchPreview, SessionTree } from '../../src/shared/session-tree.ts';
-import type { ComposerDraft } from './session/draft.ts';
 
 /** Native /tree rewinds before a selected user message. Restore its structured draft. */
 export function draftForBranch(preview: BranchPreview): ComposerDraft | null {

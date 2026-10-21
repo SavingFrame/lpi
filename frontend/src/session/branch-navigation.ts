@@ -1,9 +1,9 @@
 import type { MouseEvent } from 'react';
+import type { ComposerDraft } from '../../../src/client/drafts.ts';
 import type { BridgeCommand } from '../../../src/shared/commands.ts';
 import type { BranchPreview } from '../../../src/shared/session-tree.ts';
 import { draftForBranch } from '../branch-state.ts';
 import type { LiveState } from '../live.ts';
-import type { ComposerDraft } from './draft.ts';
 
 type BranchAction = 'current' | 'switch' | 'preview';
 

@@ -14,6 +14,12 @@ filesystem, database, or Pi runtime dependencies belong here.
 - `mutation-guard.ts`: storage hydration, synchronous in-memory exclusion, persistence
   before dispatch, explicit inspection, and uncertain outcomes without replay.
 - `storage.ts`: sync/async storage contract, serialized per-key operations, and scoped keys.
+- `drafts.ts`: server/session-scoped async draft hydration, ordered persistence, branch
+  suggestions, and acceptance settlement that preserves newer text and attachment edits.
+- `inventory.ts`: project grouping, recency ordering, offline activity, activity counts,
+  and recent/selected/active/unread session visibility.
+- `read-completion.ts`: loaded-completion eligibility and one-attempt acknowledgment with
+  explicit retry, lifecycle gating, and isolation of late verdicts.
 
 ## Adapter requirements
 
@@ -41,7 +47,25 @@ Storage failures before dispatch send nothing. Cleanup failures after dispatch p
 uncertainty, including after a known rejection. `review()` is async and blocks the lane
 while removing its marker; failed removal cannot clear an uncertain state.
 
+Keep one `SessionDrafts` registry per server for the client lifetime. Remounts share the
+latest draft, so a late submission verdict cannot overwrite edits made on another view.
+Restoration never submits. Call `initialize()` before sending, observe storage errors,
+and offer explicit `retry()`; unreadable storage is not automatically overwritten.
+`persistImages` is an explicit platform policy. Browser drafts persist text in tab storage
+and retain image attachments only in memory. Native adapters can opt into validated image
+persistence. `flush()` waits for queued writes; failures remain visible in draft state.
+
+Bind `ReadCompletions` to one server and supply the current loaded-completion target using
+`completionToView()`. Visibility must mean the conversation itself is visible, the app is
+foregrounded, and the transcript is following the bottom. Opening a navigation drawer
+must not create an eligible target. Call `synchronize()` on snapshot/lifecycle changes;
+failed acknowledgments require explicit `retry()`, which rechecks eligibility. Server-side
+conditional completion IDs remain authoritative for stale-acknowledgment protection.
+
+Questionnaire selection/custom-answer/note behavior remains extension-specific in
+`src/extension-support/ask-user-question/draft.ts`, with no browser UI dependencies.
+Native mobile rendering and explicit extension registration are still pending.
+
 Shared behavior is covered with injected storage and transport in `frontend/tests/`.
 These checks do not verify native storage, iOS builds/networking, device lifecycle, or
-real native-Pi integration. Draft persistence, inventory/read controllers, and reusable
-extension-state extraction remain pending.
+real native-Pi integration.

@@ -11,19 +11,14 @@ import {
   MessageCircleQuestion,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
+import { activityCounts, groupSessions, visibleSessions } from '../../src/client/inventory';
 import type { SessionActivity } from '../../src/shared/session-activity';
 import { hasUnreadCompletion } from '../../src/shared/session-read-state';
-import type { Project } from '../../src/shared/sessions';
+import type { InventorySession, Project } from '../../src/shared/sessions';
 import { Button } from './components/ui/button';
 import { LaunchSession } from './launch-session';
 import { SessionBranches, SessionBranchToggle } from './session-branches';
-import {
-  activityCounts,
-  groupSessions,
-  projectColor,
-  relativeTime,
-  type SidebarSession,
-} from './sidebar-state';
+import { projectColor, relativeTime } from './sidebar-state';
 
 const statuses = {
   running: { label: 'Running', icon: LoaderCircle, description: 'Pi is working or compacting.' },
@@ -47,7 +42,7 @@ export function SessionSidebar({
   online,
 }: {
   projects: Project[];
-  sessions: SidebarSession[];
+  sessions: InventorySession[];
   selectedId?: string;
   online: boolean;
 }) {
@@ -66,16 +61,7 @@ export function SessionSidebar({
     const unread = items.filter((session) => hasUnreadCompletion(session.readState)).length;
     const closed = collapsed.has(project.id);
     const all = expanded.has(project.id);
-    const visible = all
-      ? items
-      : items.filter(
-          (session, index) =>
-            index < 5 ||
-            session.id === selectedId ||
-            session.activity === 'running' ||
-            session.activity === 'blocked' ||
-            hasUnreadCompletion(session.readState),
-        );
+    const visible = visibleSessions(items, selectedId, all);
     return (
       <section className="project-group" key={project.id}>
         <div className="project-header">

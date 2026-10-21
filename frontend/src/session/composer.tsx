@@ -1,17 +1,13 @@
 import { ArrowDown, ArrowUp, Square } from 'lucide-react';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { type ComposerDraft, composerCommand } from '../../../src/client/drafts';
 import type { BridgeCommand } from '../../../src/shared/commands';
 import type { Snapshot } from '../../../src/shared/snapshots';
+import { drafts } from '../client';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { ImageAttachments } from '../image-attachments';
 import { SessionSettings } from '../session-controls';
-import {
-  type ComposerDraft,
-  composerCommand,
-  restoreComposerDraft,
-  settleComposerDraft,
-} from './draft';
 
 export function Composer({
   id,
@@ -38,22 +34,27 @@ export function Composer({
   onFollow: () => void;
   onCommand: (command: BridgeCommand) => Promise<boolean>;
 }) {
-  const [draft, setDraft] = useState<ComposerDraft>(() => ({
-    text: sessionStorage.getItem(`draft:${id}`) ?? '',
-    images: [],
-  }));
+  const [controller] = useState(() => drafts.get(id));
+  const draftState = useSyncExternalStore(controller.subscribe, controller.getState);
+  const { draft } = draftState;
   const [readingImages, setReadingImages] = useState(false);
   const input = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     input.current?.focus({ preventScroll: true });
   }, []);
-  useEffect(() => sessionStorage.setItem(`draft:${id}`, draft.text), [draft.text, id]);
+  useEffect(() => {
+    void controller.initialize();
+  }, [controller]);
   useEffect(() => {
     if (restoredDraft) {
-      setDraft((current) => restoreComposerDraft(current, restoredDraft));
+      controller.restore(restoredDraft);
     }
-  }, [restoredDraft]);
-  const canSend = active && !readingImages && Boolean(draft.text.trim() || draft.images.length);
+  }, [controller, restoredDraft]);
+  const canSend =
+    active &&
+    !draftState.loading &&
+    !readingImages &&
+    Boolean(draft.text.trim() || draft.images.length);
   return (
     <div className="composer">
       {!following && (
@@ -83,6 +84,14 @@ export function Composer({
           onCommand={onCommand}
         />
       )}
+      {draftState.error && (
+        <div className="banner error" role="alert">
+          Draft could not be loaded or saved. Keep this tab open to preserve your edits.
+          <Button type="button" variant="ghost" size="sm" onClick={() => void controller.retry()}>
+            Retry draft storage
+          </Button>
+        </div>
+      )}
       <form
         onSubmit={async (event) => {
           event.preventDefault();
@@ -94,12 +103,12 @@ export function Composer({
           const accepted = await onCommand(
             composerCommand(submitted, snapshot?.view.running === true),
           );
-          setDraft((current) => settleComposerDraft(current, submitted, accepted));
+          controller.settle(submitted, accepted);
         }}
       >
         <ImageAttachments
           images={draft.images}
-          onChange={(images) => setDraft((current) => ({ ...current, images }))}
+          onChange={(images) => controller.update((current) => ({ ...current, images }))}
           disabled={previewing || pending || uncertain}
           onBusy={setReadingImages}
         >
@@ -115,7 +124,7 @@ export function Composer({
             value={draft.text}
             onChange={(event) => {
               const text = event.target.value;
-              setDraft((current) => ({ ...current, text }));
+              controller.update((current) => ({ ...current, text }));
             }}
             onKeyDown={(event) => {
               if (

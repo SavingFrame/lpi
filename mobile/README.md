@@ -1,80 +1,126 @@
 # Pim mobile
 
-An **iOS-first React Native + Expo app using Tamagui** for the existing Pim relay.
+An iOS-first React Native + Expo app using Tamagui for the existing Pim relay.
 
-**Status: shared-client foundation in progress.** This folder contains documentation, not an application scaffold.
-There are no mobile dependencies, install/run commands, or verified device builds yet.
-See the [implementation plan](PLAN.md) for the shared-client refactor and delivery stages.
+**Status: read-only scaffold.** Connection setup, a combined project/session drawer,
+persistent server/selection settings, foreground reconnect, and plain-text live/saved
+conversation previews are implemented. Typechecking, mocked transport tests, and an iOS
+JavaScript/Hermes bundle export pass. Connection-screen startup is verified in Expo Go
+58.0.5 on an iPhone 15 simulator (iOS 17, Xcode 27.1, Node 22.23.3). Custom native builds,
+relay connectivity, interactions, physical devices, and real-Pi integration remain
+unverified. See [the implementation plan](PLAN.md).
 
-## Experience
+## Run
 
-The conversation is the main screen. Projects and sessions stay together in a drawer,
-matching the browser's combined navigation:
+From the repository root, using Node.js 22.19+:
 
-- Swipe right from the left edge or tap the header button to open the drawer.
-- Show recent sessions grouped into collapsible projects, with activity and unread
-  indicators, older-session expansion, and per-project session creation.
-- Select a session to close the drawer and show its conversation.
-- Keep horizontal code scrolling usable; the drawer gesture must not capture every swipe.
-- Restore the last selected session when it is still available on the configured server.
-- Keep server setup and settings secondary, without separate project/session screens or
-  an unnecessary tab bar.
+```sh
+npm ci --ignore-scripts
+npm run start --workspace @pim/mobile
+```
 
-Tamagui provides a customizable component foundation. Pim will have its own visual
-identity, without requiring Apple's stock-app appearance or compact spacing. Native
-interaction quality, readable content, and usable touch targets matter independently of
-the visual style.
+Start the relay separately using the [root setup](../README.md). Open the app with a
+matching Expo Go SDK 58 installation, or a compatible development build. Use a trusted
+network for both Pim and Expo's development server. No EAS project, signing account, or
+cloud service is configured.
 
-## Initial scope
+On a Mac with Xcode and an iOS simulator, `npm run ios --workspace @pim/mobile` starts
+Expo and requests the simulator. Expo Go simulator startup has been verified. Xcode 27
+uses Device Hub instead of `Simulator.app`. If Expo does not focus the simulator window,
+use `xcrun simctl list devices` to find its UDID, then open
+`devices://device/open?id=<simulator-udid>` with macOS `open`. Android configuration exists,
+but Android validation remains deferred. There is no mobile web target.
 
-- Live and saved current-branch conversations, streaming responses, Markdown/code, and
-  inspectable tool activity/output.
-- Message sending, using prompt while idle and steer while running, plus abort.
-- Fresh session creation and explicit saved-session resume through the existing relay.
-- Shared completion/read status, consistent with the browser.
-- Ask User Question selections, custom answers, notes, previews, and cancellation where
-  supported by the existing extension contract.
+## Current behavior
 
-Unsupported dialogs remain terminal-only. Full browser parity, advanced tree/branch
-navigation, Android validation, and background push notifications are deferred.
-Model/thinking controls, image capture or picking, and other parity features can follow
-the core end-to-end flow. Existing browser functionality is not being removed.
+- Conversation is the main screen, without a tab bar.
+- Tap Projects or swipe from the leftmost 24 points to open the drawer. The narrow edge
+  gesture is intended to leave content scrolling available; device behavior is unverified.
+- Projects collapse, older sessions expand, and active/unread/selected sessions remain
+  visible outside the recent window. Selecting a session closes the drawer.
+- Server settings are secondary. Server URLs and selected session IDs use AsyncStorage,
+  scoped by normalized relay origin. A saved selection is restored only if available.
+- Foreground connections use shared HTTP validation and snapshot/event synchronization.
+  Suspension closes the client transport, not Pi. Late inventory responses are ignored.
+- Previews show plain message text, assistant partials, image/tool placeholders, and live
+  tool names. Markdown/code formatting and tool-output inspection are not implemented.
+- Unread indicators are displayed, but mobile does **not** acknowledge completions yet.
+- Sending, abort, create/resume, questionnaire answers, image picking, and model/thinking
+  controls are not exposed. There are no placeholder mutation buttons or auto-launches.
 
 ## Connection and runtime
 
-Connect to the same Pim server over LAN or Tailscale. Native Pi stays on the host computer
-and remains the only agent runtime and conversation-file writer. The app does not host a
-relay, run Pi, or manage JSONL files.
+Enter a full relay origin, for example `http://192.168.1.20:3141` or an HTTPS Tailscale URL.
+Paths, credentials, query parameters, and fragments are rejected. `localhost` on a phone
+refers to that phone, not the relay computer.
 
-The existing trusted-network model remains in place: no application authentication and
-no public deployment in the initial scope. Anyone who can reach Pim can control connected
-agents. Host/Origin checks are not authentication and must not be disabled for mobile.
-See [server configuration and API](../docs/server.md).
+Add the exact relay origin to Pim's configured `origins`, including its port. Allowed
+Hosts are derived from those URLs. Native HTTP/WebSocket requests use their normal
+platform networking; no Host/Origin checks are disabled or spoofed. Actual iOS networking,
+permissions, and LAN/Tailscale interoperability remain unverified.
 
-App suspension or disconnection does not stop Pi and never authorizes another runtime.
-Returning to the foreground must resynchronize from the relay, not automatically resend
-messages, answers, create requests, or resume requests with uncertain outcomes.
+The iOS config declares a local-network usage description and the local-network ATS
+exception (`NSAllowsLocalNetworking`). It does not enable `NSAllowsArbitraryLoads` or
+bypass TLS verification. Prefer HTTPS, particularly for qualified Tailscale hostnames;
+arbitrary HTTP hostnames may still be blocked by platform transport policy. These config
+settings apply to a native app build, not to an already-installed Expo Go binary.
 
-## Shared architecture
+Pim trusts reachable LAN/Tailscale clients. There is no application authentication. Anyone
+who can reach Pim can control connected agents. Keep it private. Native Pi stays on the
+host and is the only agent runtime and conversation-file writer. The app neither runs Pi
+nor manages JSONL files. Disconnection never authorizes another writer.
 
-Browser and mobile share client behavior, not UI components. The plan includes extracting
-transport, synchronization, command/launch guards, session/read-state logic, and reusable
-extension state into a framework-independent layer. Platform adapters provide storage,
-visibility, and lifecycle signals; each client owns its rendering and navigation.
+## Dependencies and layout
 
-The browser will adopt that layer too. Backend/API refactors are allowed when they
-simplify both clients, while preserving existing browser features and runtime-safety
-guarantees. This is not a parallel mobile backend or a browser UI rewrite.
+`mobile/` is an npm workspace using the root lockfile. Dependencies are exactly pinned:
 
-## Development status
+| Foundation | Version |
+| --- | --- |
+| Expo / Expo Router | 58.0.17 / 58.0.25 |
+| React / React Native | 19.3.0 / 0.88.0 |
+| Tamagui / config | 3.1.2 |
+| AsyncStorage | 2.2.0 |
+| Drawer layout | 4.2.12 |
+| Gesture Handler / Reanimated / Worklets | 3.3.0 / 4.7.1 / 0.13.0 |
 
-The relay and browser already exist. Shared HTTP transport, snapshot/event synchronization,
-and server-scoped command/launch guards with async storage support live in `src/client/`,
-with browser adapters consuming them. Draft persistence, inventory/read behavior, and
-reusable extension state still need extraction. Mobile scaffolding has not started.
-There is no mobile package.json or verified dependency version matrix yet.
-The app will get compatible, exactly pinned Expo/React Native/Tamagui dependencies during
-scaffolding.
+Expo's published SDK dependency matrix supplies native package versions. React already
+matches the browser; its version was not changed. Mobile has its own TypeScript 6.0.3
+while root tooling retains TypeScript 5.9.3. Expo's default Metro workspace support loads
+shared source without custom resolver aliases. A root override keeps Gesture Handler at
+Expo's supported 3.3.0 across transitive peer dependencies. Tamagui uses its standard runtime, system
+fonts, explicit native style props, and no optimizing compiler plugin.
 
-Use the [root README](../README.md) for the implemented project's setup and the
-[root plan](../PLAN.md) for runtime constraints and current integration status.
+- `src/app/`: Expo Router entry and provider shell.
+- `src/features/`: connection form, grouped drawer, conversation preview.
+- `src/lib/`: native storage/network construction and read-only lifecycle binding.
+- `src/theme/`: mobile presentation colors.
+- `tests/`: isolated `node:test` transport/lifecycle fixtures, with no native imports.
+- `../src/client/`: shared browser/mobile behavior, already consumed by the browser.
+
+The shared mutation guards, durable drafts, read-completion controller, and extension draft
+helpers are ready for later mobile controls. Mobile extension rendering still needs its
+own explicit registration; browser components and CSS must not be imported.
+
+## Validation and known limitations
+
+```sh
+npm run check
+npm run typecheck --workspace @pim/mobile
+npm exec --workspace @pim/mobile -- expo install --check
+npm run test --workspace @pim/mobile
+npm run bundle:ios --workspace @pim/mobile
+```
+
+`bundle:ios` exports JavaScript/assets to ignored `mobile/dist/`. This is **not** an iOS
+native build. Tests use injected storage and transports, never real credentials, sessions,
+user settings, or model calls. Gesture feel, layout, text selection, long-list scrolling,
+background recovery, native persistence, and actual networking require device validation.
+
+The current Tamagui release emits Metro package-export fallback warnings. Export and
+Expo Go connection-screen startup succeed; drawer, gesture, and transcript behavior still
+need native validation. The dependency audit reports 19 high
+severity entries propagated from two advisories in Expo's toolchain: `braces` stack
+exhaustion (GHSA-vfj7-8cjw-p6xm) and `node-forge` signature verification
+(GHSA-86w9-cpqp-85rv). The reviewed registry has no patched releases for either package;
+npm's suggested major downgrades are not applied. Keep development tooling private and
+review upstream fixes before distribution. No claim of production readiness is made.

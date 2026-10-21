@@ -20,7 +20,7 @@ src/extension-support/
     contract.ts               # Extension-specific types, channels, and validators
     native.ts                 # Public event bindings and answer correlation
     web.tsx                   # React questionnaire
-    web-state.ts              # Browser draft behavior
+    draft.ts                  # Framework-independent browser/mobile questionnaire behavior
     web.css                   # Module-owned styling
     README.md
     tests/

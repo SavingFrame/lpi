@@ -36,6 +36,13 @@ new bridge generation can discard unsent drafts. Pending native questions themse
 survive transport disconnects and are included in reconnect snapshots. A disconnect
 never answers, declines, or restarts a tool.
 
+## Shared draft behavior
+
+`draft.ts` owns framework-independent selection, custom-answer, note, and answer-validation
+helpers for browser and mobile. It imports only the shared extension contract, not React,
+browser components, CSS, or native Pi. Mobile rendering and explicit mobile registration
+remain unimplemented; reusing these helpers does not establish device support.
+
 ## Browser entry points
 
 Pending questions render through this module's `web.tsx`, registered explicitly in

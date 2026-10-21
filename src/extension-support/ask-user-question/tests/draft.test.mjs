@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { askDraftAnswer, emptyAskDraft, selectAskCustom, selectAskOption } from '../web-state.ts';
+import { askDraftAnswer, emptyAskDraft, selectAskCustom, selectAskOption } from '../draft.ts';
 import { prompt } from './fixtures.mjs';
 
 test('Ask browser drafts make no default decisions and require every question answered', () => {

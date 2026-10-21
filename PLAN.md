@@ -23,7 +23,7 @@ There is no RPC runtime, writable managed catalog, ownership coordinator, parkin
 - Configured project discovery and read-only saved-session inventory.
 - Bounded JSONL inspection through Pi's pure parsing/context helpers, without opening a runtime.
 - Opt-in native extension with token-free WebSocket transport on a trusted LAN/Tailscale network. The thin extension entry point wires separate native session-state, command-dispatch, transport, and image-entry rendering modules; session state survives transport disconnects.
-- Current-branch snapshots, assistant partials, tool activity, model/thinking/context metadata, and queued-message presence.
+- Full current-branch transcript snapshots, assistant partials, tool activity, model/thinking/context metadata, and queued-message presence. Live snapshots, saved sessions, and branch previews preserve original messages across compaction and context edits, with compaction summaries in chronological order rather than replacing history.
 - Searchable browser model picker with Pi scoped-model grouping and a colored, supported-level thinking slider through public Pi APIs, gated on idle state with no queued messages or dialogs. Model availability comes from the native registry; thinking options come from `pi-ai` model capabilities, including model-specific mappings and `max`. Pi applies and clamps changes.
 - Browser messages automatically use prompt while Pi is idle and steer while running, with no mode selector. Messages and abort route into the connected native Pi runtime, including image attachments from file selection, paste, or drag-and-drop. The relay also supports explicit follow-up commands.
 - One React/Vite browser client with snapshot/event reconnect synchronization. Live status metadata and lifecycle events update locally; HTTP snapshots remain for initial load, reconnects, generation changes, and explicit branch syncs. Tab-wide launch guards use a separate tested controller; composer acceptance and read eligibility have pure state helpers. Ordered feature styles retain the existing cascade, and one `react-markdown` wrapper enforces the transcript/extension Markdown policy.
@@ -67,10 +67,10 @@ Implemented, with real-Pi integration still unverified:
 
 ## Mobile client and shared-client refactor (in progress)
 
-An iOS-first React Native + Expo + Tamagui client is planned over the trusted LAN/Tailscale
-network. Its detailed scope, navigation, shared-client architecture, delivery stages, and
+An iOS-first React Native + Expo + Tamagui client is being developed over the trusted
+LAN/Tailscale network. Its detailed scope, navigation, shared-client architecture, delivery stages, and
 validation requirements live in [mobile/PLAN.md](mobile/PLAN.md); see also the
-[mobile overview](mobile/README.md). The mobile folder contains documentation only.
+[mobile overview](mobile/README.md). The mobile npm workspace now contains a read-only scaffold.
 
 The work includes extracting shared browser/mobile behavior with platform adapters and
 migrating browser consumers. Backend/API changes are allowed when they simplify both
@@ -78,9 +78,18 @@ clients, while preserving existing browser functionality and all runtime-safety 
 Validated HTTP transport, snapshot/event synchronization, and command/launch guards now
 live in `src/client/`, consumed by browser adapters. Guards support async storage, wait for
 hydration, persist before dispatch, and isolate markers by server. Async writes recheck
-command generation/connectivity and launch eligibility before dispatch. Draft persistence,
-inventory/read behavior, and reusable extension state still need extraction.
-No mobile scaffold or device verification has been completed.
+command generation/connectivity and launch eligibility before dispatch. Server-scoped
+async draft persistence/settlement, inventory grouping/visibility, and read eligibility/
+acknowledgment controllers are shared and consumed by the browser. Questionnaire draft
+helpers are framework-independent under extension support. Native fetch/WebSocket and
+AsyncStorage adapters now power connection setup, the project/session drawer, selection
+restoration, foreground resynchronization, and plain-text conversation previews. Mobile
+mutation controls, read acknowledgments, rich rendering, and explicit extension
+registration remain pending. Typechecking, mocked transport/lifecycle tests, and iOS
+JavaScript bundle export pass. Expo Go connection-screen startup is verified on an
+iPhone 15 simulator (iOS 17, Xcode 27.1). No custom native build, device/network verification,
+or real-Pi integration has been completed. Upstream toolchain audit issues and Metro export warnings
+are recorded in the mobile README.
 
 ## Later
 

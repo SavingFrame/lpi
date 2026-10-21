@@ -3,10 +3,16 @@
 Status: shared-client foundation in progress. Validated HTTP transport, snapshot/event
 synchronization, and async-storage command/launch guards live in `src/client/` and are
 consumed by browser adapters. Guards wait for hydration, scope persisted markers by server,
-and recheck eligibility after persistence. Draft persistence, inventory/read behavior, and
-reusable extension state still need extraction. The mobile folder
-contains documentation, not an app scaffold. Dependency installation and device verification
-have not started. Current relay/browser implementation status is documented in the
+and recheck eligibility after persistence. Server-scoped draft persistence/settlement,
+inventory grouping/visibility, and read eligibility/acknowledgment are now shared too.
+Questionnaire draft helpers are framework-independent under extension support. Mobile
+native transport/storage adapters and a read-only Expo/Tamagui scaffold are now implemented.
+The app has connection settings, a grouped drawer, session restoration, foreground
+reconnect, and plain-text conversation previews. Dependencies are installed and pinned;
+typechecks, isolated transport/lifecycle tests, and iOS JavaScript export pass. Expo Go
+connection-screen startup is verified on an iPhone 15 simulator (iOS 17, Xcode 27.1).
+Custom native build/device/network verification, rich rendering, read acknowledgments, mutation controls,
+and explicit mobile extension registration remain pending. Current relay/browser implementation status is documented in the
 [root plan](../PLAN.md). Real native-Pi integration remains unverified.
 
 Paths in this document are relative to the repository root unless stated otherwise.
@@ -69,7 +75,8 @@ compatibility paths. Do not turn this into an unrelated server or frontend rewri
 
 ## Proposed repository layout
 
-Only `mobile/README.md` and `mobile/PLAN.md` exist today. The target layout is:
+The workspace scaffold follows this layout; additional presentation and native features
+will be added incrementally:
 
 ```text
 mobile/
@@ -127,9 +134,12 @@ storage/rendering packages only after reviewing their compatibility and actual n
    focused regressions for reconnect ordering, stale generations, uncertain commands and
    launches, draft settlement, and shared read state. Adjust backend contracts only where
    both clients benefit.
-2. **Expo/Tamagui foundation.** Pin compatible dependencies and add the mobile package,
-   theme, connection setup, persistent server selection, and conversation/drawer shell.
-   Verify a simulator build and device networking before treating setup as complete.
+2. **Expo/Tamagui foundation (scaffold implemented, native verification pending).** The
+   workspace, pinned dependencies, theme, connection setup, persistent server/selection
+   settings, native lifecycle bindings, and conversation/drawer shell are implemented.
+   Typechecks, mocked lifecycle tests, and an iOS JavaScript export pass. Expo Go
+   connection-screen startup is verified on an iPhone 15 simulator. Verify a custom native
+   simulator build, interactions, and device networking before treating this stage as complete.
 3. **Read-only end-to-end flow.** Connect to the relay, populate the grouped drawer, select
    live/saved sessions, render snapshots and streaming tools/messages, and synchronize
    foreground/reconnect transitions and shared read state.

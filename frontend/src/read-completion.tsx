@@ -1,13 +1,12 @@
-import { useMutation } from '@tanstack/react-query';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { completionToView, ReadCompletions } from '../../src/client/read-completion';
 import { hasUnreadCompletion } from '../../src/shared/session-read-state';
 import type { Snapshot } from '../../src/shared/snapshots';
 import { markViewed } from './api';
 import { queryClient } from './client';
 import { Button } from './components/ui/button';
-import { completionToView } from './session/read-completion';
 
-/** Acknowledge only the completion actually loaded and visible at the end of the transcript. */
+/** Browser visibility and React lifecycle bind the shared read-completion controller. */
 export function ReadCompletion({
   snapshot,
   synchronized,
@@ -17,36 +16,41 @@ export function ReadCompletion({
   synchronized: boolean;
   following: boolean;
 }) {
-  const [visible, setVisible] = useState(() => document.visibilityState === 'visible');
-  const attempted = useRef(new Set<string>());
-  const mutation = useMutation({
-    mutationFn: ({ id, completionId }: { id: string; completionId: string }) =>
-      markViewed(id, completionId),
-    onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: ['sessions'] });
-    },
+  const context = useRef<{ snapshot: Snapshot | null; synchronized: boolean; following: boolean }>({
+    snapshot: null,
+    synchronized: false,
+    following: false,
   });
-  const { mutate } = mutation;
-  const target = completionToView(snapshot, { synchronized, following, visible });
-  const id = target?.id;
-  const completionId = target?.completionId;
+  const [controller] = useState(
+    () =>
+      new ReadCompletions({
+        target: () =>
+          completionToView(context.current.snapshot, {
+            synchronized: context.current.synchronized,
+            following: context.current.following,
+            visible: document.visibilityState === 'visible',
+          }),
+        dispatch: markViewed,
+        refresh: () => {
+          void queryClient.invalidateQueries({ queryKey: ['sessions'] });
+        },
+      }),
+  );
+  const state = useSyncExternalStore(controller.subscribe, controller.getState);
   const unread = snapshot ? hasUnreadCompletion(snapshot.readState) : false;
   useEffect(() => {
-    const update = () => setVisible(document.visibilityState === 'visible');
+    context.current = { snapshot, synchronized, following };
+    void controller.synchronize();
+    return () => {
+      context.current.synchronized = false;
+    };
+  }, [snapshot, synchronized, following, controller]);
+  useEffect(() => {
+    const update = () => void controller.synchronize();
     document.addEventListener('visibilitychange', update);
     return () => document.removeEventListener('visibilitychange', update);
-  }, []);
-  useEffect(() => {
-    if (!id || !completionId) {
-      return;
-    }
-    const key = `${id}:${completionId}`;
-    if (!attempted.current.has(key)) {
-      attempted.current.add(key);
-      mutate({ id, completionId });
-    }
-  }, [id, completionId, mutate]);
-  if (!mutation.error || !unread) {
+  }, [controller]);
+  if (!state.error || !unread) {
     return null;
   }
   return (
@@ -56,12 +60,8 @@ export function ReadCompletion({
         type="button"
         variant="ghost"
         size="sm"
-        disabled={!target || mutation.isPending}
-        onClick={() => {
-          if (target) {
-            mutate(target);
-          }
-        }}
+        disabled={!state.target || state.pending}
+        onClick={() => void controller.retry()}
       >
         Retry saving read status
       </Button>

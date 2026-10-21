@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { SessionCommands } from '../../src/client/commands.ts';
-import { ApiError } from '../src/api.ts';
 import {
   composerCommand,
   restoreComposerDraft,
   settleComposerDraft,
-} from '../src/session/draft.ts';
+} from '../../src/client/drafts.ts';
+import { ApiError } from '../src/api.ts';
 
 const id = '11111111-1111-1111-1111-111111111111';
 const image = { type: 'image', mimeType: 'image/png', data: 'original' };

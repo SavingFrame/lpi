@@ -1,18 +1,24 @@
-import { buildSessionProjection, type SessionEntry } from '@earendil-works/pi-coding-agent';
+import { type SessionEntry, sessionEntryToContextMessages } from '@earendil-works/pi-coding-agent';
 import type { TreeNode } from './shared/session-tree.js';
 import { promptTitle } from './shared/sessions.js';
 
-/** Preserve native entry provenance through context edits and compaction. */
+/** Full branch transcript. Compaction and context edits affect model context, not history. */
 export function historyMessages(entries: SessionEntry[], leafId?: string | null) {
-  const seen = new Set<string>();
+  const byId = new Map<string, SessionEntry>();
   for (const entry of entries) {
-    if (!entry.id || seen.has(entry.id) || (entry.parentId !== null && !seen.has(entry.parentId))) {
+    if (!entry.id || byId.has(entry.id) || (entry.parentId !== null && !byId.has(entry.parentId))) {
       throw new Error('Invalid Pi history ancestry');
     }
-    seen.add(entry.id);
+    byId.set(entry.id, entry);
   }
-  return buildSessionProjection(entries, leafId).entries.flatMap(({ sourceEntry, messages }) =>
-    messages.map((message) => ({
+  const path: SessionEntry[] = [];
+  let entry = leafId === null ? undefined : byId.get(leafId ?? entries.at(-1)?.id ?? '');
+  while (entry) {
+    path.push(entry);
+    entry = entry.parentId === null ? undefined : byId.get(entry.parentId);
+  }
+  return path.reverse().flatMap((sourceEntry) =>
+    sessionEntryToContextMessages(sourceEntry).map((message) => ({
       ...message,
       entryId: sourceEntry.id,
       ...(sourceEntry.type === 'custom_message' ? { entryType: 'custom_message' } : {}),

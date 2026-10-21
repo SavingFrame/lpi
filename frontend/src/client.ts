@@ -1,4 +1,5 @@
 import { QueryClient } from '@tanstack/react-query';
+import { SessionDrafts } from '../../src/client/drafts';
 import { LaunchController } from '../../src/client/launches';
 import { launch } from './api';
 import { LiveSession } from './live';
@@ -19,6 +20,12 @@ export const live = new LiveSession((refreshTrees, sessionId) => {
   if (refreshTrees) {
     void queryClient.invalidateQueries({ queryKey: sessionId ? ['tree', sessionId] : ['tree'] });
   }
+});
+
+export const drafts = new SessionDrafts({
+  server: window.location.origin,
+  storage: browserStorage,
+  persistImages: false,
 });
 
 export const launches = new LaunchController({
