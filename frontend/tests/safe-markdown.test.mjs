@@ -24,6 +24,29 @@ test('ordinary Markdown renders headings, lists, emphasis, quotes and code', () 
   }
 });
 
+test('GFM tables render headers, rows, alignment and inline Markdown', () => {
+  const html = render(
+    '| Item | Status |\n| :--- | ---: |\n| **Coffee** | Ready |\n| Table | Drawn |',
+  );
+  assert.match(html, /<div class="markdown-table"><table>/);
+  assert.match(html, /<thead><tr><th style="text-align:left">Item<\/th>/);
+  assert.match(html, /<th style="text-align:right">Status<\/th>/);
+  assert.match(html, /<td style="text-align:left"><strong>Coffee<\/strong><\/td>/);
+  assert.match(html, /<td style="text-align:right">Ready<\/td>/);
+  assert.match(html, /<td style="text-align:left">Table<\/td>/);
+  assert.match(html, /<td style="text-align:right">Drawn<\/td>/);
+  assert.match(html, /<\/table><\/div>/);
+});
+
+test('table cells retain image blocking and URL sanitization', () => {
+  const html = render(
+    '| Image | Link |\n| --- | --- |\n| ![tracker](https://evil.example/tracker.png) | [click](javascript:evil) |',
+  );
+  assert.match(html, /<table>/);
+  assert.match(html, /<span>\[image\]<\/span>/);
+  assert.doesNotMatch(html, /<img|src=|href="javascript:/i);
+});
+
 test('raw HTML cannot create scripts, frames or event-bearing elements', () => {
   const html = render(
     'Before\n\n<script>alert(1)</script>\n\n<iframe src="https://evil.example"></iframe>\n\n<img src=x onerror="alert(1)">\n\nAfter',

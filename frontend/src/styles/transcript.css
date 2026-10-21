@@ -88,6 +88,25 @@
   .message p:last-child {
     margin-bottom: 0;
   }
+  .markdown-table {
+    max-width: 100%;
+    overflow-x: auto;
+    margin: 12px 0;
+  }
+  .markdown-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9em;
+  }
+  .markdown-table th,
+  .markdown-table td {
+    border: 1px solid var(--border);
+    padding: 8px 12px;
+  }
+  .markdown-table th {
+    background: var(--secondary);
+    font-weight: 600;
+  }
   .message a {
     color: #a9c7f5;
     text-decoration: underline;
