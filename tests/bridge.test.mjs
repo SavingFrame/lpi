@@ -10,9 +10,7 @@ import { WebSocket } from 'ws';
 import { createApi } from '../dist/api/http.js';
 import { attachWebSockets } from '../dist/api/websocket.js';
 import extension from '../dist/bridge/extension.js';
-import { bridgeCommand } from '../dist/bridge/protocol.js';
 import { NativeBridges } from '../dist/bridge/server.js';
-import { emptyView } from '../dist/client-state.js';
 import { Events } from '../dist/events.js';
 import {
   ASK_ANSWER,
@@ -21,6 +19,8 @@ import {
   ASK_PROMPT,
 } from '../dist/extension-support/ask-user-question/contract.js';
 import { Sessions } from '../dist/sessions.js';
+import { emptyView } from '../dist/shared/client-state.js';
+import { bridgeCommand } from '../dist/shared/commands.js';
 import { SessionDiscovery } from '../dist/storage/discovery.js';
 import { SessionReadStore } from '../dist/storage/read-state.js';
 import {

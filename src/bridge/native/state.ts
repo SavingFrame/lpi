@@ -4,15 +4,10 @@ import {
   type ExtensionAPI,
   type ExtensionContext,
 } from '@earendil-works/pi-coding-agent';
-import { emptyView, reduceEvent, type View } from '../../client-state.js';
 import { nativeExtensionSupport } from '../../extension-support/native.js';
-
-export interface NativeIdentity {
-  file: string;
-  id: string;
-  cwd: string;
-  createdAt: string;
-}
+import { emptyView, reduceEvent, type View } from '../../shared/client-state.js';
+import type { NativeIdentity } from '../../shared/commands.js';
+import type { NativeStatus } from '../../shared/snapshots.js';
 
 /** Session-scoped Pi state, retained independently of the relay connection. */
 export class NativeState {
@@ -94,7 +89,7 @@ export class NativeState {
     };
   }
 
-  status() {
+  status(): NativeStatus {
     const context = this.requireContext();
     return {
       state: {

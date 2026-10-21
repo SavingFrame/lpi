@@ -1,4 +1,4 @@
-import { AppError, object, text } from '../../errors.ts';
+import { AppError, object, text } from '../../shared/errors.ts';
 
 // Public rpiv event contract, inspected against @juicesharp/rpiv-ask-user-question 2.13.9.
 // No runtime import: the native extension remains independently installed and loaded by Pi.

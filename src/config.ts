@@ -3,13 +3,8 @@ import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { isIP } from 'node:net';
 import { homedir } from 'node:os';
 import { basename, isAbsolute, join, resolve } from 'node:path';
-import { object, text } from './errors.js';
-
-export interface Project {
-  id: string;
-  name: string;
-  directory: string;
-}
+import { object, text } from './shared/errors.js';
+import type { Project } from './shared/sessions.js';
 
 export interface Config {
   host: string;

@@ -23,6 +23,8 @@ The shadcn configuration is `frontend/components.json`. Run future shadcn CLI co
 
 ## Source layout
 
+- `src/shared/`: browser-safe session/project/command/snapshot contracts, HTTP payload parsers, and native-event/status projections. The frontend imports these directly, not through server implementations. Extension-specific contracts stay in `src/extension-support/`.
+- `frontend/src/api.ts`: HTTP transport, response correlation, and endpoint helpers using shared parsers.
 - `frontend/src/app.tsx`: application shell and welcome view.
 - `frontend/src/session/page.tsx`: selected-session layout and live subscription.
 - `frontend/src/session/composer.tsx`: draft persistence, attachments, send modes, and shortcuts.

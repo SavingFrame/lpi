@@ -1,24 +1,18 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
-import { EVENT_BUFFER_LIMIT, imageAttachments } from '../../src/attachments.ts';
-import { emptyView, reduceEvent } from '../../src/client-state.ts';
 import {
   answer as askAnswer,
   prompt as askPrompt,
 } from '../../src/extension-support/ask-user-question/tests/fixtures.mjs';
-import { sessionActivity } from '../../src/session-activity.ts';
-import { sessionControls } from '../../src/session-controls.ts';
-import {
-  ApiError,
-  markViewed,
-  operate,
-  snapshot as parseSnapshot,
-  projects,
-  readState,
-  session,
-  sessions,
-} from '../src/api.ts';
+import { EVENT_BUFFER_LIMIT, imageAttachments } from '../../src/shared/attachments.ts';
+import { emptyView, reduceEvent } from '../../src/shared/client-state.ts';
+import { sessionActivity } from '../../src/shared/session-activity.ts';
+import { sessionControls } from '../../src/shared/session-controls.ts';
+import { readState } from '../../src/shared/session-read-state.ts';
+import { session } from '../../src/shared/sessions.ts';
+import { snapshot as parseSnapshot } from '../../src/shared/snapshots.ts';
+import { ApiError, markViewed, operate, projects, sessions } from '../src/api.ts';
 import { LiveSession } from '../src/live.ts';
 import { transcriptState } from '../src/transcript-state.ts';
 

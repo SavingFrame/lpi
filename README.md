@@ -91,12 +91,12 @@ Run the compiled server, then `npm run dev`. Open **http://127.0.0.1:5173**. Vit
 
 ## Layout
 
-- `src/bridge/`: native extension entry point, connection protocol, and server-side relay transport. Native state, commands, transport lifecycle, and image-entry rendering live in `src/bridge/native/`.
+- `src/bridge/`: native extension entry point and server-side relay transport. Native state, commands, transport lifecycle, and image-entry rendering live in `src/bridge/native/`.
 - `src/extension-support/`: per-extension native bindings, contracts, browser components, and tests.
 - `src/sessions.ts`: combined saved/live inventory and snapshots.
 - `src/storage/`: read-only JSONL discovery and stable inventory IDs.
 - `src/api/`: REST commands, bounded browser events, and static assets.
-- `src/client-state.ts`: shared native-event projection.
+- `src/shared/`: browser-safe project/session/command/snapshot contracts, wire validators, and pure event/status projections. See [shared contracts](src/shared/README.md).
 - `frontend/`: React/Vite browser and focused tests. Session layout, composer, command handling, and scroll lifecycle live in `frontend/src/session/`.
 - `tests/`: isolated relay, discovery, configuration, and API tests.
 

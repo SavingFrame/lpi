@@ -1,5 +1,5 @@
-import type { BridgeCommand } from '../../src/bridge/protocol';
-import type { SessionControls } from '../../src/session-controls';
+import type { BridgeCommand } from '../../src/shared/commands';
+import type { SessionControls } from '../../src/shared/session-controls';
 import { ModelPicker } from './model-picker';
 import { ThinkingSlider } from './thinking-slider';
 

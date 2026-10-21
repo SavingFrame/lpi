@@ -1,7 +1,7 @@
 import { WebSocket } from 'ws';
-import { record } from '../../client-state.js';
+import { record } from '../../shared/client-state.js';
+import { BRIDGE_LIMIT } from '../../shared/commands.js';
 import { reserveManagedFile } from '../../tmux-binding.js';
-import { BRIDGE_LIMIT } from '../protocol.js';
 import type { NativeCommands } from './commands.js';
 import type { NativeState } from './state.js';
 

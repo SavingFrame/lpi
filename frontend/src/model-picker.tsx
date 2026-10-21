@@ -1,5 +1,5 @@
 import { useId, useRef, useState } from 'react';
-import type { ModelOption } from '../../src/session-controls';
+import type { ModelOption } from '../../src/shared/session-controls';
 
 function modelKey(model: ModelOption) {
   return JSON.stringify([model.provider, model.id]);

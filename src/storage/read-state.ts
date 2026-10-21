@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import { DatabaseSync } from 'node:sqlite';
-import type { SessionReadState } from '../session-read-state.js';
+import type { SessionReadState } from '../shared/session-read-state.js';
 
 /** Relay UI metadata only. Never opens or modifies a Pi conversation file. */
 export class SessionReadStore {

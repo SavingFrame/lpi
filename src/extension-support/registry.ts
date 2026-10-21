@@ -1,4 +1,4 @@
-import { AppError, object } from '../errors.ts';
+import { AppError, object } from '../shared/errors.ts';
 import {
   type AskAnswer,
   type AskPrompt,

@@ -1,7 +1,7 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { AppError, text } from '../../errors.js';
-import { type BridgeCommand, bridgeCommand } from '../protocol.js';
-import type { NativeIdentity, NativeState } from './state.js';
+import { type BridgeCommand, bridgeCommand, type NativeIdentity } from '../../shared/commands.js';
+import { AppError, text } from '../../shared/errors.js';
+import type { NativeState } from './state.js';
 
 interface CommandConnection {
   generation: number | undefined;

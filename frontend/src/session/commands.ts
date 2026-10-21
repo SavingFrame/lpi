@@ -1,5 +1,5 @@
-import type { BridgeCommand } from '../../../src/bridge/protocol.ts';
-import { record } from '../../../src/client-state.ts';
+import { record } from '../../../src/shared/client-state.ts';
+import type { BridgeCommand } from '../../../src/shared/commands.ts';
 import { ApiError, type operate } from '../api.ts';
 import type { LiveState } from '../live.ts';
 

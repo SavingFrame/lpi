@@ -1,4 +1,5 @@
-import { type ExtensionSnapshots, extensionSnapshots } from './extension-support/registry.ts';
+import { type ExtensionSnapshots, extensionSnapshots } from '../extension-support/registry.ts';
+import { text } from './errors.ts';
 
 // Shared, browser-safe projection of native Pi events.
 export interface Message {
@@ -48,6 +49,38 @@ export function message(value: unknown): Message {
     return { ...raw, role: raw.role, timestamp: raw.timestamp, content: raw.content.map(record) };
   }
   return { ...raw, role: raw.role, timestamp: raw.timestamp, content: raw.content };
+}
+
+/** Shared wire validation for bridge and browser conversation views. */
+export function view(value: unknown): View {
+  const raw = record(value);
+  if (
+    !Array.isArray(raw.messages) ||
+    !Array.isArray(raw.tools) ||
+    raw.tools.length > 512 ||
+    typeof raw.running !== 'boolean' ||
+    typeof raw.compacting !== 'boolean' ||
+    (raw.notice !== null && typeof raw.notice !== 'string')
+  ) {
+    throw new Error('Invalid conversation view');
+  }
+  return {
+    messages: raw.messages.map(message),
+    partial: raw.partial === null ? null : message(raw.partial),
+    tools: raw.tools.map((value) => {
+      const tool = record(value);
+      return {
+        id: text(tool.id, 'tool ID', 256),
+        name: text(tool.name, 'tool name', 256),
+        args: tool.args,
+        result: tool.result,
+      };
+    }),
+    running: raw.running,
+    compacting: raw.compacting,
+    notice: raw.notice,
+    extensions: extensionSnapshots(raw.extensions),
+  };
 }
 
 export function emptyView(): View {

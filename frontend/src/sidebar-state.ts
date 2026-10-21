@@ -1,9 +1,6 @@
-import type { Project } from '../../src/config.ts';
-import type { SessionActivity } from '../../src/session-activity.ts';
-import type { SessionReadState } from '../../src/session-read-state.ts';
-import type { Session } from '../../src/sessions.ts';
+import type { InventorySession, Project } from '../../src/shared/sessions.ts';
 
-export type SidebarSession = Session & { activity: SessionActivity; readState: SessionReadState };
+export type SidebarSession = InventorySession;
 
 export function groupSessions(projects: Project[], sessions: SidebarSession[], online: boolean) {
   const groups = new Map(

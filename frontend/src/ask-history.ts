@@ -1,4 +1,4 @@
-import { record } from '../../src/client-state.ts';
+import { record } from '../../src/shared/client-state.ts';
 import type { TranscriptTool } from './transcript-state.ts';
 
 interface HistoryOption {

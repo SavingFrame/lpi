@@ -9,8 +9,8 @@ import extension from '../dist/bridge/extension.js';
 import { NativeCommands } from '../dist/bridge/native/commands.js';
 import { NativeState } from '../dist/bridge/native/state.js';
 import { NativeTransport } from '../dist/bridge/native/transport.js';
-import { BRIDGE_LIMIT } from '../dist/bridge/protocol.js';
 import { ASK_PROMPT } from '../dist/extension-support/ask-user-question/contract.js';
+import { BRIDGE_LIMIT } from '../dist/shared/commands.js';
 import { prompt as askPrompt } from '../src/extension-support/ask-user-question/tests/fixtures.mjs';
 import { fixture } from './helpers.mjs';
 

@@ -10,9 +10,9 @@ import {
   MessageCircleQuestion,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { Project } from '../../src/config';
-import type { SessionActivity } from '../../src/session-activity';
-import { hasUnreadCompletion } from '../../src/session-read-state';
+import type { SessionActivity } from '../../src/shared/session-activity';
+import { hasUnreadCompletion } from '../../src/shared/session-read-state';
+import type { Project } from '../../src/shared/sessions';
 import { Button } from './components/ui/button';
 import { LaunchSession } from './launch-session';
 import {

@@ -11,9 +11,8 @@ import {
 } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
 import { buildSessionContext, parseSessionEntries } from '@earendil-works/pi-coding-agent';
-import type { Project } from '../config.js';
-import { AppError, object, text } from '../errors.js';
-import { promptTitle, type Session } from '../sessions.js';
+import { AppError, object, text } from '../shared/errors.js';
+import { type Project, promptTitle, type Session } from '../shared/sessions.js';
 import { piInventoryId } from './session-id.js';
 
 function header(content: string): { id: string; cwd: string; timestamp: string } {

@@ -1,64 +1,15 @@
-import { AttachmentError, type ImageAttachment, imageAttachments } from '../attachments.js';
-import { emptyView, message, record, type View } from '../client-state.js';
-import { AppError, object, text } from '../errors.js';
-import {
-  type ExtensionCommand,
-  extensionCommand,
-  extensionSnapshots,
-} from '../extension-support/registry.js';
-import {
-  isThinkingLevel,
-  type SessionControls,
-  sessionControls,
-  type ThinkingLevel,
-} from '../session-controls.js';
+import { type ExtensionCommand, extensionCommand } from '../extension-support/registry.js';
+import { AttachmentError, type ImageAttachment, imageAttachments } from './attachments.js';
+import { AppError, object, text } from './errors.js';
+import { isThinkingLevel, type ThinkingLevel } from './session-controls.js';
 
 export const BRIDGE_LIMIT = 8 * 1024 * 1024;
 
-export interface BridgeSnapshot {
-  state: Record<string, unknown>;
-  controls: SessionControls;
-  view: View;
-}
-
-export function bridgeSnapshot(value: unknown): BridgeSnapshot {
-  const raw = record(value);
-  const state = record(raw.state);
-  const view = record(raw.view);
-  if (
-    typeof state.isStreaming !== 'boolean' ||
-    typeof state.hasPendingMessages !== 'boolean' ||
-    typeof view.running !== 'boolean' ||
-    typeof view.compacting !== 'boolean' ||
-    !Array.isArray(view.messages) ||
-    !Array.isArray(view.tools) ||
-    view.tools.length > 512 ||
-    (view.notice !== null && typeof view.notice !== 'string')
-  ) {
-    throw new Error('Invalid bridge snapshot');
-  }
-  return {
-    state: { ...state, readOnly: false, nativeTui: true },
-    controls: sessionControls(raw.controls),
-    view: {
-      ...emptyView(),
-      messages: view.messages.map(message),
-      partial: view.partial === null ? null : message(view.partial),
-      tools: view.tools.map((value) => {
-        const tool = record(value);
-        return {
-          id: text(tool.id, 'tool ID', 256),
-          name: text(tool.name, 'tool name', 256),
-          args: tool.args,
-          result: tool.result,
-        };
-      }),
-      running: view.running,
-      compacting: view.compacting,
-      notice: view.notice,
-      extensions: extensionSnapshots(view.extensions),
-    },
-  };
+export interface NativeIdentity {
+  file: string;
+  id: string;
+  cwd: string;
+  createdAt: string;
 }
 
 export type BridgeCommand =

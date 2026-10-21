@@ -1,7 +1,8 @@
 import { useMutation } from '@tanstack/react-query';
 import { useEffect, useRef, useState } from 'react';
-import { hasUnreadCompletion } from '../../src/session-read-state';
-import { markViewed, type Snapshot } from './api';
+import { hasUnreadCompletion } from '../../src/shared/session-read-state';
+import type { Snapshot } from '../../src/shared/snapshots';
+import { markViewed } from './api';
 import { queryClient } from './client';
 import { Button } from './components/ui/button';
 

@@ -1,8 +1,14 @@
-import { EVENT_BUFFER_LIMIT } from '../../src/attachments.ts';
-import { record, reduceEvent } from '../../src/client-state.ts';
-import type { ServerEvent } from '../../src/events.ts';
-import { sessionControls } from '../../src/session-controls.ts';
-import { inspect, readState, type Snapshot } from './api.ts';
+import { EVENT_BUFFER_LIMIT } from '../../src/shared/attachments.ts';
+import { record } from '../../src/shared/client-state.ts';
+import type { ServerEvent } from '../../src/shared/events.ts';
+import { readState } from '../../src/shared/session-read-state.ts';
+import {
+  bridgeStatus,
+  projectEvent,
+  projectStatus,
+  type Snapshot,
+} from '../../src/shared/snapshots.ts';
+import { inspect } from './api.ts';
 
 export interface LiveState {
   status: 'connecting' | 'syncing' | 'ready' | 'offline';
@@ -230,37 +236,17 @@ export class LiveSession {
       return;
     }
     if (event.type === 'bridge-status') {
-      const data = record(event.data);
-      const state = record(data.state);
-      if (
-        typeof state.isStreaming !== 'boolean' ||
-        typeof state.hasPendingMessages !== 'boolean' ||
-        (data.notice !== null && typeof data.notice !== 'string')
-      ) {
-        throw new Error('Invalid native status');
-      }
-      const controls = sessionControls(data.controls);
       this.update({
         ...this.current,
         snapshot: {
           ...snapshot,
+          ...projectStatus(snapshot, bridgeStatus(event.data)),
           cursor: event.cursor,
-          state,
-          controls,
-          view: { ...snapshot.view, notice: data.notice },
         },
       });
       return;
     }
-    const nativeEvent = event.type === 'pi-event' ? record(event.data) : null;
-    const view = nativeEvent ? reduceEvent(snapshot.view, nativeEvent) : snapshot.view;
-    const state = nativeEvent
-      ? {
-          ...snapshot.state,
-          isStreaming: view.running,
-          ...(nativeEvent.type === 'extension_support' ? { pendingDialog: view.notice } : {}),
-        }
-      : snapshot.state;
-    this.update({ ...this.current, snapshot: { ...snapshot, cursor: event.cursor, state, view } });
+    const next = event.type === 'pi-event' ? projectEvent(snapshot, record(event.data)) : snapshot;
+    this.update({ ...this.current, snapshot: { ...snapshot, ...next, cursor: event.cursor } });
   }
 }

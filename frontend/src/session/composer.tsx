@@ -1,8 +1,8 @@
 import { ArrowDown, ArrowUp, Square } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { ImageAttachment } from '../../../src/attachments';
-import type { BridgeCommand } from '../../../src/bridge/protocol';
-import type { Snapshot } from '../api';
+import type { ImageAttachment } from '../../../src/shared/attachments';
+import type { BridgeCommand } from '../../../src/shared/commands';
+import type { Snapshot } from '../../../src/shared/snapshots';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { ImageAttachments } from '../image-attachments';

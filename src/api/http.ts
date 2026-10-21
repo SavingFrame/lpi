@@ -1,11 +1,11 @@
 import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
-import { COMMAND_BODY_LIMIT } from '../attachments.js';
-import { bridgeCommand } from '../bridge/protocol.js';
 import type { NativeBridges } from '../bridge/server.js';
 import type { Config } from '../config.js';
-import { AppError, generation, object, text } from '../errors.js';
 import { Launches } from '../launches.js';
 import type { Sessions } from '../sessions.js';
+import { COMMAND_BODY_LIMIT } from '../shared/attachments.js';
+import { bridgeCommand } from '../shared/commands.js';
+import { AppError, generation, object, text } from '../shared/errors.js';
 import { serveFrontend } from './frontend.js';
 import { validateRequest } from './security.js';
 

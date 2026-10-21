@@ -6,7 +6,7 @@ import {
   imageAttachments,
   MAX_IMAGE_BYTES,
   MAX_IMAGES,
-} from '../../src/attachments';
+} from '../../src/shared/attachments';
 
 import { Button } from './components/ui/button';
 

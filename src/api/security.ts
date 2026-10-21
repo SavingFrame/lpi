@@ -1,6 +1,6 @@
 import type { IncomingMessage } from 'node:http';
 import type { Config } from '../config.js';
-import { AppError } from '../errors.js';
+import { AppError } from '../shared/errors.js';
 
 export function validateRequest(request: IncomingMessage, config: Config, preflight = false): void {
   const host = request.headers.host;

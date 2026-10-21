@@ -7,8 +7,9 @@ import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import type { NativeBridges } from './bridge/server.js';
 import type { Config } from './config.js';
-import { AppError } from './errors.js';
-import type { Session, Sessions } from './sessions.js';
+import type { Sessions } from './sessions.js';
+import { AppError } from './shared/errors.js';
+import type { Session } from './shared/sessions.js';
 
 const execute = promisify(execFile);
 export type Tmux = (args: string[]) => Promise<string>;

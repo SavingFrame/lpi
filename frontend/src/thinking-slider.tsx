@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import type { ThinkingLevel } from '../../src/session-controls';
+import type { ThinkingLevel } from '../../src/shared/session-controls';
 
 export function ThinkingSlider({
   level,

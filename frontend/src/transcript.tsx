@@ -1,7 +1,7 @@
 import { LoaderCircle } from 'lucide-react';
 import Markdown from 'react-markdown';
-import { imageAttachments } from '../../src/attachments';
-import type { Message, View } from '../../src/client-state';
+import { imageAttachments } from '../../src/shared/attachments';
+import type { Message, View } from '../../src/shared/client-state';
 import { AskHistory } from './ask-history-card';
 import { type TranscriptTool, transcriptState } from './transcript-state';
 

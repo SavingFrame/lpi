@@ -1,9 +1,9 @@
 import type { Server } from 'node:http';
 import { WebSocket, WebSocketServer } from 'ws';
-import { EVENT_BUFFER_LIMIT } from '../attachments.js';
 import type { NativeBridges } from '../bridge/server.js';
 import type { Config } from '../config.js';
 import type { Events } from '../events.js';
+import { EVENT_BUFFER_LIMIT } from '../shared/attachments.js';
 import { validateRequest } from './security.js';
 
 export function attachWebSockets(

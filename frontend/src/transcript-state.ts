@@ -1,4 +1,4 @@
-import type { Message, View } from '../../src/client-state.ts';
+import type { Message, View } from '../../src/shared/client-state.ts';
 
 export interface TranscriptTool {
   name: string;

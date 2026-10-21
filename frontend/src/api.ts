@@ -1,21 +1,15 @@
-import type { BridgeCommand } from '../../src/bridge/protocol.ts';
-import { message, record, type View } from '../../src/client-state.ts';
-import type { Project } from '../../src/config.ts';
-import { extensionSnapshots } from '../../src/extension-support/registry.ts';
-import type { SessionActivity } from '../../src/session-activity.ts';
-import { type SessionControls, sessionControls } from '../../src/session-controls.ts';
-import type { SessionReadState } from '../../src/session-read-state.ts';
-import type { Session } from '../../src/sessions.ts';
-
-export interface Snapshot {
-  epoch: string;
-  cursor: number;
-  session: Session;
-  readState: SessionReadState;
-  state: Record<string, unknown>;
-  controls: SessionControls;
-  view: View;
-}
+import { record } from '../../src/shared/client-state.ts';
+import type { BridgeCommand } from '../../src/shared/commands.ts';
+import { readState, type SessionReadState } from '../../src/shared/session-read-state.ts';
+import {
+  type InventorySession,
+  inventorySession,
+  type Project,
+  project,
+  type Session,
+  session,
+} from '../../src/shared/sessions.ts';
+import { type Snapshot, snapshot } from '../../src/shared/snapshots.ts';
 
 export class ApiError extends Error {
   readonly outcome: string;
@@ -23,83 +17,6 @@ export class ApiError extends Error {
     super(message);
     this.outcome = outcome;
   }
-}
-
-export function session(value: unknown): Session {
-  const raw = record(value);
-  if (
-    typeof raw.id !== 'string' ||
-    !/^[a-f0-9-]{36}$/.test(raw.id) ||
-    typeof raw.projectId !== 'string' ||
-    typeof raw.directory !== 'string' ||
-    typeof raw.file !== 'string' ||
-    typeof raw.createdAt !== 'string' ||
-    (raw.updatedAt !== undefined &&
-      (typeof raw.updatedAt !== 'string' || !Number.isFinite(Date.parse(raw.updatedAt)))) ||
-    (raw.title !== undefined && typeof raw.title !== 'string') ||
-    typeof raw.piSessionId !== 'string' ||
-    !['connected', 'disconnected'].includes(String(raw.connection)) ||
-    typeof raw.generation !== 'number' ||
-    !Number.isSafeInteger(raw.generation) ||
-    raw.generation < 0
-  ) {
-    throw new Error('Invalid session record');
-  }
-  return raw as unknown as Session;
-}
-
-export function readState(value: unknown): SessionReadState {
-  const raw = record(value);
-  for (const id of [raw.completionId, raw.viewedCompletionId]) {
-    if (id !== null && (typeof id !== 'string' || !/^[a-f0-9-]{36}$/.test(id))) {
-      throw new Error('Invalid session read state');
-    }
-  }
-  return {
-    completionId: raw.completionId as string | null,
-    viewedCompletionId: raw.viewedCompletionId as string | null,
-  };
-}
-
-export function snapshot(value: unknown): Snapshot {
-  const raw = record(value);
-  const view = record(raw.view);
-  if (
-    typeof raw.epoch !== 'string' ||
-    typeof raw.cursor !== 'number' ||
-    !Number.isSafeInteger(raw.cursor) ||
-    raw.cursor < 0 ||
-    !Array.isArray(view.messages) ||
-    !Array.isArray(view.tools) ||
-    typeof view.running !== 'boolean' ||
-    typeof view.compacting !== 'boolean' ||
-    (view.notice !== null && typeof view.notice !== 'string')
-  ) {
-    throw new Error('Invalid snapshot');
-  }
-  return {
-    epoch: raw.epoch,
-    cursor: raw.cursor,
-    session: session(raw.session),
-    readState: readState(raw.readState),
-    state: record(raw.state),
-    controls: sessionControls(raw.controls),
-    view: {
-      messages: view.messages.map(message),
-      partial: view.partial === null ? null : message(view.partial),
-      tools: view.tools.map((value) => {
-        const tool = record(value);
-        if (typeof tool.id !== 'string' || typeof tool.name !== 'string') {
-          throw new Error('Invalid tool');
-        }
-        return { id: tool.id, name: tool.name, args: tool.args, result: tool.result };
-      }),
-      running: view.running,
-      compacting: view.compacting,
-      notice: view.notice,
-      extensions: extensionSnapshots(view.extensions),
-    },
-  };
 }
 
 async function request(
@@ -155,39 +72,15 @@ export async function projects(): Promise<Project[]> {
   if (!Array.isArray(raw.projects)) {
     throw new Error('Invalid projects');
   }
-  return raw.projects.map((value) => {
-    const project = record(value);
-    if (
-      typeof project.id !== 'string' ||
-      typeof project.name !== 'string' ||
-      typeof project.directory !== 'string'
-    ) {
-      throw new Error('Invalid project');
-    }
-    return { id: project.id, name: project.name, directory: project.directory };
-  });
+  return raw.projects.map(project);
 }
 
-export async function sessions(): Promise<
-  (Session & { activity: SessionActivity; readState: SessionReadState })[]
-> {
+export async function sessions(): Promise<InventorySession[]> {
   const raw = record(await request('/sessions'));
   if (!Array.isArray(raw.sessions)) {
     throw new Error('Invalid sessions');
   }
-  return raw.sessions.map((value) => {
-    const item = session(value);
-    const { activity } = record(value);
-    if (
-      activity !== 'idle' &&
-      activity !== 'running' &&
-      activity !== 'blocked' &&
-      activity !== 'unknown'
-    ) {
-      throw new Error('Invalid session activity');
-    }
-    return { ...item, activity, readState: readState(record(value).readState) };
-  });
+  return raw.sessions.map(inventorySession);
 }
 
 export async function inspect(id: string, signal: AbortSignal): Promise<Snapshot> {

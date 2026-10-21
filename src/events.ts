@@ -1,13 +1,5 @@
 import { randomUUID } from 'node:crypto';
-
-export interface ServerEvent {
-  epoch: string;
-  cursor: number;
-  sessionId: string;
-  generation: number;
-  type: string;
-  data: unknown;
-}
+import type { ServerEvent } from './shared/events.js';
 
 export class Events {
   readonly epoch = randomUUID();

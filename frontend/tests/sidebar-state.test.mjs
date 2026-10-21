@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { hasUnreadCompletion } from '../../src/session-read-state.ts';
+import { hasUnreadCompletion } from '../../src/shared/session-read-state.ts';
 import { activityCounts, groupSessions, projectColor, relativeTime } from '../src/sidebar-state.ts';
 
 const projects = [

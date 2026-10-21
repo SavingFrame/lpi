@@ -12,20 +12,21 @@ import type { IncomingMessage } from 'node:http';
 import { basename, dirname, isAbsolute, join } from 'node:path';
 import type { Duplex } from 'node:stream';
 import { WebSocket, WebSocketServer } from 'ws';
-import { emptyView, record, reduceEvent } from '../client-state.js';
 import type { Config } from '../config.js';
-import { AppError, text } from '../errors.js';
 import type { Events } from '../events.js';
-import { sessionActivity } from '../session-activity.js';
-import { promptTitle, type Session } from '../sessions.js';
-import { piInventoryId } from '../storage/session-id.js';
+import { emptyView, record } from '../shared/client-state.js';
+import { BRIDGE_LIMIT, type BridgeCommand, bridgeCommand } from '../shared/commands.js';
+import { AppError, text } from '../shared/errors.js';
+import { sessionActivity } from '../shared/session-activity.js';
+import { promptTitle, type Session } from '../shared/sessions.js';
 import {
-  BRIDGE_LIMIT,
-  type BridgeCommand,
   type BridgeSnapshot,
-  bridgeCommand,
   bridgeSnapshot,
-} from './protocol.js';
+  bridgeStatus,
+  projectEvent,
+  projectStatus,
+} from '../shared/snapshots.js';
+import { piInventoryId } from '../storage/session-id.js';
 
 interface Pending {
   resolve: (value: unknown) => void;
@@ -181,17 +182,13 @@ export class NativeBridges {
           return;
         }
         if (raw.type === 'status') {
-          const state = record(raw.state);
-          if (
-            typeof state.isStreaming !== 'boolean' ||
-            typeof state.hasPendingMessages !== 'boolean'
-          ) {
-            throw new Error('Invalid native status');
-          }
-          native.snapshot = bridgeSnapshot({
-            state,
-            controls: raw.controls,
-            view: { ...native.snapshot.view, notice: state.pendingDialog ?? null },
+          const status = bridgeStatus({
+            ...raw,
+            notice: record(raw.state).pendingDialog ?? null,
+          });
+          native.snapshot = projectStatus(native.snapshot, {
+            ...status,
+            state: { ...status.state, readOnly: false, nativeTui: true },
           });
           this.events.publish(native.session.id, native.session.generation, 'bridge-status', {
             state: native.snapshot.state,
@@ -220,15 +217,7 @@ export class NativeBridges {
           ) {
             throw new Error('Unsupported bridge event');
           }
-          const next = {
-            ...native.snapshot,
-            view: reduceEvent(native.snapshot.view, event),
-          };
-          next.state = {
-            ...next.state,
-            isStreaming: next.view.running,
-            ...(event.type === 'extension_support' ? { pendingDialog: next.view.notice } : {}),
-          };
+          const next = projectEvent(native.snapshot, event);
           if (next.view.tools.length > 512) {
             throw new Error('Native tool limit reached');
           }

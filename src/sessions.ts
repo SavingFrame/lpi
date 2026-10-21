@@ -1,49 +1,12 @@
 import type { NativeBridges } from './bridge/server.js';
-import { emptyView, message, record } from './client-state.js';
-import { AppError } from './errors.js';
 import type { Events } from './events.js';
-import type { SessionActivity } from './session-activity.js';
-import type { SessionReadState } from './session-read-state.js';
+import { emptyView, message, record } from './shared/client-state.js';
+import { AppError } from './shared/errors.js';
+import type { SessionReadState } from './shared/session-read-state.js';
+import type { InventorySession, Session } from './shared/sessions.js';
+import type { Snapshot } from './shared/snapshots.js';
 import { inspectSavedSession, type SessionDiscovery } from './storage/discovery.js';
 import type { SessionReadStore } from './storage/read-state.js';
-
-export interface Session {
-  id: string;
-  projectId: string;
-  directory: string;
-  file: string;
-  createdAt: string;
-  updatedAt?: string;
-  title?: string;
-  piSessionId: string;
-  connection: 'connected' | 'disconnected';
-  /** Connection version for rejecting stale commands, not a runtime ownership claim. */
-  generation: number;
-}
-
-export function promptTitle(content: unknown): string | undefined {
-  const text =
-    typeof content === 'string'
-      ? content
-      : Array.isArray(content)
-        ? content
-            .map((part: unknown) => {
-              if (
-                part &&
-                typeof part === 'object' &&
-                'type' in part &&
-                part.type === 'text' &&
-                'text' in part &&
-                typeof part.text === 'string'
-              ) {
-                return part.text;
-              }
-              return '';
-            })
-            .join(' ')
-        : '';
-  return text.replace(/\s+/g, ' ').trim().slice(0, 160) || undefined;
-}
 
 /** Read-only saved history plus connections to existing native Pi runtimes. */
 export class Sessions {
@@ -83,7 +46,7 @@ export class Sessions {
     return readState;
   }
 
-  list(): (Session & { activity: SessionActivity; readState: SessionReadState })[] {
+  list(): InventorySession[] {
     const native = this.bridges.list();
     const ids = new Set(native.map((session) => session.id));
     const visibleNative = native.filter(
@@ -112,7 +75,7 @@ export class Sessions {
     inspectSavedSession(this.get(id));
   }
 
-  snapshot(id: string) {
+  snapshot(id: string): Snapshot {
     const native = this.bridges.snapshot(id);
     const readState = this.readStates.get(id);
     if (native) {

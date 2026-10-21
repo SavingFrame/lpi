@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { AppError, object, text } from '../../errors.ts';
+import { AppError, object, text } from '../../shared/errors.ts';
 import {
   ASK_ANSWER,
   ASK_ANSWER_RESULT,
