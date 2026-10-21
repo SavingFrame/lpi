@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Power, RefreshCw } from 'lucide-react';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ExtensionPanels } from '../../../src/extension-support/web';
 import { emptyView } from '../../../src/shared/client-state';
 import { previewBranch, projects } from '../api';
@@ -89,20 +89,23 @@ function SessionPane({
     enabled: Boolean(branch),
     retry: false,
   });
-  const selectBranch = (entryId?: string) => {
-    if (entryId) {
-      branchSelections.request(
-        id,
-        entryId,
-        branchAction(live.getState(), id, projectId, entryId, commands.available()),
-      );
-    }
-    return navigate({
-      to: '/app/projects/$projectId/sessions/$sessionId',
-      params: { projectId, sessionId: id },
-      search: entryId ? { branch: entryId } : {},
-    });
-  };
+  const selectBranch = useCallback(
+    (entryId?: string) => {
+      if (entryId) {
+        branchSelections.request(
+          id,
+          entryId,
+          branchAction(live.getState(), id, projectId, entryId, commands.available()),
+        );
+      }
+      return navigate({
+        to: '/app/projects/$projectId/sessions/$sessionId',
+        params: { projectId, sessionId: id },
+        search: entryId ? { branch: entryId } : {},
+      });
+    },
+    [id, projectId, commands.available, navigate],
+  );
   useEffect(() => {
     if (!branch || selectionRequest?.sessionId !== id || selectionRequest.entryId !== branch) {
       return;
@@ -306,12 +309,10 @@ function SessionPane({
         ? preview.data && (
             <Transcript
               view={{ ...emptyView(), messages: preview.data.messages }}
-              onPreview={(entryId) => void selectBranch(entryId)}
+              onPreview={selectBranch}
             />
           )
-        : snapshot && (
-            <Transcript view={snapshot.view} onPreview={(entryId) => void selectBranch(entryId)} />
-          )}
+        : snapshot && <Transcript view={snapshot.view} onPreview={selectBranch} />}
       <ReadCompletion
         snapshot={snapshot}
         synchronized={connection.status === 'ready' && !branch}

@@ -1,4 +1,4 @@
-import { createElement, type ReactNode } from 'react';
+import { createElement, memo, type ReactNode } from 'react';
 import Markdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
@@ -9,11 +9,11 @@ const components = {
 };
 
 /** Fixed Markdown policy for transcripts and extension previews. Keep the default URL sanitizer. */
-export function SafeMarkdown({ children }: { children: string }) {
+export const SafeMarkdown = memo(function SafeMarkdown({ children }: { children: string }) {
   return createElement(Markdown, {
     skipHtml: true,
     remarkPlugins: [remarkGfm],
     components,
     children,
   });
-}
+});

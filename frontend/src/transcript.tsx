@@ -1,30 +1,35 @@
 import { Check, Copy, GitBranch, LoaderCircle } from 'lucide-react';
-import { Fragment, type ReactNode, useState } from 'react';
+import { Fragment, memo, type ReactNode, useState } from 'react';
 import { imageAttachments } from '../../src/shared/attachments';
 import type { Message, View } from '../../src/shared/client-state';
 import { AskHistory } from './ask-history-card';
 import { CodemodeBlock } from './codemode-block';
+import { Disclosure } from './components/disclosure';
 import { SafeMarkdown } from './components/safe-markdown';
 import { Button } from './components/ui/button';
 import { ToolStatus } from './tool-status';
 import {
   messageActionTargets,
   messageActionText,
+  sameTranscriptTool,
   type TranscriptTool,
   transcriptEntries,
   transcriptState,
 } from './transcript-state';
 
-function ToolBlock({ tool }: { tool: TranscriptTool }) {
-  if (tool.name === 'codemode') {
-    return <CodemodeBlock tool={tool} renderOutput={(item) => <MessageBody item={item} />} />;
-  }
-  return (
-    <AskHistory tool={tool}>
-      <RawToolBlock tool={tool} />
-    </AskHistory>
-  );
-}
+const ToolBlock = memo(
+  function ToolBlock({ tool }: { tool: TranscriptTool }) {
+    if (tool.name === 'codemode') {
+      return <CodemodeBlock tool={tool} renderOutput={(item) => <MessageBody item={item} />} />;
+    }
+    return (
+      <AskHistory tool={tool}>
+        <RawToolBlock tool={tool} />
+      </AskHistory>
+    );
+  },
+  (previous, next) => sameTranscriptTool(previous.tool, next.tool),
+);
 
 function ToolGroup({ tools }: { tools: { key: string; tool: TranscriptTool }[] }) {
   const first = tools[0];
@@ -68,32 +73,38 @@ function RawToolBlock({ tool }: { tool: TranscriptTool }) {
         )?.[1]
       : undefined;
   return (
-    <details className="tool-block">
-      <summary>
-        <span className="tool-name">{tool.name}</span>
-        {typeof input === 'string' && <span className="tool-input">{input}</span>}
-        <ToolStatus status={tool.status} className="tool-status" />
-      </summary>
-      <div className="tool-body">
-        <div className="muted">Arguments</div>
-        <pre>{JSON.stringify(args, null, 2) ?? 'Unavailable'}</pre>
-        {tool.result ? (
-          <>
-            <div className="muted">Output</div>
-            <MessageBody item={tool.result} />
-          </>
-        ) : tool.progress !== undefined ? (
-          <>
-            <div className="muted">Progress</div>
-            <pre>{JSON.stringify(tool.progress, null, 2)}</pre>
-          </>
-        ) : (
-          <p className="muted">
-            {tool.status === 'No result' ? 'No result available.' : 'Waiting for output.'}
-          </p>
-        )}
-      </div>
-    </details>
+    <Disclosure
+      className="tool-block"
+      summary={
+        <>
+          <span className="tool-name">{tool.name}</span>
+          {typeof input === 'string' && <span className="tool-input">{input}</span>}
+          <ToolStatus status={tool.status} className="tool-status" />
+        </>
+      }
+    >
+      {() => (
+        <div className="tool-body">
+          <div className="muted">Arguments</div>
+          <pre>{JSON.stringify(args, null, 2) ?? 'Unavailable'}</pre>
+          {tool.result ? (
+            <>
+              <div className="muted">Output</div>
+              <MessageBody item={tool.result} />
+            </>
+          ) : tool.progress !== undefined ? (
+            <>
+              <div className="muted">Progress</div>
+              <pre>{JSON.stringify(tool.progress, null, 2)}</pre>
+            </>
+          ) : (
+            <p className="muted">
+              {tool.status === 'No result' ? 'No result available.' : 'Waiting for output.'}
+            </p>
+          )}
+        </div>
+      )}
+    </Disclosure>
   );
 }
 
@@ -249,104 +260,106 @@ function MessageActions({
   );
 }
 
-export function Transcript({
-  view,
-  onPreview,
-}: {
-  view: View;
-  onPreview?: (entryId: string) => void;
-}) {
-  const { groups, tools, unpaired } = transcriptState(view);
-  const actionTargets = messageActionTargets(view);
-  return (
-    <section className="transcript" aria-label="Conversation">
-      {groups.length === 0 && unpaired.length === 0 && !view.running && !view.compacting && (
-        <div className="empty">
-          <h2>Start a conversation</h2>
-          <p>Prompts run on your PC. Closing this browser does not stop the agent.</p>
-        </div>
-      )}
-      {groups.map((group) => (
-        <article
-          className={`message ${group.role}${group.streaming ? ' partial' : ''}`}
-          key={group.key}
-        >
-          <header>
-            {group.author}
-            {group.streaming && <span className="muted">streaming</span>}
-          </header>
-          <div className="flex flex-col gap-3">
-            {transcriptEntries(group.messages, group.messageKeys, tools).map((entry) => {
-              if (entry.kind === 'tools') {
-                return <ToolGroup key={entry.key} tools={entry.tools} />;
-              }
-              const { item, source } = entry;
-              return (
-                <div key={entry.key}>
-                  {item.isError === true && <p className="error">Error</p>}
-                  {item.role === 'toolResult' && item.toolName === 'codemode' ? (
-                    <ToolBlock
-                      tool={{
-                        name: 'codemode',
-                        args: undefined,
-                        result: item,
-                        status: item.isError === true ? 'Failed' : 'Completed',
-                      }}
-                    />
-                  ) : item.role === 'toolResult' ? (
-                    <AskHistory
-                      tool={{
-                        name: String(item.toolName),
-                        args: undefined,
-                        result: item,
-                        status: item.isError === true ? 'Failed' : 'Completed',
-                      }}
-                    >
-                      <details>
-                        <summary>Tool output</summary>
-                        <MessageBody item={item} />
-                      </details>
-                    </AskHistory>
-                  ) : (
-                    <MessageBody
-                      item={item}
-                      tools={tools}
-                      actions={
-                        entry.actions &&
-                        actionTargets.has(source) && (
-                          <MessageActions item={source} onPreview={onPreview} />
-                        )
-                      }
-                    />
-                  )}
-                </div>
-              );
-            })}
+export const Transcript = memo(
+  function Transcript({ view, onPreview }: { view: View; onPreview?: (entryId: string) => void }) {
+    const { groups, tools, unpaired } = transcriptState(view);
+    const actionTargets = messageActionTargets(view);
+    return (
+      <section className="transcript" aria-label="Conversation">
+        {groups.length === 0 && unpaired.length === 0 && !view.running && !view.compacting && (
+          <div className="empty">
+            <h2>Start a conversation</h2>
+            <p>Prompts run on your PC. Closing this browser does not stop the agent.</p>
           </div>
-        </article>
-      ))}
-      {unpaired.map((tool) => {
-        const activity = tools.get(tool.id);
-        return activity ? (
-          <article className="message toolResult" key={tool.id}>
-            <ToolBlock tool={activity} />
+        )}
+        {groups.map((group) => (
+          <article
+            className={`message ${group.role}${group.streaming ? ' partial' : ''}`}
+            key={group.key}
+          >
+            <header>
+              {group.author}
+              {group.streaming && <span className="muted">streaming</span>}
+            </header>
+            <div className="flex flex-col gap-3">
+              {transcriptEntries(group.messages, group.messageKeys, tools).map((entry) => {
+                if (entry.kind === 'tools') {
+                  return <ToolGroup key={entry.key} tools={entry.tools} />;
+                }
+                const { item, source } = entry;
+                return (
+                  <div key={entry.key}>
+                    {item.isError === true && <p className="error">Error</p>}
+                    {item.role === 'toolResult' && item.toolName === 'codemode' ? (
+                      <ToolBlock
+                        tool={{
+                          name: 'codemode',
+                          args: undefined,
+                          result: item,
+                          status: item.isError === true ? 'Failed' : 'Completed',
+                        }}
+                      />
+                    ) : item.role === 'toolResult' ? (
+                      <AskHistory
+                        tool={{
+                          name: String(item.toolName),
+                          args: undefined,
+                          result: item,
+                          status: item.isError === true ? 'Failed' : 'Completed',
+                        }}
+                      >
+                        <Disclosure summary="Tool output">
+                          {() => <MessageBody item={item} />}
+                        </Disclosure>
+                      </AskHistory>
+                    ) : (
+                      <MessageBody
+                        item={item}
+                        tools={tools}
+                        actions={
+                          entry.actions &&
+                          actionTargets.has(source) && (
+                            <MessageActions item={source} onPreview={onPreview} />
+                          )
+                        }
+                      />
+                    )}
+                  </div>
+                );
+              })}
+            </div>
           </article>
-        ) : null;
-      })}
-      {(view.running || view.compacting) && (
-        <div
-          className="flex items-center gap-2 py-4 text-xs text-sky-300"
-          role="status"
-          aria-live="polite"
-        >
-          <LoaderCircle
-            size={14}
-            className="animate-spin motion-reduce:animate-none"
-            aria-hidden="true"
-          />
-          {view.compacting ? 'Pi is compacting context…' : 'Pi is running…'}
-        </div>
-      )}
-    </section>
-  );
-}
+        ))}
+        {unpaired.map((tool) => {
+          const activity = tools.get(tool.id);
+          return activity ? (
+            <article className="message toolResult" key={tool.id}>
+              <ToolBlock tool={activity} />
+            </article>
+          ) : null;
+        })}
+        {(view.running || view.compacting) && (
+          <div
+            className="flex items-center gap-2 py-4 text-xs text-sky-300"
+            role="status"
+            aria-live="polite"
+          >
+            <LoaderCircle
+              size={14}
+              className="animate-spin motion-reduce:animate-none"
+              aria-hidden="true"
+            />
+            {view.compacting ? 'Pi is compacting context…' : 'Pi is running…'}
+          </div>
+        )}
+      </section>
+    );
+  },
+  (previous, next) =>
+    previous.onPreview === next.onPreview &&
+    previous.view.messages === next.view.messages &&
+    previous.view.partial === next.view.partial &&
+    previous.view.tools === next.view.tools &&
+    previous.view.running === next.view.running &&
+    previous.view.compacting === next.view.compacting,
+);

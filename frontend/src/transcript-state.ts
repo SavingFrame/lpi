@@ -8,6 +8,17 @@ export interface TranscriptTool {
   status: 'Running' | 'Completed' | 'Failed' | 'Pending' | 'No result';
 }
 
+/** Tool projections are rebuilt on events, but their underlying payloads are immutable. */
+export function sameTranscriptTool(left: TranscriptTool, right: TranscriptTool): boolean {
+  return (
+    left.name === right.name &&
+    left.args === right.args &&
+    left.result === right.result &&
+    left.progress === right.progress &&
+    left.status === right.status
+  );
+}
+
 interface TranscriptGroup {
   key: string;
   messageKeys: string[];

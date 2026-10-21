@@ -11,7 +11,7 @@ export function Shell() {
   const { projectId, sessionId } = useParams({ strict: false });
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
   const sessionQuery = useQuery({ queryKey: ['sessions'], queryFn: sessions });
-  const connection = useSyncExternalStore(live.subscribe, live.getState);
+  const status = useSyncExternalStore(live.subscribe, () => live.getState().status);
   useEffect(() => {
     live.connect();
     return live.disconnect;
@@ -27,8 +27,8 @@ export function Shell() {
             pim<span>native Pi relay</span>
           </Link>
         </div>
-        <p className={`connection ${connection.status}`} role="status">
-          {connection.status}
+        <p className={`connection ${status}`} role="status">
+          {status}
         </p>
         <p className="local-warning">Local access. No authentication.</p>
         {projectQuery.error && <p className="error">{projectQuery.error.message}</p>}
@@ -47,7 +47,7 @@ export function Shell() {
             projects={projectQuery.data ?? []}
             sessions={sessionQuery.data ?? []}
             selectedId={sessionId}
-            online={connection.status === 'ready' || connection.status === 'syncing'}
+            online={status === 'ready' || status === 'syncing'}
           />
         </nav>
         <footer className="flex items-center gap-2">
