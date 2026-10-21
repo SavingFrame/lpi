@@ -66,6 +66,32 @@ test('starts at the bottom and follows content and viewport resizing', (t) => {
   assert.equal(viewport.scrollTop, 1900);
 });
 
+test('layout-driven scroll movement does not interrupt following after sending', (t) => {
+  const state = setup(t);
+  state.scroll(700);
+  state.controller.follow();
+
+  // New messages can move the browser's scroll anchor before ResizeObserver runs.
+  state.viewport.scrollHeight += 400;
+  state.scroll(1700);
+  assert.equal(state.following(), true);
+  state.resize();
+  assert.equal(state.viewport.scrollTop, 1900);
+
+  // A smaller viewport can also produce a scroll event before the resize callback.
+  state.viewport.clientHeight = 300;
+  state.scroll(1950);
+  assert.equal(state.following(), true);
+  state.resize();
+  assert.equal(state.viewport.scrollTop, 2100);
+
+  state.scroll(1000);
+  assert.equal(state.following(), false);
+  state.viewport.scrollHeight += 300;
+  state.resize();
+  assert.equal(state.viewport.scrollTop, 1000);
+});
+
 test('manual scrolling pauses following until the reader returns near the bottom', (t) => {
   const state = setup(t);
   state.scroll(700);

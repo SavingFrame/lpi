@@ -5,20 +5,28 @@ export function chatScroll(
 ) {
   let following = true;
   let previousTop = viewport.scrollTop;
+  let previousHeight = viewport.scrollHeight;
+  let previousClientHeight = viewport.clientHeight;
   const follow = () => {
     following = true;
     viewport.scrollTop = viewport.scrollHeight;
     previousTop = viewport.scrollTop;
+    previousHeight = viewport.scrollHeight;
+    previousClientHeight = viewport.clientHeight;
     onFollowingChange(true);
   };
   const onScroll = () => {
     const nearBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 64;
-    // Content growth can emit a scroll event without the reader moving.
-    if (viewport.scrollTop !== previousTop || nearBottom) {
+    const resized =
+      viewport.scrollHeight !== previousHeight || viewport.clientHeight !== previousClientHeight;
+    // Browser scroll anchoring and clamping can move scrollTop during layout changes.
+    if ((!resized && viewport.scrollTop !== previousTop) || nearBottom) {
       following = nearBottom;
       onFollowingChange(following);
     }
     previousTop = viewport.scrollTop;
+    previousHeight = viewport.scrollHeight;
+    previousClientHeight = viewport.clientHeight;
   };
   const observer = new ResizeObserver(() => {
     if (following) {
