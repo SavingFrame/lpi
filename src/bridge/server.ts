@@ -27,6 +27,7 @@ import {
   projectStatus,
 } from '../shared/snapshots.js';
 import { piInventoryId } from '../storage/session-id.js';
+import { BridgeReader } from './wire.js';
 
 interface Pending {
   resolve: (value: unknown) => void;
@@ -85,6 +86,7 @@ export class NativeBridges {
   private connect(socket: WebSocket): void {
     let native: NativeSession | undefined;
     const connectionId = randomUUID();
+    const reader = new BridgeReader(() => socket.terminate());
     function warn(event: string, details: Record<string, unknown>): void {
       console.warn(
         '[pim:bridge]',
@@ -109,6 +111,7 @@ export class NativeBridges {
       socket.terminate();
     });
     socket.on('close', () => {
+      reader.dispose();
       clearTimeout(startup);
       if (native?.socket === socket) {
         native.socket = undefined;
@@ -146,7 +149,12 @@ export class NativeBridges {
         if (binary) {
           throw new Error('Text bridge frames required');
         }
-        const raw = record(JSON.parse(data.toString()));
+        const raw = reader.read(data.toString());
+        if (!raw) {
+          // Chunked registration uses the reader's transfer inactivity timeout.
+          clearTimeout(startup);
+          return;
+        }
         frame = ['attach', 'ack', 'status', 'sync', 'event'].includes(String(raw.type))
           ? String(raw.type)
           : 'unsupported';
@@ -217,14 +225,7 @@ export class NativeBridges {
           ) {
             throw new Error('Unsupported bridge event');
           }
-          const next = projectEvent(native.snapshot, event);
-          if (next.view.tools.length > 512) {
-            throw new Error('Native tool limit reached');
-          }
-          if (Buffer.byteLength(JSON.stringify(next)) > BRIDGE_LIMIT) {
-            throw new Error('Native snapshot limit reached');
-          }
-          native.snapshot = next;
+          native.snapshot = projectEvent(native.snapshot, event);
           this.events.publish(native.session.id, native.session.generation, 'pi-event', event);
         } else {
           throw new Error('Unsupported bridge frame');

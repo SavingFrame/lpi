@@ -57,7 +57,6 @@ export function view(value: unknown): View {
   if (
     !Array.isArray(raw.messages) ||
     !Array.isArray(raw.tools) ||
-    raw.tools.length > 512 ||
     typeof raw.running !== 'boolean' ||
     typeof raw.compacting !== 'boolean' ||
     (raw.notice !== null && typeof raw.notice !== 'string')

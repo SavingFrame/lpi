@@ -2,6 +2,7 @@ import { WebSocket } from 'ws';
 import { record } from '../../shared/client-state.js';
 import { BRIDGE_LIMIT } from '../../shared/commands.js';
 import { reserveManagedFile } from '../../tmux-binding.js';
+import { BridgeWriter } from '../wire.js';
 import type { NativeCommands } from './commands.js';
 import type { NativeState } from './state.js';
 
@@ -11,6 +12,7 @@ export class NativeTransport {
   private readonly state: NativeState;
   private readonly commands: NativeCommands;
   private socket: WebSocket | undefined;
+  private writer: BridgeWriter | undefined;
   private retry: ReturnType<typeof setTimeout> | undefined;
   private heartbeat: ReturnType<typeof setInterval> | undefined;
   private partialTimer: ReturnType<typeof setTimeout> | undefined;
@@ -55,6 +57,7 @@ export class NativeTransport {
     this.generation = undefined;
     const previous = this.socket;
     this.socket = undefined;
+    this.writer = undefined;
     previous?.terminate();
     this.state.context?.ui.setStatus('pim-bridge', undefined);
   }
@@ -109,12 +112,7 @@ export class NativeTransport {
       return;
     }
     try {
-      const data = JSON.stringify(value);
-      if (this.socket.bufferedAmount + Buffer.byteLength(data) > BRIDGE_LIMIT) {
-        this.socket.terminate();
-        return;
-      }
-      this.socket.send(data);
+      this.writer?.send(value);
     } catch {
       this.socket.terminate();
     }
@@ -145,6 +143,7 @@ export class NativeTransport {
         handshakeTimeout: 5000,
       });
       this.socket = current;
+      this.writer = new BridgeWriter(current);
       this.generation = undefined;
       context.ui.setStatus('pim-bridge', 'Pim: connecting');
       current.on('open', () => {
@@ -202,11 +201,7 @@ export class NativeTransport {
           };
           if (result.outcome === 'acknowledged' && result.shutdown) {
             const shutdown = result.shutdown;
-            current.send(JSON.stringify(acknowledgment), (error) => {
-              if (error) {
-                current.terminate();
-                return;
-              }
+            this.writer?.send(acknowledgment, () => {
               try {
                 shutdown();
               } catch {
@@ -229,6 +224,7 @@ export class NativeTransport {
           return;
         }
         this.socket = undefined;
+        this.writer = undefined;
         this.generation = undefined;
         this.state.context?.ui.setStatus('pim-bridge', 'Pim: disconnected');
         if (code === 1008 || code === 1009) {

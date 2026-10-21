@@ -35,6 +35,7 @@ The endpoint defaults to `ws://127.0.0.1:3141/bridge`. Set `PIM_BRIDGE_URL` for 
 - Assistant partials, tool starts/updates/ends, agent start, and final settlement.
 - Partial updates throttled to 40 ms; native execution never awaits network delivery.
 - Fresh reconnect snapshots including unfinished responses and active tools.
+- No cumulative snapshot-byte or active-tool-count cap. Native messages larger than the 8 MiB WebSocket message limit use ordered application chunks, including initial registration, reconnect snapshots, and individual large events. Chunks are sent one at a time with send-callback backpressure and applied only after complete reassembly. Incomplete transfers time out after 30 seconds without a chunk; slow peers exceeding 8 MiB of ordinary waiting updates or one oversized waiting message are disconnected without stopping Pi (the active send is excluded). Full snapshots and queued messages still consume memory; chunking is not history pagination. Browser events over 8 MiB trigger snapshot refresh instead of disconnecting the browser.
 - Branch navigation, compaction completion, and final settlement refresh history.
 - Current model, thinking, context usage, and queued-message presence, sampled every second.
 - Browser prompt, steer, follow-up, and abort through public extension APIs.

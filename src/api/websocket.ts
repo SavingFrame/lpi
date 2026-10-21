@@ -38,7 +38,13 @@ export function attachWebSockets(
     socket.send(JSON.stringify({ type: 'connected', replay: false, ...events.checkpoint() }));
   });
   const unsubscribe = events.subscribe((event) => {
-    const data = JSON.stringify(event);
+    const serialized = JSON.stringify(event);
+    // Large native events are already in the relay snapshot. Invalidate browser caches
+    // instead of treating one large result as a slow peer and disconnecting them.
+    const data =
+      event.type === 'pi-event' && Buffer.byteLength(serialized) > EVENT_BUFFER_LIMIT
+        ? JSON.stringify({ ...event, type: 'bridge-sync', data: null })
+        : serialized;
     for (const socket of sockets.clients) {
       if (socket.readyState !== WebSocket.OPEN) {
         continue;

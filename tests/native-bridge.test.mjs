@@ -9,6 +9,7 @@ import extension from '../dist/bridge/extension.js';
 import { NativeCommands } from '../dist/bridge/native/commands.js';
 import { NativeState } from '../dist/bridge/native/state.js';
 import { NativeTransport } from '../dist/bridge/native/transport.js';
+import { BridgeReader } from '../dist/bridge/wire.js';
 import { ASK_PROMPT } from '../dist/extension-support/ask-user-question/contract.js';
 import { BRIDGE_LIMIT } from '../dist/shared/commands.js';
 import { prompt as askPrompt } from '../src/extension-support/ask-user-question/tests/fixtures.mjs';
@@ -130,7 +131,15 @@ async function relay(base) {
     base.transport.start();
     const [socket] = await opened;
     const frames = [];
-    socket.on('message', (data) => frames.push(JSON.parse(String(data))));
+    const reader = new BridgeReader(() => socket.terminate());
+    socket.on('close', () => reader.dispose());
+    socket.on('message', (data) => {
+      assert.ok(data.length <= BRIDGE_LIMIT);
+      const frame = reader.read(String(data));
+      if (frame) {
+        frames.push(frame);
+      }
+    });
     await waitFor(() => frames.some((frame) => frame.type === 'attach'));
     socket.send(JSON.stringify({ type: 'attached', generation: ++generation }));
     await waitFor(() => frames.some((frame) => frame.type === 'sync'));
@@ -169,6 +178,20 @@ test('native state snapshots rebuild branch history while preserving offline tra
   assert.deepEqual(state.view.messages, []);
   entries.length = 0;
   assert.deepEqual(state.snapshot().view.messages, []);
+});
+
+test('native state retains more than 512 active tools in reconnect snapshots', (t) => {
+  const { state, forward } = setup(t);
+  for (let index = 0; index < 513; index++) {
+    forward({
+      type: 'tool_execution_start',
+      toolCallId: `tool-${index}`,
+      toolName: 'read',
+      args: {},
+    });
+  }
+  assert.equal(state.view.tools.length, 513);
+  assert.equal(state.snapshot().view.tools.length, 513);
 });
 
 test('session replacement clears transients and support state, unlike a transport stop', (t) => {
@@ -275,19 +298,24 @@ test('transport flushes partials before terminal events and snapshots discard th
   );
 });
 
-test('oversized outbound snapshots disconnect without discarding native transient state', async (t) => {
+test('large events and snapshots transfer in bounded messages and preserve ordering', async (t) => {
   const base = setup(t);
   const { connect } = await relay(base);
   const { socket, frames } = await connect();
-  const closed = once(socket, 'close');
+  const content = '\u0000😀'.repeat(BRIDGE_LIMIT / 3);
+  base.forward({
+    type: 'message_end',
+    message: { role: 'assistant', timestamp: 2, content },
+  });
   base.forward({
     type: 'message_update',
-    message: { role: 'assistant', timestamp: 2, content: 'x'.repeat(BRIDGE_LIMIT) },
+    message: { role: 'assistant', timestamp: 3, content },
   });
   base.transport.sync();
-  await closed;
-  assert.equal(frames.filter((frame) => frame.type === 'sync').length, 1);
-  assert.equal(base.state.view.partial.content.length, BRIDGE_LIMIT);
+  await waitFor(() => frames.filter((frame) => frame.type === 'sync').length === 2);
+  assert.equal(frames.find((frame) => frame.type === 'event').event.message.content, content);
+  assert.equal(frames.at(-1).snapshot.view.partial.content, content);
+  assert.equal(socket.readyState, socket.OPEN);
 });
 
 test('dispatch exceptions close the connection without rejection or automatic replay', async (t) => {

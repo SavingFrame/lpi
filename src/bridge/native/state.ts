@@ -139,9 +139,6 @@ export class NativeState {
     // Track transient state offline; history always comes from Pi's current branch.
     try {
       this.current = { ...reduceEvent(this.current, event), messages: [] };
-      if (this.current.tools.length > 512) {
-        throw new Error('Native bridge tool limit reached');
-      }
     } catch (error) {
       this.current = emptyView();
       throw error;
