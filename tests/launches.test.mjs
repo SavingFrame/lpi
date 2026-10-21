@@ -70,7 +70,16 @@ function setup(t, options = {}) {
   return { launches, calls, saved, validated: () => validated };
 }
 
-test('new session launches pinned native Pi with argv and correlated environment', async (t) => {
+test('new session launches global Pi without npm-local binaries and with correlated environment', async (t) => {
+  const originalPath = process.env.PATH;
+  t.after(() => {
+    if (originalPath === undefined) {
+      delete process.env.PATH;
+    } else {
+      process.env.PATH = originalPath;
+    }
+  });
+  process.env.PATH = '/tmp/pim/node_modules/.bin:/tmp/node_modules/.bin/:/usr/local/bin:/usr/bin';
   const { launches, calls } = setup(t);
   assert.equal((await launches.start('test')).connection, 'connected');
   const command = calls.find((args) => args[0] === 'new-session');
@@ -80,7 +89,8 @@ test('new session launches pinned native Pi with argv and correlated environment
   assert.ok(command.includes(`PIM_TMUX_SESSION=${name}`));
   assert.ok(command.includes('PIM_BRIDGE_URL=ws://127.0.0.1:3141/bridge'));
   assert.ok(command.includes('--session-id'));
-  assert.ok(command.some((arg) => arg.endsWith('/dist/bundle/cli.js')));
+  assert.ok(command.includes('PATH=/usr/local/bin:/usr/bin'));
+  assert.deepEqual(command.slice(-3), ['pi', '--session-id', name.slice(4)]);
   assert.ok(!command.includes('--extension'));
   assert.ok(!command.some((arg) => arg.endsWith('/dist/bridge/extension.js')));
   assert.ok(!command.includes('--mode'));

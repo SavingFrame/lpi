@@ -57,7 +57,7 @@ Implemented, with real-Pi integration still unverified:
 - Browser project selection and fresh session creation through native Pi.
 - Saved-session Resume uses the existing JSONL file after identity/history validation.
 - A dedicated `tmux -L pim` server with one detached session per runtime.
-- The pinned native Pi CLI loads the bridge through existing global Pi extension configuration and registers with a correlated launch ID. The launcher does not pass `--extension`.
+- Global `pi` from the relay server's explicitly forwarded `PATH` loads the bridge through existing global Pi extension configuration and registers with a correlated launch ID. Pinned internal Pi dependencies are separate from the launched runtime. The launcher does not pass `--extension`.
 - Launches wait for registration and report failed or uncertain startup without automatic replay.
 - Managed extensions reserve canonical file IDs in tmux before registration. Reservations survive relay restarts and accumulate across TUI session switches until the tmux session exits.
 - Resume checks all managed reservations and blocks while any runtime is unregistered. External Pi writers cannot be detected reliably, so resume requires explicit offline confirmation.

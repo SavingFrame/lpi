@@ -1,9 +1,8 @@
 import { execFile } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { realpathSync } from 'node:fs';
-import { dirname, join } from 'node:path';
+import { delimiter, resolve, sep } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
 import { promisify } from 'node:util';
 import type { NativeBridges } from './bridge/server.js';
 import type { Config } from './config.js';
@@ -117,10 +116,11 @@ export class Launches {
           : this.config.host.includes(':')
             ? `[${this.config.host}]`
             : this.config.host;
-      const cli = join(
-        dirname(fileURLToPath(import.meta.resolve('@earendil-works/pi-coding-agent'))),
-        'bundle/cli.js',
-      );
+      // npm start prepends local package binaries, which must not select the bundled Pi.
+      const path = (process.env.PATH ?? '')
+        .split(delimiter)
+        .filter((directory) => !resolve(directory).endsWith(`${sep}node_modules${sep}.bin`))
+        .join(delimiter);
       const args = [
         'new-session',
         '-d',
@@ -138,8 +138,9 @@ export class Launches {
         `PIM_LAUNCH_ID=${launchId}`,
         '-e',
         `PIM_TMUX_SESSION=${name}`,
-        process.execPath,
-        cli,
+        '-e',
+        `PATH=${path}`,
+        'pi',
         ...(saved ? ['--session', saved.file] : ['--session-id', launchId]),
       ];
       // Once sent to tmux, a lost subprocess result is not proof that Pi did not start.

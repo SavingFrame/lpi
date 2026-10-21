@@ -4,7 +4,7 @@ A single relay server and browser client for native Pi sessions. Pi runs the age
 
 ## Run
 
-Requires Node.js 22.19+ and tmux 3.2+ for browser create/resume. The extension is typechecked against pinned **Pi 1.0.4**, with `pi-ai` pinned to the same version for model capabilities and shared types.
+Requires Node.js 22.19+, tmux 3.2+, and a global `pi` executable on the relay server's `PATH` for browser create/resume. The extension is typechecked against pinned **Pi 1.3.0**, with `pi-ai` pinned to the same version for model capabilities and shared types. These internal dependencies do not select the launched Pi version.
 
 ```sh
 npm ci --ignore-scripts
@@ -76,7 +76,7 @@ support module. Real native-Pi integration remains unverified.
 
 ## Create or resume from the browser
 
-Click **+** beside a project, or choose a project in the sidebar and click **New session**. For saved history, open the session and click **Resume session**. Pim starts the pinned native Pi CLI in a detached tmux session, then waits for its bridge to register. The bridge must already be enabled through Pi’s global extension configuration. Pim does not pass `--extension`, avoiding duplicate loading. The explicit command above is only for instances without the bridge globally configured. Project-trust prompts and other startup dialogs must be answered in the terminal.
+Click **+** beside a project, or choose a project in the sidebar and click **New session**. For saved history, open the session and click **Resume session**. Pim starts global `pi` using the relay server's `PATH` in a detached tmux session, then waits for its bridge to register. The relay explicitly passes its `PATH` with `node_modules/.bin` entries removed, so `npm start` cannot select Pim's local Pi and an existing tmux server does not retain an older executable search path. The bridge must already be enabled through Pi’s global extension configuration. Pim does not pass `--extension`, avoiding duplicate loading. The explicit command above is only for instances without the bridge globally configured. Project-trust prompts and other startup dialogs must be answered in the terminal.
 
 All managed runtimes use the dedicated `pim` socket, separate from your regular tmux server:
 
