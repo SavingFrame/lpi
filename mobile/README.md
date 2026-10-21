@@ -68,9 +68,10 @@ guarantees. This is not a parallel mobile backend or a browser UI rewrite.
 
 ## Development status
 
-The relay and browser already exist. Shared HTTP transport and snapshot/event synchronization
-have moved to `src/client/`, with browser adapters consuming them. Async storage guards and
-remaining shared behavior still need extraction. Mobile scaffolding has not started.
+The relay and browser already exist. Shared HTTP transport, snapshot/event synchronization,
+and server-scoped command/launch guards with async storage support live in `src/client/`,
+with browser adapters consuming them. Draft persistence, inventory/read behavior, and
+reusable extension state still need extraction. Mobile scaffolding has not started.
 There is no mobile package.json or verified dependency version matrix yet.
 The app will get compatible, exactly pinned Expo/React Native/Tamagui dependencies during
 scaffolding.

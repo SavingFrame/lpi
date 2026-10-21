@@ -1,0 +1,47 @@
+# Shared client behavior
+
+Framework-independent relay behavior for browser and mobile. No React, DOM, native UI,
+filesystem, database, or Pi runtime dependencies belong here.
+
+- `api.ts`: validated HTTP endpoints, request correlation, cancellation/timeouts, and
+  unknown mutation outcomes. Inject fetch/addressing and request-ID generation.
+- `live.ts`: subscribe/buffer/snapshot synchronization, event projections, generation and
+  cursor recovery. Inject socket construction and snapshot loading. Lifecycle adapters
+  call `disconnect()` when suspending and `connect()` when returning; neither method
+  dispatches commands or launches Pi. Disconnected history stays visible but not ready.
+- `commands.ts`: one protected command lane per session, including extension answers.
+- `launches.ts`: one shared fresh-launch lane and individual saved-session resume lanes.
+- `mutation-guard.ts`: storage hydration, synchronous in-memory exclusion, persistence
+  before dispatch, explicit inspection, and uncertain outcomes without replay.
+- `storage.ts`: sync/async storage contract, serialized per-key operations, and scoped keys.
+
+## Adapter requirements
+
+Use a stable, normalized server identity when constructing controllers. Bind dispatch,
+connection access, and persisted keys to that server, not a mutable global selection.
+Keep controllers for inactive servers isolated. Server switching must not rebind an
+outstanding request to another server.
+
+Reuse one storage adapter object within a client process. Guard storage operations are
+serialized per adapter/key so a remount cannot read through an outstanding marker write.
+This is not a cross-process lock or authorization for multiple Pi writers. Mobile storage
+must be durable across app restart; the browser adapter retains its tab-scoped storage.
+
+Call `initialize()` before offering mutation controls. Loading or unreadable persisted
+state must never authorize dispatch. Initialization does not replay a request. Persisted
+markers require explicit review even when the old controller has since received a verdict.
+
+Command dispatch rechecks connection identity and generation after the async marker write.
+Mobile lifecycle bindings must make the connection unavailable while backgrounded. Launch
+adapters supply `eligible()`, which must become false while their server is inactive or the
+app is backgrounded. Neither foreground recovery nor eligibility changes retry a mutation.
+Keep one launch controller per server so all create/resume buttons share their lanes.
+
+Storage failures before dispatch send nothing. Cleanup failures after dispatch preserve
+uncertainty, including after a known rejection. `review()` is async and blocks the lane
+while removing its marker; failed removal cannot clear an uncertain state.
+
+Shared behavior is covered with injected storage and transport in `frontend/tests/`.
+These checks do not verify native storage, iOS builds/networking, device lifecycle, or
+real native-Pi integration. Draft persistence, inventory/read controllers, and reusable
+extension-state extraction remain pending.

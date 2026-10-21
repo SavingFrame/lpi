@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { SessionCommands } from '../../src/client/commands.ts';
 import { emptyView } from '../../src/shared/client-state.ts';
 import { ApiError } from '../src/api.ts';
 import {
@@ -9,7 +10,6 @@ import {
   navigateBranch,
   requestBranchSelection,
 } from '../src/session/branch-navigation.ts';
-import { SessionCommands } from '../src/session/commands.ts';
 
 const id = '11111111-1111-1111-1111-111111111111';
 const intent = { sessionId: id, entryId: 'target', action: 'switch' };
@@ -302,6 +302,7 @@ for (const outcome of ['rejected', 'unknown']) {
     const { environment, requests } = setup();
     const values = new Map();
     const commands = new SessionCommands(id, 'project', {
+      server: 'test-server',
       connection: environment.connection,
       storage: {
         getItem: (key) => values.get(key) ?? null,
@@ -314,6 +315,7 @@ for (const outcome of ['rejected', 'unknown']) {
       },
       refresh: () => {},
     });
+    await commands.initialize();
     environment.available = commands.available;
     environment.submit = commands.submit;
     assert.deepEqual(await navigateBranch(intent, 'project', environment), { type: 'preview' });

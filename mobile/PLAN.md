@@ -1,8 +1,10 @@
 # Pim mobile plan
 
-Status: shared-client foundation started. Validated HTTP transport and snapshot/event
-synchronization now live in `src/client/` and are consumed by browser adapters. Async
-storage guards and remaining shared behavior are not extracted yet. The mobile folder
+Status: shared-client foundation in progress. Validated HTTP transport, snapshot/event
+synchronization, and async-storage command/launch guards live in `src/client/` and are
+consumed by browser adapters. Guards wait for hydration, scope persisted markers by server,
+and recheck eligibility after persistence. Draft persistence, inventory/read behavior, and
+reusable extension state still need extraction. The mobile folder
 contains documentation, not an app scaffold. Dependency installation and device verification
 have not started. Current relay/browser implementation status is documented in the
 [root plan](../PLAN.md). Real native-Pi integration remains unverified.

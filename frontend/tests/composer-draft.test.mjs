@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { SessionCommands } from '../../src/client/commands.ts';
 import { ApiError } from '../src/api.ts';
-import { SessionCommands } from '../src/session/commands.ts';
 import {
   composerCommand,
   restoreComposerDraft,
@@ -32,6 +32,7 @@ for (const outcome of ['rejected', 'unknown']) {
     const values = new Map();
     let calls = 0;
     const commands = new SessionCommands(id, 'project', {
+      server: 'test-server',
       connection: () => ({
         status: 'ready',
         snapshot: { session: { id, projectId: 'project', connection: 'connected', generation: 3 } },
@@ -49,6 +50,7 @@ for (const outcome of ['rejected', 'unknown']) {
       },
       refresh: () => {},
     });
+    await commands.initialize();
     const command = { type: 'prompt', message: draft.text, images: draft.images };
     const accepted = await commands.submit(command);
     assert.equal(accepted, false);

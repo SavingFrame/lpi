@@ -1,14 +1,16 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import { SessionCommands } from '../../../src/client/commands';
 import { operate } from '../api';
 import { live, queryClient } from '../client';
-import { SessionCommands } from './commands';
+import { browserStorage } from '../storage';
 
 export function useSessionCommands(id: string, projectId: string) {
   const [commands] = useState(
     () =>
       new SessionCommands(id, projectId, {
+        server: window.location.origin,
         connection: live.getState,
-        storage: sessionStorage,
+        storage: browserStorage,
         dispatch: operate,
         refresh: () => {
           live.refresh();
@@ -17,6 +19,9 @@ export function useSessionCommands(id: string, projectId: string) {
       }),
   );
   const state = useSyncExternalStore(commands.subscribe, commands.getState);
+  useEffect(() => {
+    void commands.initialize();
+  }, [commands]);
   return {
     ...state,
     active: commands.available(),

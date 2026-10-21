@@ -75,9 +75,12 @@ validation requirements live in [mobile/PLAN.md](mobile/PLAN.md); see also the
 The work includes extracting shared browser/mobile behavior with platform adapters and
 migrating browser consumers. Backend/API changes are allowed when they simplify both
 clients, while preserving existing browser functionality and all runtime-safety constraints.
-Validated HTTP transport and snapshot/event synchronization now live in `src/client/`,
-consumed by browser adapters. Async storage guards and remaining shared behavior still
-need extraction. No mobile scaffold or device verification has been completed.
+Validated HTTP transport, snapshot/event synchronization, and command/launch guards now
+live in `src/client/`, consumed by browser adapters. Guards support async storage, wait for
+hydration, persist before dispatch, and isolate markers by server. Async writes recheck
+command generation/connectivity and launch eligibility before dispatch. Draft persistence,
+inventory/read behavior, and reusable extension state still need extraction.
+No mobile scaffold or device verification has been completed.
 
 ## Later
 

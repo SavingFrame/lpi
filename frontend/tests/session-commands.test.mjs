@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { setImmediate } from 'node:timers/promises';
+import { SessionCommands } from '../../src/client/commands.ts';
+import { clientStorageKey } from '../../src/client/storage.ts';
 import { ApiError } from '../src/api.ts';
-import { SessionCommands } from '../src/session/commands.ts';
 
 const id = '11111111-1111-1111-1111-111111111111';
-const key = `uncertain:${id}`;
+const key = clientStorageKey('test-server', 'command', id);
 const commands = [
   { type: 'prompt', message: 'Review this' },
   { type: 'steer', message: 'Focus here' },
@@ -21,7 +23,7 @@ const commands = [
   { type: 'navigate_tree', targetId: 'earlier', expectedLeafId: 'current' },
 ];
 
-function setup() {
+async function setup() {
   const connection = {
     status: 'ready',
     error: null,
@@ -38,6 +40,7 @@ function setup() {
   const requests = [];
   let refreshes = 0;
   const environment = {
+    server: 'test-server',
     connection: () => connection,
     storage,
     dispatch: (sessionId, generation, command) => {
@@ -49,6 +52,7 @@ function setup() {
     refresh: () => refreshes++,
   };
   const lane = new SessionCommands(id, 'project', environment);
+  await lane.initialize();
   const acknowledge = (index = 0) =>
     requests[index].resolve({ outcome: 'acknowledged', data: { disposition: 'dispatched' } });
   return {
@@ -64,12 +68,13 @@ function setup() {
 
 test('every command uses the shared synchronous pending guard', async () => {
   for (const [index, command] of commands.entries()) {
-    const { lane, requests, acknowledge, values, refreshes } = setup();
+    const { lane, requests, acknowledge, values, refreshes } = await setup();
     assert.equal(lane.available(), true);
     const result = lane.submit(command);
+    await setImmediate();
     assert.equal(lane.getState().pending, true);
     assert.equal(lane.available(), false);
-    lane.review();
+    await lane.review();
     assert.equal(values.get(key), 'true');
     // Each command is checked as both an initial dispatch and a blocked competitor.
     // Cross-products of command types add no coverage to the shared pending lane.
@@ -89,7 +94,7 @@ test('every command uses the shared synchronous pending guard', async () => {
 
 for (const status of ['connecting', 'syncing', 'offline']) {
   test(`${status} sessions cannot dispatch commands`, async () => {
-    const { lane, connection, requests, values } = setup();
+    const { lane, connection, requests, values } = await setup();
     assert.equal(lane.available(), true, 'availability was read before the connection changed');
     connection.status = status;
     assert.equal(lane.available(), false);
@@ -114,7 +119,7 @@ for (const change of [
   },
 ]) {
   test('missing, unrelated, and saved snapshots cannot dispatch commands', async () => {
-    const { lane, connection, requests } = setup();
+    const { lane, connection, requests } = await setup();
     change(connection);
     assert.equal(lane.available(), false);
     assert.equal(await lane.submit(commands[0]), false);
@@ -123,18 +128,20 @@ for (const change of [
 }
 
 test('dispatch reads the current connection generation rather than a rendered snapshot', async () => {
-  const { lane, connection, requests, acknowledge } = setup();
+  const { lane, connection, requests, acknowledge } = await setup();
   assert.equal(lane.available(), true);
   connection.snapshot.session.generation = 5;
   const result = lane.submit(commands[0]);
+  await setImmediate();
   assert.equal(requests[0].generation, 5);
   acknowledge();
   assert.equal(await result, true);
 });
 
 test('unknown outcomes block every command until explicit synchronized review, without replay', async () => {
-  const { lane, connection, requests, values, acknowledge, refreshes } = setup();
+  const { lane, connection, requests, values, acknowledge, refreshes } = await setup();
   const result = lane.submit(commands[0]);
+  await setImmediate();
   requests[0].reject(new ApiError('Response lost', 'unknown'));
   assert.equal(await result, false);
   assert.equal(lane.getState().uncertain, true);
@@ -147,26 +154,29 @@ test('unknown outcomes block every command until explicit synchronized review, w
   assert.equal(requests.length, 1);
   assert.equal(refreshes(), 1);
   connection.status = 'syncing';
-  lane.review();
+  await lane.review();
   assert.equal(lane.getState().uncertain, true);
   assert.equal(values.get(key), 'true');
   connection.status = 'ready';
   assert.equal(lane.available(), false);
-  lane.review();
+  await lane.review();
   assert.equal(lane.getState().uncertain, false);
   assert.equal(lane.getState().error, null);
   assert.equal(values.has(key), false);
   assert.equal(requests.length, 1, 'review must not replay the command');
   const next = lane.submit(commands[3]);
+  await setImmediate();
   assert.equal(requests.length, 2);
   acknowledge(1);
   assert.equal(await next, true);
 });
 
 test('reload or navigation during submission restores the uncertainty guard', async () => {
-  const { lane, environment, values, requests, acknowledge } = setup();
+  const { lane, environment, values, requests, acknowledge } = await setup();
   const result = lane.submit(commands[0]);
+  await setImmediate();
   const restored = new SessionCommands(id, 'project', environment);
+  await restored.initialize();
   assert.equal(restored.getState().pending, false);
   assert.equal(restored.getState().uncertain, true);
   assert.equal(await restored.submit(commands[3]), false);
@@ -176,13 +186,14 @@ test('reload or navigation during submission restores the uncertainty guard', as
   assert.equal(values.has(key), false);
   // A remounted page still requires the user to inspect before it accepts more commands.
   assert.equal(restored.getState().uncertain, true);
-  restored.review();
+  await restored.review();
   assert.equal(restored.available(), true);
 });
 
 test('known rejections return no acceptance and clear only the pending guard', async () => {
-  const { lane, requests, values, acknowledge, refreshes } = setup();
+  const { lane, requests, values, acknowledge, refreshes } = await setup();
   const result = lane.submit(commands[0]);
+  await setImmediate();
   requests[0].reject(new ApiError('Native agent is busy', 'rejected'));
   assert.equal(await result, false);
   assert.equal(lane.getState().uncertain, false);
@@ -191,6 +202,7 @@ test('known rejections return no acceptance and clear only the pending guard', a
   assert.equal(lane.available(), true);
   assert.equal(requests.length, 1);
   const next = lane.submit(commands[1]);
+  await setImmediate();
   assert.equal(lane.getState().error, null);
   acknowledge(1);
   assert.equal(await next, true);
@@ -198,8 +210,9 @@ test('known rejections return no acceptance and clear only the pending guard', a
 });
 
 test('unexpected post-dispatch failures are uncertain instead of permitting a resend', async () => {
-  const { lane, requests, values } = setup();
+  const { lane, requests, values } = await setup();
   const result = lane.submit(commands[0]);
+  await setImmediate();
   requests[0].reject(new Error('Unexpected transport failure'));
   assert.equal(await result, false);
   assert.equal(lane.getState().uncertain, true);
@@ -209,7 +222,7 @@ test('unexpected post-dispatch failures are uncertain instead of permitting a re
 });
 
 test('failing to persist the reload guard prevents dispatch', async () => {
-  const { lane, environment, requests } = setup();
+  const { lane, environment, requests } = await setup();
   environment.storage.setItem = () => {
     throw new Error('Storage unavailable');
   };
@@ -226,8 +239,9 @@ for (const [command, outcome] of [
   [commands[8], 'Native branch switched.'],
 ]) {
   test(`${command.type} retains its acknowledgment semantics`, async () => {
-    const { lane, acknowledge } = setup();
+    const { lane, acknowledge } = await setup();
     const result = lane.submit(command);
+    await setImmediate();
     acknowledge();
     assert.equal(await result, true);
     assert.equal(lane.getState().outcome, outcome);
@@ -235,20 +249,22 @@ for (const [command, outcome] of [
 }
 
 test('a valid acknowledgment without disposition keeps the outcome fallback', async () => {
-  const { lane, requests } = setup();
+  const { lane, requests } = await setup();
   const result = lane.submit(commands[0]);
+  await setImmediate();
   requests[0].resolve({ outcome: 'acknowledged' });
   assert.equal(await result, true);
   assert.equal(lane.getState().outcome, 'acknowledged. Not necessarily finished.');
 });
 
 test('command state snapshots are stable between updates and subscriptions clean up', async () => {
-  const { lane, acknowledge } = setup();
+  const { lane, acknowledge } = await setup();
   const initial = lane.getState();
   const changes = [];
   const unsubscribe = lane.subscribe(() => changes.push(lane.getState()));
   assert.equal(lane.getState(), initial);
   const result = lane.submit(commands[0]);
+  await setImmediate();
   assert.equal(changes.length, 1);
   assert.notEqual(lane.getState(), initial);
   assert.equal(changes[0].pending, true);
@@ -257,6 +273,6 @@ test('command state snapshots are stable between updates and subscriptions clean
   assert.equal(changes.length, 2);
   assert.equal(changes[1].pending, false);
   unsubscribe();
-  lane.review();
+  await lane.review();
   assert.equal(changes.length, 2);
 });

@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
 import { LoaderCircle, Plus } from 'lucide-react';
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { projects } from './api';
 import { launches } from './client';
 import { ConfirmButton } from './components/confirm-button';
@@ -20,6 +20,9 @@ export function LaunchSession({
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
   const [selected, setSelected] = useState(projectId ?? '');
   const state = useSyncExternalStore(launches.subscribe, () => launches.getState(resumeId));
+  useEffect(() => {
+    void launches.initialize(resumeId);
+  }, [resumeId]);
   const pending = state.status === 'pending';
   const uncertain = state.status === 'uncertain';
   async function start() {

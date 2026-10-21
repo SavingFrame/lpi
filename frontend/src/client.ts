@@ -1,7 +1,8 @@
 import { QueryClient } from '@tanstack/react-query';
+import { LaunchController } from '../../src/client/launches';
 import { launch } from './api';
-import { LaunchController } from './launches';
 import { LiveSession } from './live';
+import { browserStorage } from './storage';
 
 export const queryClient = new QueryClient({
   defaultOptions: {
@@ -21,8 +22,10 @@ export const live = new LiveSession((refreshTrees, sessionId) => {
 });
 
 export const launches = new LaunchController({
-  storage: () => sessionStorage,
+  server: window.location.origin,
+  storage: browserStorage,
   dispatch: launch,
+  eligible: () => true,
   refresh: () => {
     void queryClient.invalidateQueries({ queryKey: ['sessions'] });
     live.refresh();
