@@ -3,3 +3,5 @@ dist/
 .pim/
 *.log
 pim.config.json
+mobile/.expo/
+mobile/expo-env.d.ts

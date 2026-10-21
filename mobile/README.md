@@ -6,9 +6,10 @@ An iOS-first React Native + Expo app using Tamagui for the existing Pim relay.
 persistent server/selection settings, foreground reconnect, and plain-text live/saved
 conversation previews are implemented. Typechecking, mocked transport tests, and an iOS
 JavaScript/Hermes bundle export pass. Connection-screen startup is verified in Expo Go
-58.0.5 on an iPhone 15 simulator (iOS 17, Xcode 27.1, Node 22.23.3). Custom native builds,
-relay connectivity, interactions, physical devices, and real-Pi integration remain
-unverified. See [the implementation plan](PLAN.md).
+58.0.5 with Xcode 27.1 and Node 22.23.3. The user confirmed operation on a new iPhone 17
+simulator (iOS 27.0) after the old iOS 17 device ignored system/app input. Custom native
+builds, relay connectivity, detailed interactions, physical devices, and real-Pi integration
+remain unverified. See [the implementation plan](PLAN.md).
 
 ## Run
 
@@ -30,6 +31,30 @@ uses Device Hub instead of `Simulator.app`. If Expo does not focus the simulator
 use `xcrun simctl list devices` to find its UDID, then open
 `devices://device/open?id=<simulator-udid>` with macOS `open`. Android configuration exists,
 but Android validation remains deferred. There is no mobile web target.
+
+## Prepared SSH Mac
+
+From the repository root:
+
+```sh
+bash .pi/skills/ios-macos/scripts/ios-mac.sh run
+bash .pi/skills/ios-macos/scripts/ios-mac.sh screenshot
+bash .pi/skills/ios-macos/scripts/ios-mac.sh logs
+```
+
+`run` syncs source to the existing test directory, starts or reuses the correct Metro,
+and opens Pim on the current simulator. Separate commands: `status`, `sync`, `start`,
+`open`. The Bash helper lives beside the project skill and uses the Mac's existing Node
+only for JSON parsing. Screenshots are copied to a local path for inspection. It does not provision
+macOS, download toolchains, erase devices, or install npm dependencies. Update remote
+dependencies explicitly if manifests/lockfile change. It refuses ambiguous simulator
+selection and unrelated servers on port 8081. Source sync excludes environment files and
+generated output, without deleting destination files.
+
+Defaults target `user@192.168.100.209` and the existing private Node/Expo installation.
+Override with `PIM_IOS_SSH`, `PIM_IOS_DIR`, `PIM_IOS_HOST`, or `PIM_IOS_DEVICE` (UDID).
+The project-only [iOS testing skill](../.pi/skills/ios-macos/SKILL.md) records the setup,
+commands, and known Device Hub/input issues.
 
 ## Current behavior
 
