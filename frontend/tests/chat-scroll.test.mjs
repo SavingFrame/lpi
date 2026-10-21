@@ -41,6 +41,13 @@ function setup(t) {
     resize: () => resize(),
     following: () => following,
     disconnected: () => disconnected,
+    click: (summary = true) => {
+      const target = new Element();
+      target.closest = (selector) => (summary && selector === 'summary' ? target : null);
+      const event = new Event('click');
+      Object.defineProperty(event, 'target', { value: target });
+      viewport.dispatchEvent(event);
+    },
     scroll: (value) => {
       viewport.scrollTop = value;
       viewport.dispatchEvent(new Event('scroll'));
@@ -48,8 +55,9 @@ function setup(t) {
   };
 }
 
-// Node has no native ResizeObserver. Keep the stand-in local to this test process.
+// Node has no native DOM. Keep the stand-ins local to this test process.
 globalThis.ResizeObserver = class {};
+globalThis.Element = class {};
 
 test('starts at the bottom and follows content and viewport resizing', (t) => {
   const state = setup(t);
@@ -106,6 +114,32 @@ test('manual scrolling pauses following until the reader returns near the bottom
   assert.equal(state.viewport.scrollTop, 1900);
 });
 
+test('disclosures expand downward without following layout changes', (t) => {
+  const state = setup(t);
+  state.click(false);
+  assert.equal(state.following(), true);
+
+  state.click();
+  assert.equal(state.following(), false);
+  state.viewport.scrollHeight += 800;
+  state.resize();
+  assert.equal(state.viewport.scrollTop, 1500);
+
+  // Nested disclosures and collapse also leave the viewport in place.
+  state.click();
+  state.viewport.scrollHeight -= 300;
+  state.resize();
+  assert.equal(state.viewport.scrollTop, 1500);
+  assert.equal(state.following(), false);
+
+  // Returning to the bottom restores normal streaming follow.
+  state.scroll(2000);
+  assert.equal(state.following(), true);
+  state.viewport.scrollHeight += 100;
+  state.resize();
+  assert.equal(state.viewport.scrollTop, 2100);
+});
+
 test('explicit follow resumes immediately and cleanup removes listeners and observer', (t) => {
   const state = setup(t);
   state.scroll(700);
@@ -118,5 +152,6 @@ test('explicit follow resumes immediately and cleanup removes listeners and obse
   state.controller.disconnect();
   assert.equal(state.disconnected(), true);
   state.scroll(700);
+  state.click();
   assert.equal(state.following(), true);
 });

@@ -28,11 +28,19 @@ export function chatScroll(
     previousHeight = viewport.scrollHeight;
     previousClientHeight = viewport.clientHeight;
   };
+  const onClick = (event: MouseEvent) => {
+    if (event.target instanceof Element && event.target.closest('summary')) {
+      following = false;
+      onFollowingChange(false);
+    }
+  };
   const observer = new ResizeObserver(() => {
     if (following) {
       follow();
     }
   });
+  // Pause before the native details toggle changes layout, including keyboard clicks.
+  viewport.addEventListener('click', onClick, { capture: true });
   viewport.addEventListener('scroll', onScroll, { passive: true });
   observer.observe(content);
   observer.observe(viewport);
@@ -40,6 +48,7 @@ export function chatScroll(
   return {
     follow,
     disconnect: () => {
+      viewport.removeEventListener('click', onClick, { capture: true });
       viewport.removeEventListener('scroll', onScroll);
       observer.disconnect();
     },
