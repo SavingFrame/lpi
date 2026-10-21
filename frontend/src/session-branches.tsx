@@ -1,21 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
-import { Circle, GitBranch } from 'lucide-react';
+import { ChevronDown, Circle, GitBranch } from 'lucide-react';
 import type { Session } from '../../src/shared/sessions';
 import { tree } from './api';
 import { branchRows } from './branch-state';
 import { Button } from './components/ui/button';
 
-export function SessionBranches({
-  session,
-  selected,
-  online,
-}: {
-  session: Session;
-  selected: boolean;
-  online: boolean;
-}) {
-  const search = useSearch({ strict: false });
+function useSessionBranches(session: Session, online: boolean) {
   const query = useQuery({
     queryKey: ['tree', session.id],
     queryFn: ({ signal }) => tree(session.id, signal),
@@ -32,6 +23,52 @@ export function SessionBranches({
         connected,
       })
     : [];
+  return { query, connected, rows };
+}
+
+export function SessionBranchToggle({
+  session,
+  online,
+  open,
+  onToggle,
+}: {
+  session: Session;
+  online: boolean;
+  open: boolean;
+  onToggle: () => void;
+}) {
+  const { rows } = useSessionBranches(session, online);
+  if (rows.length < 2) {
+    return <span className="branch-toggle" aria-hidden="true" />;
+  }
+  return (
+    <button
+      type="button"
+      className="branch-toggle"
+      aria-label={`${open ? 'Hide' : 'Show'} branches for ${session.title || 'Untitled session'}`}
+      aria-expanded={open}
+      aria-controls={`branches-${session.id}`}
+      onClick={onToggle}
+    >
+      <ChevronDown size={12} className={open ? '' : 'closed'} aria-hidden="true" />
+    </button>
+  );
+}
+
+export function SessionBranches({
+  session,
+  selected,
+  online,
+}: {
+  session: Session;
+  selected: boolean;
+  online: boolean;
+}) {
+  const search = useSearch({ strict: false });
+  const { query, connected, rows } = useSessionBranches(session, online);
+  if (rows.length < 2) {
+    return null;
+  }
   return (
     <section
       className="session-branches"

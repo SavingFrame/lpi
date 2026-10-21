@@ -46,7 +46,11 @@
   .branch-preview .controls {
     margin-bottom: 8px;
   }
-  .message-branch {
+  .message-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 4px;
     margin-top: 8px;
     color: var(--muted-foreground);
     font-size: 11px;

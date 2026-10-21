@@ -35,6 +35,17 @@ test('sidebar collapses linear paths into labelled branch tips with a single act
   assert.equal(branchRows({ ...tree, nodes: [] }).length, 0);
 });
 
+test('empty, metadata-only and linear sessions do not expose multiple conversation paths', () => {
+  for (const nodes of [
+    [],
+    [node('metadata', null, 'model_change')],
+    [node('prompt', null, 'user', 'Hello'), node('reply', 'prompt', 'assistant', 'Hi')],
+  ]) {
+    assert.ok(branchRows({ ...tree, activeLeafId: null, nodes }).length < 2);
+  }
+  assert.equal(branchRows(tree).length, 2);
+});
+
 test('rewound internal positions, multiple roots and nested alternatives remain navigable', () => {
   const rows = branchRows({
     ...tree,

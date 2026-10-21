@@ -16,7 +16,7 @@ import { hasUnreadCompletion } from '../../src/shared/session-read-state';
 import type { Project } from '../../src/shared/sessions';
 import { Button } from './components/ui/button';
 import { LaunchSession } from './launch-session';
-import { SessionBranches } from './session-branches';
+import { SessionBranches, SessionBranchToggle } from './session-branches';
 import {
   activityCounts,
   groupSessions,
@@ -147,13 +147,11 @@ export function SessionSidebar({
             return (
               <div key={session.id} className="session-item">
                 <div className="session-row">
-                  <button
-                    type="button"
-                    className="branch-toggle"
-                    aria-label={`${open ? 'Hide' : 'Show'} branches for ${title}`}
-                    aria-expanded={open}
-                    aria-controls={`branches-${session.id}`}
-                    onClick={() =>
+                  <SessionBranchToggle
+                    session={session}
+                    online={online}
+                    open={open}
+                    onToggle={() =>
                       setBranches((current) => {
                         const next = new Set(current);
                         if (next.has(session.id)) {
@@ -164,9 +162,7 @@ export function SessionSidebar({
                         return next;
                       })
                     }
-                  >
-                    <ChevronDown size={12} className={open ? '' : 'closed'} aria-hidden="true" />
-                  </button>
+                  />
                   <Link
                     to="/app/projects/$projectId/sessions/$sessionId"
                     params={{ projectId: project.id, sessionId: session.id }}

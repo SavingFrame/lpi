@@ -17,6 +17,21 @@ interface TranscriptGroup {
   streaming: boolean;
 }
 
+/** Text available to message actions, excluding reasoning and tool content. */
+export function messageActionText(item: Message): string | null {
+  if (item.role !== 'user' && item.role !== 'assistant') {
+    return null;
+  }
+  const text =
+    typeof item.content === 'string'
+      ? item.content
+      : (item.content ?? [])
+          .filter((block) => block.type === 'text' && typeof block.text === 'string')
+          .map((block) => block.text)
+          .join('\n\n');
+  return item.role === 'user' || text.trim() ? text : null;
+}
+
 export function transcriptState(view: View) {
   const visible = view.messages.filter((item) => item.role !== 'system' && item.display !== false);
   const tools = new Map<string, TranscriptTool>();
