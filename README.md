@@ -85,7 +85,7 @@ The browser applies live message, lifecycle, and status metadata updates directl
 
 ## Frontend development
 
-The browser uses React, Vite, Tailwind CSS v4, and locally owned shadcn/ui components with a dark zinc theme and Lucide icons.
+The browser uses React, Vite, Tailwind CSS v4, and locally owned shadcn/ui components with a dark zinc theme and Lucide icons. Markdown uses `react-markdown` through one shared safe-rendering component, with raw HTML disabled, image placeholders, and the library's default URL sanitizer.
 
 Run the compiled server, then `npm run dev`. Open **http://127.0.0.1:5173**. Vite proxies REST/events to port 3141. Set `PIM_DEV_SERVER` for another target and update configured allowed origins when changing ports.
 
@@ -97,7 +97,7 @@ Run the compiled server, then `npm run dev`. Open **http://127.0.0.1:5173**. Vit
 - `src/storage/`: read-only JSONL discovery and stable inventory IDs.
 - `src/api/`: REST commands, bounded browser events, and static assets.
 - `src/shared/`: browser-safe project/session/command/snapshot contracts, wire validators, and pure event/status projections. See [shared contracts](src/shared/README.md).
-- `frontend/`: React/Vite browser and focused tests. Session layout, composer, command handling, and scroll lifecycle live in `frontend/src/session/`.
+- `frontend/`: React/Vite browser and focused tests. Session layout, composer, command handling, read eligibility, and scroll lifecycle live in `frontend/src/session/`. The tab-wide launch controller is `frontend/src/launches.ts`; ordered styles live under `frontend/src/styles/`, imported by `style.css`.
 - `tests/`: isolated relay, discovery, configuration, and API tests.
 
 ## Validation

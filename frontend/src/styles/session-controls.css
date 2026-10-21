@@ -1,0 +1,167 @@
+@layer components {
+  .session-settings {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    padding-bottom: 12px;
+    font-size: 11px;
+    color: var(--muted-foreground);
+  }
+  .model-picker {
+    position: relative;
+    flex: 1 1 240px;
+    min-width: 0;
+    padding: 0;
+    margin: 0;
+    border: 0;
+  }
+  .model-picker label {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+  .model-picker input {
+    width: 100%;
+    height: 34px;
+    padding: 0 10px;
+    color: var(--foreground);
+    background: var(--background);
+    border: 1px solid var(--input);
+    border-radius: 6px;
+    font-size: 12px;
+  }
+  .model-picker input:disabled {
+    opacity: 0.5;
+  }
+  .model-results {
+    position: absolute;
+    z-index: 20;
+    bottom: calc(100% + 8px);
+    left: 0;
+    width: max(100%, 300px);
+    max-width: calc(100vw - 32px);
+    max-height: min(320px, 45dvh);
+    overflow-y: auto;
+    padding: 6px;
+    background: #202023;
+    border: 1px solid var(--input);
+    border-radius: 8px;
+    box-shadow: 0 12px 32px #0008;
+  }
+  .model-results fieldset {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+  .model-results legend,
+  .model-results p {
+    padding: 8px;
+    margin: 0;
+  }
+  .model-results button {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    text-align: left;
+    color: var(--foreground);
+    overflow-wrap: anywhere;
+  }
+  .model-results button:hover,
+  .model-results button:focus-visible,
+  .model-results button[aria-pressed="true"] {
+    background: var(--input);
+  }
+  .model-results small {
+    color: var(--muted-foreground);
+    font-size: 10px;
+  }
+  .thinking-off {
+    --thinking-color: #a1a1aa;
+  }
+  .thinking-minimal {
+    --thinking-color: #7dd3fc;
+  }
+  .thinking-low {
+    --thinking-color: #6ee7b7;
+  }
+  .thinking-medium {
+    --thinking-color: #fcd34d;
+  }
+  .thinking-high {
+    --thinking-color: #fb923c;
+  }
+  .thinking-xhigh {
+    --thinking-color: #f472b6;
+  }
+  .thinking-max {
+    --thinking-color: #c4b5fd;
+  }
+  .thinking-control {
+    flex: 0 1 230px;
+    min-width: 180px;
+  }
+  .thinking-control label {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .thinking-control :where(label) span {
+    color: var(--thinking-color);
+    font-weight: 600;
+  }
+  .thinking-control input {
+    display: block;
+    appearance: none;
+    width: 100%;
+    height: 5px;
+    margin: 12px 0 8px;
+    color: var(--thinking-color);
+    background: var(--thinking-color);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .thinking-control input::-webkit-slider-thumb {
+    appearance: none;
+    width: 15px;
+    height: 15px;
+    border-radius: 50%;
+    background: currentColor;
+    border: 2px solid var(--background);
+    box-shadow: 0 0 0 1px currentColor;
+  }
+  .thinking-control input::-moz-range-thumb {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: currentColor;
+    border: 2px solid var(--background);
+    box-shadow: 0 0 0 1px currentColor;
+  }
+  .thinking-control input:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+  .thinking-ticks {
+    display: flex;
+    justify-content: space-between;
+    font-size: 9px;
+  }
+  .thinking-ticks span {
+    color: var(--thinking-color);
+  }
+  .context-usage {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    margin-left: auto;
+  }
+  .context-usage meter {
+    width: 100%;
+    height: 5px;
+    accent-color: #86b695;
+  }
+}

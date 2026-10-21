@@ -1,0 +1,144 @@
+@layer components {
+  .transcript {
+    width: min(100%, 880px);
+    margin: 0 auto;
+    padding: 24px 32px 48px;
+    flex: 1;
+  }
+  .empty {
+    color: var(--muted-foreground);
+    padding: 60px 0;
+    text-align: center;
+  }
+  .empty h2 {
+    color: var(--foreground);
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 12px;
+  }
+  .message {
+    padding: 24px 0;
+    overflow-wrap: anywhere;
+  }
+  .message + .message {
+    border-top: 1px solid var(--border);
+  }
+  .message > header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    color: #d4d4d8;
+    font-size: 12px;
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .message.user {
+    background: #202023;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 18px 20px;
+    margin: 16px 0;
+  }
+  .message.user + .message {
+    border-top: 0;
+  }
+  .message.toolResult {
+    font-size: 12px;
+    padding: 14px 0;
+    color: var(--muted-foreground);
+  }
+  .tool-block {
+    margin: 10px 0;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 12px;
+    overflow: hidden;
+  }
+  .tool-name {
+    color: var(--foreground);
+    font-weight: 600;
+  }
+  .tool-input {
+    display: inline-block;
+    max-width: min(50vw, 440px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+    margin-left: 12px;
+  }
+  .tool-status {
+    margin-left: 12px;
+    font-size: 11px;
+  }
+  .tool-body {
+    padding: 12px;
+    border-top: 1px solid var(--border);
+    color: var(--foreground);
+  }
+  .message p:first-child {
+    margin-top: 0;
+  }
+  .message p:last-child {
+    margin-bottom: 0;
+  }
+  .message a {
+    color: #a9c7f5;
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
+  .message h1,
+  .message h2,
+  .message h3 {
+    font-weight: 600;
+    margin: 20px 0 10px;
+  }
+  .message h1 {
+    font-size: 1.5em;
+  }
+  .message h2 {
+    font-size: 1.25em;
+  }
+  .message h3 {
+    font-size: 1.1em;
+  }
+  .message ul,
+  .message ol {
+    padding-left: 24px;
+    margin: 12px 0;
+    list-style: revert;
+  }
+  .message blockquote {
+    border-left: 2px solid var(--input);
+    padding-left: 16px;
+    color: var(--muted-foreground);
+    margin: 16px 0;
+  }
+  pre {
+    background: #141416;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin: 12px 0;
+    overflow: auto;
+    white-space: pre-wrap;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  code {
+    font-family: ui-monospace, monospace;
+    font-size: 0.9em;
+  }
+  :not(pre) > code {
+    background: var(--secondary);
+    padding: 2px 5px;
+    border-radius: 4px;
+  }
+  summary {
+    color: var(--muted-foreground);
+    display: list-item;
+  }
+  .tool-block > summary {
+    padding: 10px 12px;
+  }
+}

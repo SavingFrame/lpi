@@ -1,6 +1,6 @@
 import { type ReactNode, useId } from 'react';
-import Markdown from 'react-markdown';
 import { askHistory } from './ask-history';
+import { SafeMarkdown } from './components/safe-markdown';
 import { Textarea } from './components/ui/textarea';
 import type { TranscriptTool } from './transcript-state';
 import '../../src/extension-support/ask-user-question/web.css';
@@ -52,9 +52,7 @@ export function AskHistory({ tool, children }: { tool: TranscriptTool; children:
                       <details className="mt-2 text-sm">
                         <summary>Preview</summary>
                         <div className="ask-preview">
-                          <Markdown skipHtml components={{ img: () => <span>[image]</span> }}>
-                            {option.preview}
-                          </Markdown>
+                          <SafeMarkdown>{option.preview}</SafeMarkdown>
                         </div>
                       </details>
                     )}
@@ -92,9 +90,7 @@ export function AskHistory({ tool, children }: { tool: TranscriptTool; children:
             )}
             {question.preview && (
               <div className="ask-preview mt-3">
-                <Markdown skipHtml components={{ img: () => <span>[image]</span> }}>
-                  {question.preview}
-                </Markdown>
+                <SafeMarkdown>{question.preview}</SafeMarkdown>
               </div>
             )}
           </fieldset>

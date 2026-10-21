@@ -5,14 +5,17 @@ import type { Snapshot } from '../../src/shared/snapshots';
 import { markViewed } from './api';
 import { queryClient } from './client';
 import { Button } from './components/ui/button';
+import { completionToView } from './session/read-completion';
 
 /** Acknowledge only the completion actually loaded and visible at the end of the transcript. */
 export function ReadCompletion({
   snapshot,
-  enabled,
+  synchronized,
+  following,
 }: {
   snapshot: Snapshot | null;
-  enabled: boolean;
+  synchronized: boolean;
+  following: boolean;
 }) {
   const [visible, setVisible] = useState(() => document.visibilityState === 'visible');
   const attempted = useRef(new Set<string>());
@@ -24,8 +27,9 @@ export function ReadCompletion({
     },
   });
   const { mutate } = mutation;
-  const id = snapshot?.session.id;
-  const completionId = snapshot?.readState.completionId;
+  const target = completionToView(snapshot, { synchronized, following, visible });
+  const id = target?.id;
+  const completionId = target?.completionId;
   const unread = snapshot ? hasUnreadCompletion(snapshot.readState) : false;
   useEffect(() => {
     const update = () => setVisible(document.visibilityState === 'visible');
@@ -33,7 +37,7 @@ export function ReadCompletion({
     return () => document.removeEventListener('visibilitychange', update);
   }, []);
   useEffect(() => {
-    if (!enabled || !visible || !unread || !id || !completionId) {
+    if (!id || !completionId) {
       return;
     }
     const key = `${id}:${completionId}`;
@@ -41,8 +45,8 @@ export function ReadCompletion({
       attempted.current.add(key);
       mutate({ id, completionId });
     }
-  }, [enabled, visible, unread, id, completionId, mutate]);
-  if (!mutation.error || !unread || !id || !completionId) {
+  }, [id, completionId, mutate]);
+  if (!mutation.error || !unread) {
     return null;
   }
   return (
@@ -52,8 +56,12 @@ export function ReadCompletion({
         type="button"
         variant="ghost"
         size="sm"
-        disabled={!enabled || !visible || mutation.isPending}
-        onClick={() => mutate({ id, completionId })}
+        disabled={!target || mutation.isPending}
+        onClick={() => {
+          if (target) {
+            mutate(target);
+          }
+        }}
       >
         Retry saving read status
       </Button>

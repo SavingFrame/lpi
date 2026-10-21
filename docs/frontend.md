@@ -17,7 +17,7 @@ Browser/API authentication is not enabled. Pim trusts reachable home LAN/Tailsca
 
 ## UI components
 
-The interface uses Tailwind CSS v4 through its Vite plugin, locally owned shadcn/ui components (New York style), and Lucide icons. Shared components live in `frontend/src/components/ui`; `frontend/src/lib/utils.ts` merges utility classes. Dark zinc theme tokens and application layout styles live in `frontend/src/style.css`.
+The interface uses Tailwind CSS v4 through its Vite plugin, locally owned shadcn/ui components (New York style), and Lucide icons. Shared components live in `frontend/src/components/ui`; `frontend/src/lib/utils.ts` merges utility classes. `frontend/src/style.css` is the stylesheet entry point. Ordered imports under `frontend/src/styles/` separate theme/base, shell/sidebar, session layout, transcript, composer, model/thinking controls, and responsive overrides. Component rules keep their existing cascade order.
 
 The shadcn configuration is `frontend/components.json`. Run future shadcn CLI commands from `frontend/`; the `@/` alias resolves to `frontend/src` in both Vite and TypeScript. Review generated changes and pin any added dependencies to exact versions. The command-mode selector remains a native select to preserve its existing keyboard and form behavior.
 
@@ -27,10 +27,13 @@ The shadcn configuration is `frontend/components.json`. Run future shadcn CLI co
 - `frontend/src/api.ts`: HTTP transport, response correlation, and endpoint helpers using shared parsers.
 - `frontend/src/app.tsx`: application shell and welcome view.
 - `frontend/src/session/page.tsx`: selected-session layout and live subscription.
-- `frontend/src/session/composer.tsx`: draft persistence, attachments, send modes, and shortcuts.
+- `frontend/src/session/composer.tsx`: draft persistence, attachments, send modes, and shortcuts. `session/draft.ts` settles acceptance without clearing newer edits or losing rejected/unknown submissions.
 - `frontend/src/session/commands.ts`: framework-independent command controller. Composer submissions, settings, runtime controls, and extension answers share one pending/uncertain guard and typed command path. It checks current session/project connectivity before dispatch and persists uncertainty before sending. Commands never retry automatically.
 - `frontend/src/session/use-session-commands.ts`: React subscription and snapshot/inventory refresh wiring for that controller.
 - `frontend/src/session/use-chat-scroll.ts`: React lifecycle binding for the existing scroll controller.
+- `frontend/src/launches.ts`: framework-independent tab-wide launch controller, instantiated in `client.ts`. Fresh-session buttons share one pending/uncertain guard across projects; each resume ID has its own guard. The controller persists before dispatch, never retries automatically, and requires explicit review of uncertain outcomes. `launch-session.tsx` owns confirmation, selection, and navigation.
+- `frontend/src/session/read-completion.ts`: eligibility selection from the loaded snapshot, requiring synchronization, a visible tab, and following the transcript bottom. `read-completion.tsx` tracks attempted IDs and offers explicit retry after failure.
+- `frontend/src/components/safe-markdown.ts`: shared, fixed Markdown rendering policy for conversation text, Ask history, and pending questionnaire previews.
 
 ## Behavior
 
@@ -56,7 +59,7 @@ Reconnects subscribe first, buffer events, load a snapshot, discard events at or
 
 Mutations never retry automatically. Request IDs and connection generations reject duplicates and stale commands. Dispatch is not execution completion. Unknown outcomes preserve the draft and block further commands until the user inspects and acknowledges uncertainty. Tab-scoped storage preserves drafts and protects against reload during submission.
 
-Markdown raw HTML is disabled and Markdown image URLs are not loaded. Structured raster image attachments render as inline data previews; SVG attachments are rejected. Closing the browser does not stop Pi.
+Markdown uses the existing `react-markdown` library through `SafeMarkdown`, not a custom parser. The wrapper disables raw HTML, replaces Markdown images with `[image]` placeholders, and retains the library's default URL sanitizer. Callers cannot override this policy with plugins or component props. Structured raster image attachments render separately as validated inline data previews; SVG attachments are rejected. Closing the browser does not stop Pi.
 
 ## Validation
 
@@ -67,4 +70,4 @@ npm run build
 npm run test:frontend
 ```
 
-Synchronization tests use mocked browser transport. Command-controller tests inject connection state, storage, and dispatch to cover pending submissions, reload guards, known rejections, unknown outcomes, and explicit review without a DOM or model calls. Relay tests use fake public Pi contexts and isolated files/transports without model calls. Ask module behavior is covered by fake-native bridge and mocked browser synchronization/draft tests. Real native-Pi integration remains unverified.
+Synchronization tests use mocked browser transport. Command-controller and launch-controller tests inject storage and dispatch to cover pending submissions, shared-button guards, reload protection, known rejections, unknown outcomes, and explicit review without a DOM or model calls. Composer settlement tests cover draft/image retention and edits during submission. Read eligibility tests cover synchronization, visibility, bottom-following, and loaded completion IDs. Markdown tests render the real wrapper with React's static renderer to check formatting, raw-HTML suppression, image placeholders, and unsafe links. These are focused state/markup tests, not browser DOM interaction coverage. Relay tests use fake public Pi contexts and isolated files/transports without model calls. Ask module behavior is covered by fake-native bridge and mocked browser synchronization/draft tests. Real native-Pi integration remains unverified.

@@ -36,6 +36,16 @@ new bridge generation can discard unsent drafts. Pending native questions themse
 survive transport disconnects and are included in reconnect snapshots. A disconnect
 never answers, declines, or restarts a tool.
 
+## Browser entry points
+
+Pending questions render through this module's `web.tsx`, registered explicitly in
+`src/extension-support/web.tsx`. Persisted answers are parsed by
+`frontend/src/ask-history.ts` and rendered by `frontend/src/ask-history-card.tsx`, wired
+explicitly into `frontend/src/transcript.tsx` with the normal raw tool fallback. Both
+preview surfaces use `frontend/src/components/safe-markdown.ts`. This per-extension
+integration is intentional; adding another extension does not require a generic UI
+schema or renderer registry.
+
 ## Public events
 
 | Event | Adapter use |

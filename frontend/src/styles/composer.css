@@ -1,0 +1,93 @@
+@layer components {
+  .composer {
+    margin-top: auto;
+    position: sticky;
+    bottom: 0;
+    background: var(--background);
+    padding: 14px 28px 20px;
+    border-top: 1px solid var(--border);
+  }
+  .composer form,
+  .session-settings {
+    max-width: 816px;
+    margin: 0 auto;
+  }
+  .composer form {
+    border: 1px solid var(--input);
+    border-radius: 12px;
+    background: #1e1e21;
+    padding: 12px;
+    transition: border-color 150ms;
+  }
+  .composer form:focus-within {
+    border-color: #71717a;
+  }
+  .composer textarea {
+    resize: vertical;
+    min-height: 96px;
+    max-height: 40vh;
+    border: 0;
+    box-shadow: none;
+    border-radius: 4px;
+  }
+  .composer textarea:focus-visible {
+    outline: none;
+    --tw-ring-shadow: 0 0 #0000;
+  }
+  .image-attachments {
+    border: 0;
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+  }
+  .attachment-toolbar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-top: 4px;
+  }
+  .attachment-toolbar small {
+    font-size: 10px;
+  }
+  .attachment-previews {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    list-style: none;
+    padding: 0;
+    margin: 12px 0;
+  }
+  .attachment-previews li {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+  .attachment-previews img,
+  .message-image {
+    max-width: 100%;
+    max-height: 320px;
+    object-fit: contain;
+    border-radius: 7px;
+  }
+  .attachment-previews img {
+    width: 100px;
+    height: 80px;
+  }
+  .composer-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-top: 12px;
+    padding-top: 12px;
+    border-top: 1px solid var(--border);
+    font-size: 11px;
+  }
+  .composer-footer > .muted {
+    flex: 1;
+  }
+  .composer-footer select {
+    margin-left: 6px;
+  }
+}

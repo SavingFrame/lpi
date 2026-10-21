@@ -1,5 +1,5 @@
 import { useId, useState } from 'react';
-import Markdown from 'react-markdown';
+import { SafeMarkdown } from '../../../frontend/src/components/safe-markdown';
 import { Button } from '../../../frontend/src/components/ui/button';
 import { Textarea } from '../../../frontend/src/components/ui/textarea';
 import { type AskAnswer, type AskPrompt, askAnswer } from './contract';
@@ -113,9 +113,7 @@ export function AskQuestionnaire({
                 {showPreview && (
                   <aside className="ask-preview" aria-label={`${question.header} option preview`}>
                     {previewOption?.preview ? (
-                      <Markdown skipHtml components={{ img: () => <span>[image]</span> }}>
-                        {previewOption.preview}
-                      </Markdown>
+                      <SafeMarkdown>{previewOption.preview}</SafeMarkdown>
                     ) : (
                       <p className="ask-hint">
                         {previewOption?.hasPreview

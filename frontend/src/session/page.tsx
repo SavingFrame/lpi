@@ -139,7 +139,11 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
         </div>
       )}
       {snapshot && <Transcript view={snapshot.view} />}
-      <ReadCompletion snapshot={snapshot} enabled={connection.status === 'ready' && following} />
+      <ReadCompletion
+        snapshot={snapshot}
+        synchronized={connection.status === 'ready'}
+        following={following}
+      />
       {snapshot && (
         <ExtensionPanels
           key={`${snapshot.session.id}:${snapshot.session.generation}`}

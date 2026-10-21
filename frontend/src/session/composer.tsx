@@ -1,12 +1,12 @@
 import { ArrowDown, ArrowUp, Square } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import type { ImageAttachment } from '../../../src/shared/attachments';
 import type { BridgeCommand } from '../../../src/shared/commands';
 import type { Snapshot } from '../../../src/shared/snapshots';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { ImageAttachments } from '../image-attachments';
 import { SessionSettings } from '../session-controls';
+import { type ComposerDraft, settleComposerDraft } from './draft';
 
 export function Composer({
   id,
@@ -29,15 +29,17 @@ export function Composer({
   onFollow: () => void;
   onCommand: (command: BridgeCommand) => Promise<boolean>;
 }) {
-  const [draft, setDraft] = useState(() => sessionStorage.getItem(`draft:${id}`) ?? '');
-  const [attachments, setAttachments] = useState<ImageAttachment[]>([]);
+  const [draft, setDraft] = useState<ComposerDraft>(() => ({
+    text: sessionStorage.getItem(`draft:${id}`) ?? '',
+    images: [],
+  }));
   const [readingImages, setReadingImages] = useState(false);
   const [mode, setMode] = useState<'prompt' | 'steer' | 'follow_up'>('prompt');
-  useEffect(() => sessionStorage.setItem(`draft:${id}`, draft), [draft, id]);
+  useEffect(() => sessionStorage.setItem(`draft:${id}`, draft.text), [draft.text, id]);
   const canSend =
     active &&
     !readingImages &&
-    Boolean(draft.trim() || attachments.length) &&
+    Boolean(draft.text.trim() || draft.images.length) &&
     !(mode === 'prompt' && snapshot?.view.running);
   return (
     <div className="composer">
@@ -75,22 +77,18 @@ export function Composer({
             return;
           }
           const submitted = draft;
-          const submittedImages = attachments;
           onFollow();
           const accepted = await onCommand({
             type: mode,
-            message: draft.trim() ? draft : '',
-            images: attachments,
+            message: submitted.text.trim() ? submitted.text : '',
+            images: submitted.images,
           });
-          if (accepted) {
-            setDraft((current) => (current === submitted ? '' : current));
-            setAttachments((current) => (current === submittedImages ? [] : current));
-          }
+          setDraft((current) => settleComposerDraft(current, submitted, accepted));
         }}
       >
         <ImageAttachments
-          images={attachments}
-          onChange={setAttachments}
+          images={draft.images}
+          onChange={(images) => setDraft((current) => ({ ...current, images }))}
           disabled={pending || uncertain}
           onBusy={setReadingImages}
         >
@@ -101,8 +99,11 @@ export function Composer({
                 ? 'What should Pi work on?'
                 : 'Connect native Pi to send a message'
             }
-            value={draft}
-            onChange={(event) => setDraft(event.target.value)}
+            value={draft.text}
+            onChange={(event) => {
+              const text = event.target.value;
+              setDraft((current) => ({ ...current, text }));
+            }}
             onKeyDown={(event) => {
               if (
                 event.nativeEvent.isComposing ||

@@ -45,8 +45,9 @@ Pi from loading React or CSS. Shared contracts must remain browser-safe.
    state on reconnect and forwards changes without retransmitting the transcript.
 5. Register its React component in `web.tsx`. Use the provided disabled state and
    `onCommand` callback rather than creating another transport or bypassing Pim's
-   mutation/uncertainty guards. Render only validated data. Disable raw HTML and
-   remote Markdown images for any rich content.
+   mutation/uncertainty guards. Render only validated data. Use
+   `frontend/src/components/safe-markdown.ts` for rich Markdown content so raw HTML,
+   image URLs, and unsafe links use the same policy as the transcript.
 6. Dispose listeners and mark in-flight action outcomes unknown on native session
    replacement or shutdown. A transport disconnect alone must not dismiss native UI,
    discard live pending state, or trigger a second runtime.
@@ -59,8 +60,15 @@ Pi from loading React or CSS. Shared contracts must remain browser-safe.
 9. Update the support list below, `README.md`, and `PLAN.md`. State native integration
    verification separately from mocked transport coverage.
 
-A new module normally needs changes only in its folder and these three registration
-files. Common transport and synchronization code should not acquire extension-specific
+Support is intentionally implemented one extension at a time, not through a universal
+UI schema or automatic plugin discovery. Pending interactions use the three explicit
+registration files above. Persisted tool-result rendering may also need a dedicated
+frontend parser/component and explicit wiring in `frontend/src/transcript.tsx`, as Ask
+currently uses `ask-history.ts` and `ask-history-card.tsx`. Document both the pending UI
+and history-rendering entry points in the extension's README. Keep the normal raw tool
+fallback when persisted results are missing or unsupported.
+
+Common transport and synchronization code should not acquire extension-specific
 branches. Extract helpers only when more than one module needs them.
 
 ## Supported modules

@@ -1,0 +1,39 @@
+@layer components {
+  @media (max-width: 760px) {
+    .shell {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto minmax(0, 1fr);
+    }
+    .sidebar {
+      border-right: 0;
+      border-bottom: 1px solid var(--border);
+      padding: 12px;
+      max-height: 32dvh;
+    }
+    .sidebar nav {
+      margin-top: 16px;
+    }
+    .sidebar footer,
+    .local-warning {
+      display: none;
+    }
+    .connection {
+      margin: 8px 10px 0;
+    }
+    .session-header {
+      padding: 16px;
+    }
+    .transcript {
+      padding: 16px 16px 30px;
+    }
+    .composer {
+      padding: 12px;
+    }
+    .composer-footer > .muted {
+      display: none;
+    }
+    .welcome {
+      margin: 5vh auto;
+    }
+  }
+}

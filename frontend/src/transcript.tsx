@@ -1,8 +1,8 @@
 import { LoaderCircle } from 'lucide-react';
-import Markdown from 'react-markdown';
 import { imageAttachments } from '../../src/shared/attachments';
 import type { Message, View } from '../../src/shared/client-state';
 import { AskHistory } from './ask-history-card';
+import { SafeMarkdown } from './components/safe-markdown';
 import { type TranscriptTool, transcriptState } from './transcript-state';
 
 function ToolBlock({ tool }: { tool: TranscriptTool }) {
@@ -59,18 +59,12 @@ function MessageBody({ item, tools }: { item: Message; tools?: Map<string, Trans
   return (
     <>
       {typeof content === 'string' ? (
-        <Markdown skipHtml components={{ img: () => <span>[image]</span> }}>
-          {content}
-        </Markdown>
+        <SafeMarkdown>{content}</SafeMarkdown>
       ) : (
         content?.map((block, index) => {
           const key = `${index}:${String(block.type)}`;
           if (block.type === 'text') {
-            return (
-              <Markdown key={key} skipHtml components={{ img: () => <span>[image]</span> }}>
-                {String(block.text ?? '')}
-              </Markdown>
-            );
+            return <SafeMarkdown key={key}>{String(block.text ?? '')}</SafeMarkdown>;
           }
           if (block.type === 'image') {
             try {
@@ -121,11 +115,7 @@ function MessageBody({ item, tools }: { item: Message; tools?: Map<string, Trans
           );
         })
       )}
-      {typeof item.summary === 'string' && (
-        <Markdown skipHtml components={{ img: () => <span>[image]</span> }}>
-          {item.summary}
-        </Markdown>
-      )}
+      {typeof item.summary === 'string' && <SafeMarkdown>{item.summary}</SafeMarkdown>}
       {typeof item.output === 'string' && <pre>{item.output}</pre>}
       {typeof item.errorMessage === 'string' && <p className="error">{item.errorMessage}</p>}
     </>
