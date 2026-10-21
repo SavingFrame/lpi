@@ -138,6 +138,50 @@ try {
   render([message, toolResult]);
   await waitFor(() => viewer()?.querySelector('[data-diff]'));
   check(host.querySelector('.tool-block').open, 'live completion keeps the edit open');
+  render([
+    {
+      ...message,
+      content: [
+        { type: 'toolCall', id: 'script', name: 'codemode', arguments: { code: '/* saved */' } },
+      ],
+    },
+    {
+      ...toolResult,
+      toolName: 'codemode',
+      toolCallId: 'script',
+      isError: true,
+      details: {
+        calls: [
+          {
+            id: 'script/1',
+            name: 'edit',
+            args: '{"path":"src/example.ts","edits":...',
+            status: 'ok',
+          },
+        ],
+        pimEditPatches: [{ toolCallId: 'script/1', patch }],
+      },
+      content: [{ type: 'text', text: 'Script failed after applying edit' }],
+    },
+  ]);
+  check(!host.querySelector('diffs-container'), 'nested diffs mount lazily');
+  click(host.querySelector('.codemode-call > summary'));
+  await waitFor(() => viewer()?.querySelector('[data-unified]'));
+  check(viewer().textContent.includes(newLine), 'nested successful edit survives script failure');
+  check(!viewer().querySelector('img'), 'nested patch HTML is not executable markup');
+  const nestedSelect = host.querySelector('select');
+  flushSync(() => {
+    nestedSelect.value = 'split';
+    nestedSelect.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await waitFor(() => viewer()?.querySelector('[data-deletions]'));
+  check(
+    host.querySelector('.edit-diff').getBoundingClientRect().width <=
+      host.getBoundingClientRect().width,
+    'nested diff fits narrow container',
+  );
+  click(host.querySelector('.edit-raw > summary'));
+  await waitFor(() => host.textContent.includes('Saved argument preview'));
   root.unmount();
   check(
     violations.length === 0,

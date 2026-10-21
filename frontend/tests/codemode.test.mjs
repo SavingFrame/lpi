@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { emptyView, reduceEvent } from '../../src/shared/client-state.ts';
 import { codemodeCallInput, codemodeState } from '../src/codemode-state.ts';
+import { editDiff } from '../src/edit-diff.ts';
 import { transcriptState } from '../src/transcript-state.ts';
 
 const call = (overrides = {}) => ({
@@ -141,6 +142,41 @@ test('malformed metadata is ignored without dropping combined output', () => {
     assert.deepEqual(fallback.calls, []);
     assert.equal(fallback.output.content[0].text, 'Combined output');
   }
+});
+
+test('saved patches match stable nested IDs, not preview text or completion order', () => {
+  const patch = '--- a.ts\n+++ a.ts\n@@ -1 +1 @@\n-old\n+new\n';
+  const output = result([
+    call({ id: 'script/2', name: 'edit', args: '{"path":"wrong.ts","edits":...' }),
+    call({ id: 'script/1', name: 'edit' }),
+    call({ id: 'script/3', name: 'edit', status: 'error' }),
+    call({ id: 'script/4', name: 'read' }),
+  ]);
+  output.isError = true;
+  output.details.pimEditPatches = [
+    { toolCallId: 'script/1', patch },
+    { toolCallId: 'script/3', patch },
+    { toolCallId: 'script/4', patch },
+    { toolCallId: 'unrelated/1', patch },
+  ];
+  output.details.pimEditPatchesOmitted = true;
+  const state = codemodeState({ result: JSON.parse(JSON.stringify(output)), status: 'Failed' });
+  assert.equal(state.calls[0].editTool, undefined);
+  assert.equal(editDiff(state.calls[1].editTool).name, 'a.ts');
+  assert.equal(state.calls[2].editTool, undefined);
+  assert.equal(state.calls[3].editTool, undefined);
+  assert.equal(state.patchesOmitted, true);
+  for (const patches of [undefined, null, {}, [null], [{ toolCallId: 'script/1', patch: 12 }]]) {
+    output.details.pimEditPatches = patches;
+    assert.equal(codemodeState({ result: output }).calls[1].editTool, undefined);
+  }
+  output.details.pimEditPatches = [{ toolCallId: 'script/1', patch: 'invalid' }];
+  assert.equal(editDiff(codemodeState({ result: output }).calls[1].editTool), undefined);
+  output.details.pimEditPatches = [
+    { toolCallId: 'script/1', patch },
+    { toolCallId: 'script/1', patch },
+  ];
+  assert.equal(codemodeState({ result: output }).calls[1].editTool, undefined);
 });
 
 test('zero-call scripts, missing results and nonstandard failures keep their content', () => {

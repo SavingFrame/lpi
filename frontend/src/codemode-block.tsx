@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import type { Message } from '../../src/shared/client-state';
 import { codemodeCallInput, codemodeState } from './codemode-state';
 import { Disclosure } from './components/disclosure';
+import { ToolFileBody } from './tool-file-body';
 import { ToolStatus } from './tool-status';
 import type { TranscriptTool } from './transcript-state';
 
@@ -59,16 +60,25 @@ export function CodemodeBlock({
             }
           >
             {() => (
-              <div className="tool-body">
-                <div className="muted">Saved argument preview (may be truncated)</div>
-                <pre>{call.args || 'Unavailable'}</pre>
-                {call.error && <pre className="error">{call.error}</pre>}
-                {call.cost !== undefined && <p className="muted">Model cost: ${call.cost}</p>}
-              </div>
+              <ToolFileBody
+                tool={call.editTool ?? { name: call.name, args: undefined, status: 'No result' }}
+              >
+                <div className="tool-body">
+                  <div className="muted">Saved argument preview (may be truncated)</div>
+                  <pre>{call.args || 'Unavailable'}</pre>
+                  {call.error && <pre className="error">{call.error}</pre>}
+                  {call.cost !== undefined && <p className="muted">Model cost: ${call.cost}</p>}
+                </div>
+              </ToolFileBody>
             )}
           </Disclosure>
         ))}
       </div>
+      {state.patchesOmitted && (
+        <p className="codemode-notice muted">
+          Some edit patches were not saved because the per-script storage limit was reached.
+        </p>
+      )}
       {state.calls.length === 0 && (
         <p className="codemode-notice muted">
           {tool.status === 'Running' || tool.status === 'Pending'

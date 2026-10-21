@@ -1,4 +1,5 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
+import { NativeCodemodeEdits } from './native/codemode-edits.js';
 import { NativeCommands } from './native/commands.js';
 import { registerImageEntry } from './native/image-entry.js';
 import { NativeState } from './native/state.js';
@@ -6,6 +7,7 @@ import { NativeTransport } from './native/transport.js';
 
 /** Wire native Pi hooks without opening another runtime or starting resources at load time. */
 export default function nativeBridge(pi: ExtensionAPI): void {
+  const edits = new NativeCodemodeEdits();
   const state = new NativeState(pi);
   const commands = new NativeCommands(pi, state);
   const transport = new NativeTransport(state, commands);
@@ -27,6 +29,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
   }
 
   pi.on('session_start', (_event, context) => {
+    edits.clear();
     transport.stop();
     state.open(context, forward);
     if (context.mode === 'tui') {
@@ -34,6 +37,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
     }
   });
   pi.on('session_shutdown', () => {
+    edits.clear();
     transport.stop();
     state.dispose();
   });
@@ -61,6 +65,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
   });
   pi.on('agent_start', (event, context) => forward({ ...event }, context));
   pi.on('agent_settled', (event, context) => {
+    edits.clear();
     forward({ ...event }, context);
     // Rebuild Pi's final branch after persistence and other message transformations.
     transport.sync();
@@ -70,9 +75,16 @@ export default function nativeBridge(pi: ExtensionAPI): void {
     forward({ type: event.type, message: event.message }, context),
   );
   pi.on('message_end', (event, context) => forward({ ...event }, context));
-  pi.on('tool_execution_start', (event, context) => forward({ ...event }, context));
+  pi.on('tool_execution_start', (event, context) => {
+    edits.start(event);
+    forward({ ...event }, context);
+  });
+  pi.on('tool_result', (event) => edits.result(event));
   pi.on('tool_execution_update', (event, context) => forward({ ...event }, context));
-  pi.on('tool_execution_end', (event, context) => forward({ ...event }, context));
+  pi.on('tool_execution_end', (event, context) => {
+    edits.end(event);
+    forward({ ...event }, context);
+  });
   pi.on('session_tree', (_event, context) => sync(context));
   pi.on('session_compact', (_event, context) => sync(context));
   pi.on('ui_prompt_start', (event, context) => {
