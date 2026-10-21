@@ -3,6 +3,7 @@ import { Fragment, type ReactNode, useState } from 'react';
 import { imageAttachments } from '../../src/shared/attachments';
 import type { Message, View } from '../../src/shared/client-state';
 import { AskHistory } from './ask-history-card';
+import { CodemodeBlock } from './codemode-block';
 import { SafeMarkdown } from './components/safe-markdown';
 import { Button } from './components/ui/button';
 import {
@@ -13,6 +14,9 @@ import {
 } from './transcript-state';
 
 function ToolBlock({ tool }: { tool: TranscriptTool }) {
+  if (tool.name === 'codemode') {
+    return <CodemodeBlock tool={tool} renderOutput={(item) => <MessageBody item={item} />} />;
+  }
   return (
     <AskHistory tool={tool}>
       <RawToolBlock tool={tool} />
@@ -243,7 +247,16 @@ export function Transcript({
             {group.messages.map((item, messageIndex) => (
               <div key={group.messageKeys[messageIndex]}>
                 {item.isError === true && <p className="error">Error</p>}
-                {item.role === 'toolResult' ? (
+                {item.role === 'toolResult' && item.toolName === 'codemode' ? (
+                  <ToolBlock
+                    tool={{
+                      name: 'codemode',
+                      args: undefined,
+                      result: item,
+                      status: item.isError === true ? 'Failed' : 'Completed',
+                    }}
+                  />
+                ) : item.role === 'toolResult' ? (
                   <AskHistory
                     tool={{
                       name: String(item.toolName),

@@ -141,4 +141,55 @@
   .tool-block > summary {
     padding: 10px 12px;
   }
+  .codemode-heading {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 6px 12px;
+    padding: 10px 12px;
+  }
+  .codemode-calls {
+    padding: 0 4px;
+  }
+  .codemode-call > summary {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    cursor: pointer;
+    list-style: none;
+  }
+  .codemode-call > summary::-webkit-details-marker {
+    display: none;
+  }
+  .codemode-call > summary::before {
+    content: "▸";
+    flex: 0 0 auto;
+  }
+  .codemode-call[open] > summary::before {
+    transform: rotate(90deg);
+  }
+  .codemode-call .tool-name,
+  .codemode-call .tool-status,
+  .codemode-duration {
+    flex: 0 0 auto;
+  }
+  .codemode-call .tool-input {
+    flex: 1;
+    min-width: 0;
+    max-width: none;
+    margin-left: 0;
+    font-family: ui-monospace, monospace;
+  }
+  .codemode-call .tool-status {
+    margin-left: auto;
+  }
+  .codemode-disclosure > summary {
+    padding: 8px 12px;
+    border-top: 1px solid var(--border);
+    cursor: pointer;
+  }
+  .codemode-notice {
+    padding: 0 12px 10px;
+  }
 }
