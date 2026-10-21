@@ -7,7 +7,7 @@ import { CodemodeBlock } from './codemode-block';
 import { Disclosure } from './components/disclosure';
 import { SafeMarkdown } from './components/safe-markdown';
 import { Button } from './components/ui/button';
-import { EditToolBody } from './edit-tool-body';
+import { ToolFileBody } from './tool-file-body';
 import { ToolStatus } from './tool-status';
 import {
   messageActionTargets,
@@ -76,7 +76,7 @@ function RawToolBlock({ tool }: { tool: TranscriptTool }) {
   return (
     <Disclosure
       className="tool-block"
-      defaultOpen={tool.name === 'edit'}
+      defaultOpen={tool.name === 'edit' || tool.name === 'write'}
       summary={
         <>
           <span className="tool-name">{tool.name}</span>
@@ -87,7 +87,7 @@ function RawToolBlock({ tool }: { tool: TranscriptTool }) {
     >
       {() => (
         <div className="tool-body">
-          <EditToolBody tool={tool}>
+          <ToolFileBody tool={tool}>
             <div className="muted">Arguments</div>
             <pre>{JSON.stringify(args, null, 2) ?? 'Unavailable'}</pre>
             {tool.result ? (
@@ -105,7 +105,7 @@ function RawToolBlock({ tool }: { tool: TranscriptTool }) {
                 {tool.status === 'No result' ? 'No result available.' : 'Waiting for output.'}
               </p>
             )}
-          </EditToolBody>
+          </ToolFileBody>
         </div>
       )}
     </Disclosure>
@@ -318,7 +318,7 @@ export const Transcript = memo(
                       >
                         <Disclosure summary="Tool output">
                           {() => (
-                            <EditToolBody
+                            <ToolFileBody
                               tool={{
                                 name: String(item.toolName),
                                 args: undefined,
@@ -327,7 +327,7 @@ export const Transcript = memo(
                               }}
                             >
                               <MessageBody item={item} />
-                            </EditToolBody>
+                            </ToolFileBody>
                           )}
                         </Disclosure>
                       </AskHistory>
