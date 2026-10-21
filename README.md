@@ -117,6 +117,8 @@ npm run build
 npm test
 ```
 
-Tests use temporary files, fake Pi contexts, and local/mocked transports without model calls. Real-Pi integration remains unverified.
+Tests use temporary files, fake Pi contexts, and local/mocked transports without model calls. Run only affected test files during development; see [test scope and suite selection](tests/README.md). The npm test scripts use concise output with detailed failures.
+
+`npm run test:browser` separately checks scroll behavior with real Chromium layout in an isolated fixture. It requires installed Chromium (`CHROMIUM_BIN` overrides the executable), uses a temporary profile, and is not part of `npm test`. See [browser validation](docs/frontend.md#validation) for scope and requirements. Real-Pi integration remains unverified.
 
 See [server API](docs/server.md), [bridge setup](docs/bridge.md), and [frontend notes](docs/frontend.md).

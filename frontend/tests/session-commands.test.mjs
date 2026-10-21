@@ -62,8 +62,8 @@ function setup() {
   };
 }
 
-for (const command of commands) {
-  test(`${command.type} uses the same synchronous pending guard`, async () => {
+test('every command uses the shared synchronous pending guard', async () => {
+  for (const [index, command] of commands.entries()) {
     const { lane, requests, acknowledge, values, refreshes } = setup();
     assert.equal(lane.available(), true);
     const result = lane.submit(command);
@@ -71,9 +71,9 @@ for (const command of commands) {
     assert.equal(lane.available(), false);
     lane.review();
     assert.equal(values.get(key), 'true');
-    for (const competing of commands) {
-      assert.equal(await lane.submit(competing), false);
-    }
+    // Each command is checked as both an initial dispatch and a blocked competitor.
+    // Cross-products of command types add no coverage to the shared pending lane.
+    assert.equal(await lane.submit(commands[(index + 1) % commands.length]), false);
     assert.equal(requests.length, 1);
     assert.deepEqual(requests[0].command, command);
     assert.equal(requests[0].sessionId, id);
@@ -84,12 +84,13 @@ for (const command of commands) {
     assert.equal(lane.getState().error, null);
     assert.equal(values.has(key), false);
     assert.equal(refreshes(), 1);
-  });
-}
+  }
+});
 
 for (const status of ['connecting', 'syncing', 'offline']) {
   test(`${status} sessions cannot dispatch commands`, async () => {
     const { lane, connection, requests, values } = setup();
+    assert.equal(lane.available(), true, 'availability was read before the connection changed');
     connection.status = status;
     assert.equal(lane.available(), false);
     assert.equal(await lane.submit(commands[0]), false);
@@ -129,14 +130,6 @@ test('dispatch reads the current connection generation rather than a rendered sn
   assert.equal(requests[0].generation, 5);
   acknowledge();
   assert.equal(await result, true);
-});
-
-test('a connection lost after rendering is checked again before dispatch', async () => {
-  const { lane, connection, requests } = setup();
-  assert.equal(lane.available(), true);
-  connection.status = 'offline';
-  assert.equal(await lane.submit(commands[0]), false);
-  assert.equal(requests.length, 0);
 });
 
 test('unknown outcomes block every command until explicit synchronized review, without replay', async () => {

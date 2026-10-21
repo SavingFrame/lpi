@@ -76,4 +76,24 @@ npm run build
 npm run test:frontend
 ```
 
-Synchronization tests use mocked browser transport. Command-controller and launch-controller tests inject storage and dispatch to cover pending submissions, shared-button guards, reload protection, known rejections, unknown outcomes, and explicit review without a DOM or model calls. Composer settlement tests cover draft/image retention and edits during submission. Read eligibility tests cover synchronization, visibility, bottom-following, and loaded completion IDs. Markdown tests render the real wrapper with React's static renderer to check formatting, raw-HTML suppression, image placeholders, and unsafe links. These are focused state/markup tests, not browser DOM interaction coverage. Relay tests use fake public Pi contexts and isolated files/transports without model calls. Ask module behavior is covered by fake-native bridge and mocked browser synchronization/draft tests. Real native-Pi integration remains unverified.
+For focused work, run only the affected files, for example:
+
+```sh
+node --experimental-strip-types --test --test-reporter=spec frontend/tests/live-status.test.mjs
+```
+
+`live.test.mjs` covers snapshot/reconnect boundaries; `live-status.test.mjs` covers metadata/lifecycle updates; `live-ask.test.mjs` covers questionnaire synchronization. HTTP behavior, shared validation, and transcript projection have separate `api`, `shared-contracts`, and `transcript-state` suites. They share `live-fixture.mjs` rather than duplicating transport setup.
+
+Synchronization tests use mocked browser transport. Command-controller and launch-controller tests inject storage and dispatch to cover pending submissions, shared-button guards, reload protection, known rejections, unknown outcomes, and explicit review without a DOM or model calls. Composer settlement tests cover draft/image retention and edits during submission. Read eligibility tests cover synchronization, visibility, bottom-following, and loaded completion IDs. Markdown tests render the real wrapper with React's static renderer to check formatting, raw-HTML suppression, image placeholders, and unsafe links. These are focused state/markup tests, not browser DOM interaction coverage. The mocked scroll tests check controller decisions only.
+
+For actual Chromium layout, run the separate opt-in check:
+
+```sh
+npm run test:browser
+# Override the system Chromium executable when necessary:
+CHROMIUM_BIN=/path/to/chromium npm run test:browser
+```
+
+This check runs the real scroll controller with native scrolling, ResizeObserver, and details toggles in an isolated page and temporary browser profile. It checks following content/viewport growth, preserving reader position, disclosure behavior, and cleanup. It requires an installed Chromium executable and a POSIX environment; it disables Chromium's sandbox for this local fixture only. It does not exercise the complete React application, real input devices, or native Pi. It is not included in `npm test`.
+
+Relay tests use fake public Pi contexts and isolated files/transports without model calls. Ask module behavior is covered by fake-native bridge and mocked browser synchronization/draft tests. Real native-Pi integration remains unverified.

@@ -33,7 +33,7 @@ There is no RPC runtime, writable managed catalog, ownership coordinator, parkin
 - Explicit per-extension support modules with separate shared/native/browser registrations. Ask User Question (`@juicesharp/rpiv-ask-user-question`, public contract inspected at 2.13.9) supports browser selections, custom text, notes, previews, and cancellation through public events, preserving native UI. Pending questions survive transport reconnects; answers require authoritative verdicts and are never automatically replayed. Coverage uses fake native contexts and mocked browser transport; real native-Pi integration remains unverified.
 - Browser-safe shared contracts and validators under `src/shared/`, with common native-event/status projection for relay and browser caches. Frontend types do not depend on server implementations; extension-specific contracts remain in support modules.
 - Connection generations, request correlation, bounded delivery, and unknown mutation outcomes without automatic replay.
-- Deterministic tests using temporary files, fake public Pi contexts, local transports, and mocked browser transport. No model calls.
+- Deterministic tests using temporary files, fake public Pi contexts, local transports, and mocked browser transport. Relay and browser suites are separated by behavior with shared fixtures. A separate opt-in Chromium check verifies scroll-controller behavior with real layout in an isolated page, not the complete React application or native Pi. No model calls.
 
 Real native Pi with the installed extension set remains unverified.
 

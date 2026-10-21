@@ -37,11 +37,23 @@ Adapted from https://github.com/earendil-works/pi/blob/main/AGENTS.md for this r
 - After code or tooling changes, run `npm run check` with full output. Fix all diagnostics before finishing.
 - `npm run check` verifies lint, formatting, and import organization. It does not run tests or type-check the Pi extension.
 - Use `npm run format` for formatting, `npm run lint` for lint-only validation, and `npm run check:fix` for safe fixes. Do not use unsafe fixes without review.
-- Do not run the full test suite or integration harness unless requested. When modifying a server test, build with `npm run build:server`, then run that specific file with `node --test tests/<file>.test.mjs`. Browser tests use `node --experimental-strip-types --test frontend/tests/live.test.mjs`. Iterate until the modified tests pass.
+- Format changed files before validation. During iteration, run the smallest relevant tests and checks; do not repeat the entire validation chain after every edit. Run final checks once the change stabilizes, and rerun affected checks if subsequent edits invalidate them.
+- Do not run the full test suite or integration harness unless requested. For affected server tests, build with `npm run build:server`, then run the specific files with `node --test tests/<file>.test.mjs`. Frontend tests use `node --experimental-strip-types --test frontend/tests/<file>.test.mjs`.
+- Keep successful test output concise, using a built-in compact reporter when appropriate. Preserve detailed failure diagnostics and exit status; never hide failures. The full-output requirement for `npm run check` still applies.
 - `npm test` runs relay-server and browser unit tests. Native-Pi integration must be requested explicitly.
 - Preserve test isolation: temporary HOME, agent directory, sessions, and settings. No real credentials, user configuration, or paid model calls.
 - Never open one JSONL file in multiple Pi runtimes. Do not install the bridge globally without permission.
 - Write ad-hoc scripts to temporary files, run them, and remove them afterward. Do not embed multiline scripts in shell commands.
+
+## Test Scope and Maintenance
+
+- Keep `node:test`. Do not introduce another test framework without a demonstrated need.
+- Bug fixes normally need one focused regression test. Add more only for distinct failure paths; reuse or extend existing coverage when it already exercises the behavior.
+- Test observable behavior and meaningful contracts, not incidental implementation details. Avoid repeating generic guard matrices across features or asserting exact markup unless that markup is the contract.
+- Preserve safety coverage for duplicate writers, stale generations, unknown command outcomes, no automatic replay, reconnect ordering, and durable read state. Similar assertions at different trust boundaries are not automatically redundant.
+- When touching large test files, consider extracting the affected feature into a smaller file and sharing repeated fixtures. Keep refactors scoped to the task; do not perform mass rewrites or target an arbitrary test count.
+- For layout, scrolling, and browser event ordering, verify behavior in a real browser when relevant. Mocked DOM tests cover controller logic, not actual layout. Keep fake-native coverage distinct from verified real-Pi integration.
+- Before removing an existing test, identify whether its behavior is covered elsewhere, obsolete, or no longer required. Ask before removing intentional coverage unless its removal was explicitly requested.
 
 ## Dependencies
 
