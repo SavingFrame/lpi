@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { branchRows, draftForBranch } from '../src/branch-state.ts';
+import { branchRows, draftForBranch, fullTreeRows, visibleTreeRows } from '../src/branch-state.ts';
 
 const node = (id, parentId, kind, preview = '', label) => ({
   id,
@@ -71,6 +71,88 @@ test('interleaved appends stay grouped under their actual ancestry rather than f
     rows.map((row) => row.id),
     ['a-tip', 'nested-a', 'metadata'],
   );
+});
+
+test('full tree retains internal entries, metadata, labels and ancestry order', () => {
+  const rows = fullTreeRows({
+    ...tree,
+    activeLeafId: 'answer',
+    nodes: [...tree.nodes, node('nested-a', 'a', 'user', 'Alternative')],
+  });
+  assert.deepEqual(
+    rows.map(({ id, depth }) => [id, depth]),
+    [
+      ['root', 0],
+      ['answer', 0],
+      ['a', 1],
+      ['a-tip', 2],
+      ['nested-a', 2],
+      ['b', 1],
+      ['b-tip', 1],
+      ['metadata', 1],
+    ],
+  );
+  assert.equal(rows.find((row) => row.id === 'a-tip').title, 'Checkpoint A');
+  assert.equal(rows.find((row) => row.id === 'metadata').kind, 'label');
+  assert.deepEqual(
+    rows.filter((row) => row.active).map((row) => row.id),
+    ['answer'],
+  );
+  assert.ok(fullTreeRows({ ...tree, connected: false }).every((row) => !row.active));
+  assert.deepEqual(fullTreeRows({ ...tree, nodes: [] }), []);
+});
+
+test('linear conversation rows stay aligned and only branch splits indent', () => {
+  const rows = fullTreeRows(tree);
+  assert.deepEqual(
+    rows.map((row) => row.depth),
+    [0, 0, 1, 1, 1, 1, 1],
+  );
+  assert.deepEqual(
+    rows.filter((row) => row.split).map((row) => row.id),
+    ['a', 'b'],
+  );
+  const linear = { ...tree, nodes: tree.nodes.slice(0, 4) };
+  assert.ok(fullTreeRows(linear).every((row) => row.depth === 0 && !row.split));
+});
+
+test('conversation filter hides tools and metadata, projecting active position onto visible ancestry', () => {
+  const withTools = {
+    ...tree,
+    activeLeafId: 'result',
+    nodes: [
+      ...tree.nodes,
+      node('call', 'a-tip', 'assistant'),
+      node('result', 'call', 'toolResult'),
+    ],
+  };
+  const rows = visibleTreeRows(withTools, false, '');
+  assert.deepEqual(
+    rows.map((row) => row.id),
+    ['root', 'answer', 'a', 'a-tip', 'b', 'b-tip'],
+  );
+  assert.equal(rows.find((row) => row.active).id, 'a-tip');
+  assert.equal(rows.find((row) => row.active).exactActive, false);
+  const all = visibleTreeRows(withTools, true, '');
+  assert.equal(all.length, withTools.nodes.length);
+  assert.equal(all.find((row) => row.active).id, 'result');
+  assert.equal(all.find((row) => row.active).exactActive, true);
+  assert.ok(
+    visibleTreeRows({ ...withTools, connected: false }, false, '').every((row) => !row.active),
+  );
+});
+
+test('tree search matches text, labels, kinds and IDs without changing branch indentation', () => {
+  assert.deepEqual(
+    visibleTreeRows(tree, false, ' CHECKPOINT ').map((row) => row.id),
+    ['a-tip'],
+  );
+  assert.equal(visibleTreeRows(tree, false, 'SQLite')[0].depth, 1);
+  assert.equal(visibleTreeRows(tree, false, 'user').length, 3);
+  assert.equal(visibleTreeRows(tree, false, 'metadata').length, 0);
+  assert.equal(visibleTreeRows(tree, true, 'metadata')[0].id, 'metadata');
+  assert.deepEqual(visibleTreeRows(tree, true, 'does not exist'), []);
+  assert.deepEqual(visibleTreeRows({ ...tree, nodes: [] }, false, ''), []);
 });
 
 test('user-message navigation restores text and images without losing multiline content', () => {

@@ -5,6 +5,14 @@ export interface ComposerDraft {
   images: ImageAttachment[];
 }
 
+/** Navigation may fill an empty composer, but never replaces an unsent draft. */
+export function restoreComposerDraft(
+  current: ComposerDraft,
+  restored: ComposerDraft,
+): ComposerDraft {
+  return current.text.length > 0 || current.images.length > 0 ? current : restored;
+}
+
 /** Clear only accepted content, preserving edits made while acceptance was pending. */
 export function settleComposerDraft(
   current: ComposerDraft,

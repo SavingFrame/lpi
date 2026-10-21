@@ -20,6 +20,7 @@ export function useSessionCommands(id: string, projectId: string) {
   return {
     ...state,
     active: commands.available(),
+    available: commands.available,
     submit: commands.submit,
     review: commands.review,
   };

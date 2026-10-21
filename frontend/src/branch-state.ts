@@ -33,6 +33,69 @@ export interface BranchRow {
   active: boolean;
 }
 
+/** Every saved entry in ancestry order, including metadata and internal positions. */
+export function fullTreeRows(tree: SessionTree): (BranchRow & { kind: string; split: boolean })[] {
+  const children = new Map<string | null, SessionTree['nodes']>();
+  for (const node of tree.nodes) {
+    const siblings = children.get(node.parentId) ?? [];
+    siblings.push(node);
+    children.set(node.parentId, siblings);
+  }
+  const pending = (children.get(null) ?? []).map((node) => ({ node, depth: 0 })).reverse();
+  const rows: (BranchRow & { kind: string; split: boolean })[] = [];
+  while (pending.length) {
+    const current = pending.pop();
+    if (!current) {
+      break;
+    }
+    const { node, depth } = current;
+    rows.push({
+      id: node.id,
+      kind: node.kind,
+      title: node.label || node.preview || `${node.kind} ${node.id.slice(0, 8)}`,
+      depth,
+      split: (children.get(node.parentId)?.length ?? 0) > 1,
+      active: tree.connected && tree.activeLeafId === node.id,
+    });
+    const successors = children.get(node.id) ?? [];
+    for (let index = successors.length - 1; index >= 0; index--) {
+      const child = successors[index];
+      if (child) {
+        pending.push({ node: child, depth: depth + (successors.length > 1 ? 1 : 0) });
+      }
+    }
+  }
+  return rows;
+}
+
+/** Hide implementation entries without losing topology or the native active path. */
+export function visibleTreeRows(tree: SessionTree, showAll: boolean, search: string) {
+  const visible = new Set(
+    tree.nodes
+      .filter(
+        (node) =>
+          showAll ||
+          node.kind === 'user' ||
+          (node.kind === 'assistant' && Boolean(node.preview.trim() || node.label)),
+      )
+      .map((node) => node.id),
+  );
+  const parents = new Map(tree.nodes.map((node) => [node.id, node.parentId]));
+  let activeId = tree.connected ? tree.activeLeafId : null;
+  while (activeId && !visible.has(activeId)) {
+    activeId = parents.get(activeId) ?? null;
+  }
+  const term = search.trim().toLowerCase();
+  return fullTreeRows(tree)
+    .filter((row) => visible.has(row.id))
+    .map((row) => ({
+      ...row,
+      active: row.id === activeId,
+      exactActive: row.id === tree.activeLeafId,
+    }))
+    .filter((row) => `${row.kind} ${row.title} ${row.id}`.toLowerCase().includes(term));
+}
+
 /** Collapse linear stretches into branch tips, retaining a rewound active position. */
 export function branchRows(tree: SessionTree): BranchRow[] {
   const children = new Map<string | null, SessionTree['nodes']>();

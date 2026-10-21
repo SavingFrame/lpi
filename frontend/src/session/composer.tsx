@@ -6,7 +6,7 @@ import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { ImageAttachments } from '../image-attachments';
 import { SessionSettings } from '../session-controls';
-import { type ComposerDraft, settleComposerDraft } from './draft';
+import { type ComposerDraft, restoreComposerDraft, settleComposerDraft } from './draft';
 
 export function Composer({
   id,
@@ -42,7 +42,7 @@ export function Composer({
   useEffect(() => sessionStorage.setItem(`draft:${id}`, draft.text), [draft.text, id]);
   useEffect(() => {
     if (restoredDraft) {
-      setDraft(restoredDraft);
+      setDraft((current) => restoreComposerDraft(current, restoredDraft));
     }
   }, [restoredDraft]);
   const canSend =

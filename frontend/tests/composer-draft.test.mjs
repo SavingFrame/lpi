@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { ApiError } from '../src/api.ts';
 import { SessionCommands } from '../src/session/commands.ts';
-import { settleComposerDraft } from '../src/session/draft.ts';
+import { restoreComposerDraft, settleComposerDraft } from '../src/session/draft.ts';
 
 const id = '11111111-1111-1111-1111-111111111111';
 const image = { type: 'image', mimeType: 'image/png', data: 'original' };
@@ -42,6 +42,19 @@ for (const outcome of ['rejected', 'unknown']) {
     }
   });
 }
+
+test('branch navigation fills an empty composer without replacing existing text or images', () => {
+  const restored = { text: 'Selected user message', images: [image] };
+  assert.equal(restoreComposerDraft({ text: '', images: [] }, restored), restored);
+  for (const current of [
+    { text: 'Unsent draft', images: [] },
+    { text: '   ', images: [] },
+    { text: '', images: [image] },
+    { text: 'Typed while navigation was pending', images: [image] },
+  ]) {
+    assert.equal(restoreComposerDraft(current, restored), current);
+  }
+});
 
 test('acceptance clears the submitted text and images', () => {
   const submitted = { text: 'Review', images: [image] };

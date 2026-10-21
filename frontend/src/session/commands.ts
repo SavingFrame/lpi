@@ -53,7 +53,7 @@ export class SessionCommands {
     }
   }
 
-  available(): boolean {
+  available = (): boolean => {
     const connection = this.environment.connection();
     const session = connection.snapshot?.session;
     return (
@@ -64,7 +64,7 @@ export class SessionCommands {
       !this.current.pending &&
       !this.current.uncertain
     );
-  }
+  };
 
   submit = async (command: BridgeCommand): Promise<boolean> => {
     if (!this.available()) {

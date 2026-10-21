@@ -2,16 +2,13 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
 import { ChevronDown, Circle, GitBranch } from 'lucide-react';
 import type { Session } from '../../src/shared/sessions';
-import { tree } from './api';
 import { branchRows } from './branch-state';
-import { Button } from './components/ui/button';
+import { live } from './client';
+import { requestBranchSelection } from './session/branch-navigation';
+import { sessionTreeQuery } from './tree-query';
 
 function useSessionBranches(session: Session, online: boolean) {
-  const query = useQuery({
-    queryKey: ['tree', session.id],
-    queryFn: ({ signal }) => tree(session.id, signal),
-    retry: false,
-  });
+  const query = useQuery(sessionTreeQuery(session.id, 'sidebar'));
   const connected =
     online &&
     session.connection === 'connected' &&
@@ -75,15 +72,6 @@ export function SessionBranches({
       id={`branches-${session.id}`}
       aria-label="Session branches"
     >
-      {query.isPending && <p className="muted">Loading branches…</p>}
-      {query.error && (
-        <div className="error" role="status">
-          <p>{query.error.message}</p>
-          <Button variant="ghost" size="sm" onClick={() => void query.refetch()}>
-            Retry
-          </Button>
-        </div>
-      )}
       {query.data && (
         <>
           {!connected && <p className="muted">Saved paths. Active position unknown.</p>}
@@ -96,6 +84,15 @@ export function SessionBranches({
               to="/app/projects/$projectId/sessions/$sessionId"
               params={{ projectId: session.projectId, sessionId: session.id }}
               search={{ branch: branch.id }}
+              onClick={(event) =>
+                requestBranchSelection(
+                  event,
+                  session.id,
+                  session.projectId,
+                  branch.id,
+                  live.getState(),
+                )
+              }
               className={`branch-link ${selected && search.branch === branch.id ? 'selected' : ''}`}
               style={{ paddingLeft: `${8 + Math.min(branch.depth, 6) * 8}px` }}
               title={branch.title}
