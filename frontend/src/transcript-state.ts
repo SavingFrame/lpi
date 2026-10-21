@@ -32,6 +32,39 @@ export function messageActionText(item: Message): string | null {
   return item.role === 'user' || text.trim() ? text : null;
 }
 
+/** Only completed conversation boundaries get actions, not intermediate agent steps. */
+export function messageActionTargets(view: View): Set<Message> {
+  const targets = new Set<Message>();
+  let previous: Message | undefined;
+  const finish = () => {
+    if (
+      previous?.role === 'assistant' &&
+      (previous.stopReason === undefined || previous.stopReason === 'stop') &&
+      !(
+        Array.isArray(previous.content) &&
+        previous.content.some((block) => block.type === 'toolCall')
+      ) &&
+      messageActionText(previous) !== null
+    ) {
+      targets.add(previous);
+    }
+  };
+  for (const item of view.messages) {
+    if (item.role === 'system' || item.display === false) {
+      continue;
+    }
+    if (item.role === 'user') {
+      finish();
+      targets.add(item);
+    }
+    previous = item;
+  }
+  if (!view.running && !view.compacting && !view.partial && view.tools.length === 0) {
+    finish();
+  }
+  return targets;
+}
+
 export function transcriptState(view: View) {
   const visible = view.messages.filter((item) => item.role !== 'system' && item.display !== false);
   const tools = new Map<string, TranscriptTool>();

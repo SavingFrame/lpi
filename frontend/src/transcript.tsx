@@ -1,11 +1,16 @@
 import { Check, Copy, GitBranch, LoaderCircle } from 'lucide-react';
-import { useState } from 'react';
+import { Fragment, type ReactNode, useState } from 'react';
 import { imageAttachments } from '../../src/shared/attachments';
 import type { Message, View } from '../../src/shared/client-state';
 import { AskHistory } from './ask-history-card';
 import { SafeMarkdown } from './components/safe-markdown';
 import { Button } from './components/ui/button';
-import { messageActionText, type TranscriptTool, transcriptState } from './transcript-state';
+import {
+  messageActionTargets,
+  messageActionText,
+  type TranscriptTool,
+  transcriptState,
+} from './transcript-state';
 
 function ToolBlock({ tool }: { tool: TranscriptTool }) {
   return (
@@ -56,8 +61,22 @@ function RawToolBlock({ tool }: { tool: TranscriptTool }) {
   );
 }
 
-function MessageBody({ item, tools }: { item: Message; tools?: Map<string, TranscriptTool> }) {
+function MessageBody({
+  item,
+  tools,
+  actions,
+}: {
+  item: Message;
+  tools?: Map<string, TranscriptTool>;
+  actions?: ReactNode;
+}) {
   const content = item.content;
+  const actionIndex =
+    item.role === 'assistant' && Array.isArray(content)
+      ? content.findLastIndex(
+          (block) => block.type === 'text' && typeof block.text === 'string' && block.text.trim(),
+        )
+      : -1;
   return (
     <>
       {typeof content === 'string' ? (
@@ -66,7 +85,12 @@ function MessageBody({ item, tools }: { item: Message; tools?: Map<string, Trans
         content?.map((block, index) => {
           const key = `${index}:${String(block.type)}`;
           if (block.type === 'text') {
-            return <SafeMarkdown key={key}>{String(block.text ?? '')}</SafeMarkdown>;
+            return (
+              <Fragment key={key}>
+                <SafeMarkdown>{String(block.text ?? '')}</SafeMarkdown>
+                {index === actionIndex && actions}
+              </Fragment>
+            );
           }
           if (block.type === 'image') {
             try {
@@ -91,10 +115,13 @@ function MessageBody({ item, tools }: { item: Message; tools?: Map<string, Trans
             }
           }
           if (block.type === 'thinking') {
+            if (typeof block.thinking !== 'string' || !block.thinking.trim()) {
+              return null;
+            }
             return (
               <details key={key}>
                 <summary>Thinking</summary>
-                <pre>{String(block.thinking ?? '')}</pre>
+                <pre>{block.thinking}</pre>
               </details>
             );
           }
@@ -120,6 +147,7 @@ function MessageBody({ item, tools }: { item: Message; tools?: Map<string, Trans
       {typeof item.summary === 'string' && <SafeMarkdown>{item.summary}</SafeMarkdown>}
       {typeof item.output === 'string' && <pre>{item.output}</pre>}
       {typeof item.errorMessage === 'string' && <p className="error">{item.errorMessage}</p>}
+      {actionIndex === -1 && actions}
     </>
   );
 }
@@ -193,6 +221,7 @@ export function Transcript({
   onPreview?: (entryId: string) => void;
 }) {
   const { groups, tools, unpaired } = transcriptState(view);
+  const actionTargets = messageActionTargets(view);
   return (
     <section className="transcript" aria-label="Conversation">
       {groups.length === 0 && unpaired.length === 0 && !view.running && !view.compacting && (
@@ -229,9 +258,16 @@ export function Transcript({
                     </details>
                   </AskHistory>
                 ) : (
-                  <MessageBody item={item} tools={tools} />
+                  <MessageBody
+                    item={item}
+                    tools={tools}
+                    actions={
+                      actionTargets.has(item) && (
+                        <MessageActions item={item} onPreview={onPreview} />
+                      )
+                    }
+                  />
                 )}
-                {item !== view.partial && <MessageActions item={item} onPreview={onPreview} />}
               </div>
             ))}
           </div>
