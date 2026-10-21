@@ -15,6 +15,14 @@ Pi runs the agent and keeps its normal session files. Pim connects to that same 
 - Create, resume, and stop Pim-managed sessions.
 - Track running agents, input requests, and unread completions across browsers.
 
+The browser renders saved edit patches for standalone tools and successful edits inside codemode.
+The bridge captures nested patches through public Pi events and saves them in the parent result's
+`details`, outside model-facing output. Nested diffs become available when the script finishes,
+even if it fails after an edit succeeded. Capture requires the updated extension to be loaded;
+older sessions keep argument previews. Each script retains at most 256 patches and 1 MiB of patch
+text, with a notice when patches are omitted. Full nested tool results are not saved.
+Fake-native capture and isolated Chromium rendering are tested; real-Pi integration is unverified.
+
 Queue access uses an unsupported, isolated `AgentSession` prototype hook, verified with Pi 1.3.0.
 It does not replace the TUI editor or start another runtime. Access initializes on native prompting
 or queue rendering; unavailable access disables clearing. Clear removes all session-queued

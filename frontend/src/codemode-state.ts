@@ -9,6 +9,7 @@ export interface CodemodeCall {
   durationMs?: number;
   error?: string;
   cost?: number;
+  editTool?: TranscriptTool;
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -17,11 +18,12 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-/** Metadata is a display preview, not complete tool arguments or individual outputs. */
+/** Native call metadata is preview-only; Pim may also save authoritative edit patches. */
 export function codemodeState(tool: TranscriptTool) {
   const source = tool.result ?? record(tool.progress);
   const details = record(source?.details);
   const calls: CodemodeCall[] = [];
+  const patches = Array.isArray(details?.pimEditPatches) ? details.pimEditPatches.map(record) : [];
   if (Array.isArray(details?.calls)) {
     for (const [position, value] of details.calls.entries()) {
       const call = record(value);
@@ -33,7 +35,29 @@ export function codemodeState(tool: TranscriptTool) {
       ) {
         continue;
       }
+      const saved = patches.filter((patch) => patch?.toolCallId === call.id);
+      const patch = saved.length === 1 ? saved[0]?.patch : undefined;
       calls.push({
+        editTool:
+          call.name === 'edit' &&
+          call.status === 'ok' &&
+          typeof call.id === 'string' &&
+          typeof patch === 'string'
+            ? {
+                name: 'edit',
+                args: undefined,
+                status: 'Completed',
+                result: {
+                  role: 'toolResult',
+                  timestamp: tool.result?.timestamp ?? 0,
+                  toolCallId: call.id,
+                  toolName: 'edit',
+                  isError: false,
+                  content: [],
+                  details: { patch },
+                },
+              }
+            : undefined,
         // Native pending IDs are duplicated and replaced on completion. Calls are append-only.
         key: String(position),
         name: call.name,
@@ -74,6 +98,7 @@ export function codemodeState(tool: TranscriptTool) {
     wallTime,
     fullOutputPath:
       typeof details?.fullOutputPath === 'string' ? details.fullOutputPath : undefined,
+    patchesOmitted: details?.pimEditPatchesOmitted === true,
     errors: calls.filter((call) => call.status === 'error').length,
     cancelled: calls.filter((call) => call.status === 'cancelled').length,
   };
