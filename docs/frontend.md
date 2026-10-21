@@ -21,6 +21,15 @@ The interface uses Tailwind CSS v4 through its Vite plugin, locally owned shadcn
 
 The shadcn configuration is `frontend/components.json`. Run future shadcn CLI commands from `frontend/`; the `@/` alias resolves to `frontend/src` in both Vite and TypeScript. Review generated changes and pin any added dependencies to exact versions. The command-mode selector remains a native select to preserve its existing keyboard and form behavior.
 
+## Source layout
+
+- `frontend/src/app.tsx`: application shell and welcome view.
+- `frontend/src/session/page.tsx`: selected-session layout and live subscription.
+- `frontend/src/session/composer.tsx`: draft persistence, attachments, send modes, and shortcuts.
+- `frontend/src/session/commands.ts`: framework-independent command controller. Composer submissions, settings, runtime controls, and extension answers share one pending/uncertain guard and typed command path. It checks current session/project connectivity before dispatch and persists uncertainty before sending. Commands never retry automatically.
+- `frontend/src/session/use-session-commands.ts`: React subscription and snapshot/inventory refresh wiring for that controller.
+- `frontend/src/session/use-chat-scroll.ts`: React lifecycle binding for the existing scroll controller.
+
 ## Behavior
 
 The sidebar groups sessions into collapsible projects, ordered by recent activity, with stable folder colors and per-project **+** creation buttons. Each group initially shows five recent sessions plus running, waiting, unviewed, and selected sessions; older sessions expand per project. Titles use the session name or first user text, with relative timestamps. Blue marks running work, amber marks input requests, and green marks unviewed turns. Idle and read-only activity are separate from unread notifications. Saved title discovery reads bounded file prefixes and tails, so missing metadata falls back to **Untitled session**.
@@ -56,4 +65,4 @@ npm run build
 npm run test:frontend
 ```
 
-Synchronization tests use mocked browser transport. Relay tests use fake public Pi contexts and isolated files/transports without model calls. Ask module behavior is covered by fake-native bridge and mocked browser synchronization/draft tests. Real native-Pi integration remains unverified.
+Synchronization tests use mocked browser transport. Command-controller tests inject connection state, storage, and dispatch to cover pending submissions, reload guards, known rejections, unknown outcomes, and explicit review without a DOM or model calls. Relay tests use fake public Pi contexts and isolated files/transports without model calls. Ask module behavior is covered by fake-native bridge and mocked browser synchronization/draft tests. Real native-Pi integration remains unverified.

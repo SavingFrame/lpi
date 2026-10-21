@@ -1,3 +1,4 @@
+import type { BridgeCommand } from '../../src/bridge/protocol.ts';
 import { message, record, type View } from '../../src/client-state.ts';
 import type { Project } from '../../src/config.ts';
 import { extensionSnapshots } from '../../src/extension-support/registry.ts';
@@ -213,7 +214,7 @@ export async function markViewed(id: string, completionId: string): Promise<Sess
 export async function operate(
   id: string,
   generation: number,
-  command: Record<string, unknown>,
+  command: BridgeCommand,
 ): Promise<Record<string, unknown>> {
   return record(
     await request(`/sessions/${encodeURIComponent(id)}/commands`, { generation, command }),

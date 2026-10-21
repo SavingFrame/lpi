@@ -1,0 +1,267 @@
+import assert from 'node:assert/strict';
+import test from 'node:test';
+import { ApiError } from '../src/api.ts';
+import { SessionCommands } from '../src/session/commands.ts';
+
+const id = '11111111-1111-1111-1111-111111111111';
+const key = `uncertain:${id}`;
+const commands = [
+  { type: 'prompt', message: 'Review this' },
+  { type: 'steer', message: 'Focus here' },
+  { type: 'follow_up', message: 'Next task' },
+  { type: 'abort' },
+  { type: 'set_model', provider: 'fake', modelId: 'first' },
+  { type: 'set_thinking_level', level: 'high' },
+  { type: 'stop_runtime' },
+  {
+    type: 'extension',
+    extension: 'ask-user-question',
+    action: { toolCallId: 'ask', cancel: true },
+  },
+];
+
+function setup() {
+  const connection = {
+    status: 'ready',
+    error: null,
+    snapshot: {
+      session: { id, projectId: 'project', connection: 'connected', generation: 3 },
+    },
+  };
+  const values = new Map();
+  const storage = {
+    getItem: (name) => values.get(name) ?? null,
+    setItem: (name, value) => values.set(name, value),
+    removeItem: (name) => values.delete(name),
+  };
+  const requests = [];
+  let refreshes = 0;
+  const environment = {
+    connection: () => connection,
+    storage,
+    dispatch: (sessionId, generation, command) => {
+      assert.equal(values.get(key), 'true', 'reload guard must exist before dispatch');
+      return new Promise((resolve, reject) => {
+        requests.push({ sessionId, generation, command, resolve, reject });
+      });
+    },
+    refresh: () => refreshes++,
+  };
+  const lane = new SessionCommands(id, 'project', environment);
+  const acknowledge = (index = 0) =>
+    requests[index].resolve({ outcome: 'acknowledged', data: { disposition: 'dispatched' } });
+  return {
+    lane,
+    connection,
+    values,
+    environment,
+    requests,
+    acknowledge,
+    refreshes: () => refreshes,
+  };
+}
+
+for (const command of commands) {
+  test(`${command.type} uses the same synchronous pending guard`, async () => {
+    const { lane, requests, acknowledge, values, refreshes } = setup();
+    assert.equal(lane.available(), true);
+    const result = lane.submit(command);
+    assert.equal(lane.getState().pending, true);
+    assert.equal(lane.available(), false);
+    lane.review();
+    assert.equal(values.get(key), 'true');
+    for (const competing of commands) {
+      assert.equal(await lane.submit(competing), false);
+    }
+    assert.equal(requests.length, 1);
+    assert.deepEqual(requests[0].command, command);
+    assert.equal(requests[0].sessionId, id);
+    assert.equal(requests[0].generation, 3);
+    acknowledge();
+    assert.equal(await result, true);
+    assert.equal(lane.getState().pending, false);
+    assert.equal(lane.getState().error, null);
+    assert.equal(values.has(key), false);
+    assert.equal(refreshes(), 1);
+  });
+}
+
+for (const status of ['connecting', 'syncing', 'offline']) {
+  test(`${status} sessions cannot dispatch commands`, async () => {
+    const { lane, connection, requests, values } = setup();
+    connection.status = status;
+    assert.equal(lane.available(), false);
+    assert.equal(await lane.submit(commands[0]), false);
+    assert.equal(requests.length, 0);
+    assert.equal(values.size, 0);
+  });
+}
+
+for (const change of [
+  (connection) => {
+    connection.snapshot = null;
+  },
+  (connection) => {
+    connection.snapshot.session.id = 'another-session';
+  },
+  (connection) => {
+    connection.snapshot.session.projectId = 'another-project';
+  },
+  (connection) => {
+    connection.snapshot.session.connection = 'disconnected';
+  },
+]) {
+  test('missing, unrelated, and saved snapshots cannot dispatch commands', async () => {
+    const { lane, connection, requests } = setup();
+    change(connection);
+    assert.equal(lane.available(), false);
+    assert.equal(await lane.submit(commands[0]), false);
+    assert.equal(requests.length, 0);
+  });
+}
+
+test('dispatch reads the current connection generation rather than a rendered snapshot', async () => {
+  const { lane, connection, requests, acknowledge } = setup();
+  assert.equal(lane.available(), true);
+  connection.snapshot.session.generation = 5;
+  const result = lane.submit(commands[0]);
+  assert.equal(requests[0].generation, 5);
+  acknowledge();
+  assert.equal(await result, true);
+});
+
+test('a connection lost after rendering is checked again before dispatch', async () => {
+  const { lane, connection, requests } = setup();
+  assert.equal(lane.available(), true);
+  connection.status = 'offline';
+  assert.equal(await lane.submit(commands[0]), false);
+  assert.equal(requests.length, 0);
+});
+
+test('unknown outcomes block every command until explicit synchronized review, without replay', async () => {
+  const { lane, connection, requests, values, acknowledge, refreshes } = setup();
+  const result = lane.submit(commands[0]);
+  requests[0].reject(new ApiError('Response lost', 'unknown'));
+  assert.equal(await result, false);
+  assert.equal(lane.getState().uncertain, true);
+  assert.equal(lane.getState().outcome, null);
+  assert.equal(lane.getState().error.message, 'Response lost');
+  assert.equal(values.get(key), 'true');
+  for (const command of commands) {
+    assert.equal(await lane.submit(command), false);
+  }
+  assert.equal(requests.length, 1);
+  assert.equal(refreshes(), 1);
+  connection.status = 'syncing';
+  lane.review();
+  assert.equal(lane.getState().uncertain, true);
+  assert.equal(values.get(key), 'true');
+  connection.status = 'ready';
+  assert.equal(lane.available(), false);
+  lane.review();
+  assert.equal(lane.getState().uncertain, false);
+  assert.equal(lane.getState().error, null);
+  assert.equal(values.has(key), false);
+  assert.equal(requests.length, 1, 'review must not replay the command');
+  const next = lane.submit(commands[3]);
+  assert.equal(requests.length, 2);
+  acknowledge(1);
+  assert.equal(await next, true);
+});
+
+test('reload or navigation during submission restores the uncertainty guard', async () => {
+  const { lane, environment, values, requests, acknowledge } = setup();
+  const result = lane.submit(commands[0]);
+  const restored = new SessionCommands(id, 'project', environment);
+  assert.equal(restored.getState().pending, false);
+  assert.equal(restored.getState().uncertain, true);
+  assert.equal(await restored.submit(commands[3]), false);
+  assert.equal(requests.length, 1);
+  acknowledge();
+  assert.equal(await result, true);
+  assert.equal(values.has(key), false);
+  // A remounted page still requires the user to inspect before it accepts more commands.
+  assert.equal(restored.getState().uncertain, true);
+  restored.review();
+  assert.equal(restored.available(), true);
+});
+
+test('known rejections return no acceptance and clear only the pending guard', async () => {
+  const { lane, requests, values, acknowledge, refreshes } = setup();
+  const result = lane.submit(commands[0]);
+  requests[0].reject(new ApiError('Native agent is busy', 'rejected'));
+  assert.equal(await result, false);
+  assert.equal(lane.getState().uncertain, false);
+  assert.equal(lane.getState().error.message, 'Native agent is busy');
+  assert.equal(values.has(key), false);
+  assert.equal(lane.available(), true);
+  assert.equal(requests.length, 1);
+  const next = lane.submit(commands[1]);
+  assert.equal(lane.getState().error, null);
+  acknowledge(1);
+  assert.equal(await next, true);
+  assert.equal(refreshes(), 2);
+});
+
+test('unexpected post-dispatch failures are uncertain instead of permitting a resend', async () => {
+  const { lane, requests, values } = setup();
+  const result = lane.submit(commands[0]);
+  requests[0].reject(new Error('Unexpected transport failure'));
+  assert.equal(await result, false);
+  assert.equal(lane.getState().uncertain, true);
+  assert.equal(values.get(key), 'true');
+  assert.equal(await lane.submit(commands[0]), false);
+  assert.equal(requests.length, 1);
+});
+
+test('failing to persist the reload guard prevents dispatch', async () => {
+  const { lane, environment, requests } = setup();
+  environment.storage.setItem = () => {
+    throw new Error('Storage unavailable');
+  };
+  assert.equal(await lane.submit(commands[0]), false);
+  assert.equal(requests.length, 0);
+  assert.equal(lane.getState().error.message, 'Storage unavailable');
+  assert.equal(lane.getState().uncertain, false);
+});
+
+for (const [command, outcome] of [
+  [commands[0], 'dispatched. Not necessarily finished.'],
+  [commands[6], 'Shutdown requested. Runtime exit is not yet confirmed.'],
+  [commands[7], 'Answer accepted by the native extension.'],
+]) {
+  test(`${command.type} retains its acknowledgment semantics`, async () => {
+    const { lane, acknowledge } = setup();
+    const result = lane.submit(command);
+    acknowledge();
+    assert.equal(await result, true);
+    assert.equal(lane.getState().outcome, outcome);
+  });
+}
+
+test('a valid acknowledgment without disposition keeps the outcome fallback', async () => {
+  const { lane, requests } = setup();
+  const result = lane.submit(commands[0]);
+  requests[0].resolve({ outcome: 'acknowledged' });
+  assert.equal(await result, true);
+  assert.equal(lane.getState().outcome, 'acknowledged. Not necessarily finished.');
+});
+
+test('command state snapshots are stable between updates and subscriptions clean up', async () => {
+  const { lane, acknowledge } = setup();
+  const initial = lane.getState();
+  const changes = [];
+  const unsubscribe = lane.subscribe(() => changes.push(lane.getState()));
+  assert.equal(lane.getState(), initial);
+  const result = lane.submit(commands[0]);
+  assert.equal(changes.length, 1);
+  assert.notEqual(lane.getState(), initial);
+  assert.equal(changes[0].pending, true);
+  acknowledge();
+  await result;
+  assert.equal(changes.length, 2);
+  assert.equal(changes[1].pending, false);
+  unsubscribe();
+  lane.review();
+  assert.equal(changes.length, 2);
+});

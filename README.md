@@ -97,7 +97,7 @@ Run the compiled server, then `npm run dev`. Open **http://127.0.0.1:5173**. Vit
 - `src/storage/`: read-only JSONL discovery and stable inventory IDs.
 - `src/api/`: REST commands, bounded browser events, and static assets.
 - `src/client-state.ts`: shared native-event projection.
-- `frontend/`: React/Vite browser and synchronization tests.
+- `frontend/`: React/Vite browser and focused tests. Session layout, composer, command handling, and scroll lifecycle live in `frontend/src/session/`.
 - `tests/`: isolated relay, discovery, configuration, and API tests.
 
 ## Validation

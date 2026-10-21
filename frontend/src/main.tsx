@@ -2,8 +2,9 @@ import { QueryClientProvider } from '@tanstack/react-query';
 import { createRootRoute, createRoute, createRouter, RouterProvider } from '@tanstack/react-router';
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { SessionPage, Shell, Welcome } from './app';
+import { Shell, Welcome } from './app';
 import { queryClient } from './client';
+import { SessionPage } from './session/page';
 import './style.css';
 
 const root = createRootRoute({ component: Shell });
