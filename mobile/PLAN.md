@@ -1,8 +1,10 @@
 # Pim mobile plan
 
-Status: agreed direction only. The mobile folder contains documentation, not an app
-scaffold. Shared-client extraction, dependency installation, and device verification have
-not started. Current relay/browser implementation status is documented in the
+Status: shared-client foundation started. Validated HTTP transport and snapshot/event
+synchronization now live in `src/client/` and are consumed by browser adapters. Async
+storage guards and remaining shared behavior are not extracted yet. The mobile folder
+contains documentation, not an app scaffold. Dependency installation and device verification
+have not started. Current relay/browser implementation status is documented in the
 [root plan](../PLAN.md). Real native-Pi integration remains unverified.
 
 Paths in this document are relative to the repository root unless stated otherwise.

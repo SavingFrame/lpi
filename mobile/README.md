@@ -2,7 +2,7 @@
 
 An **iOS-first React Native + Expo app using Tamagui** for the existing Pim relay.
 
-**Status: planning only.** This folder contains documentation, not an application scaffold.
+**Status: shared-client foundation in progress.** This folder contains documentation, not an application scaffold.
 There are no mobile dependencies, install/run commands, or verified device builds yet.
 See the [implementation plan](PLAN.md) for the shared-client refactor and delivery stages.
 
@@ -68,8 +68,10 @@ guarantees. This is not a parallel mobile backend or a browser UI rewrite.
 
 ## Development status
 
-The relay and browser already exist; mobile scaffolding and the shared-client extraction
-are planned. There is no mobile package.json or verified dependency version matrix yet.
+The relay and browser already exist. Shared HTTP transport and snapshot/event synchronization
+have moved to `src/client/`, with browser adapters consuming them. Async storage guards and
+remaining shared behavior still need extraction. Mobile scaffolding has not started.
+There is no mobile package.json or verified dependency version matrix yet.
 The app will get compatible, exactly pinned Expo/React Native/Tamagui dependencies during
 scaffolding.
 

@@ -106,6 +106,8 @@ Run the compiled server, then `npm run dev`. Open **http://127.0.0.1:5173**. Vit
 An iOS-first React Native + Expo app using Tamagui is planned. The `mobile/` folder
 currently contains documentation only. See the [mobile overview](mobile/README.md) and
 [implementation plan](mobile/PLAN.md) for navigation, scope, and the shared-client refactor.
+Shared HTTP transport and snapshot/event synchronization are implemented in `src/client/`
+and consumed by the browser; mobile scaffolding and device validation remain pending.
 
 ## Layout
 
@@ -114,6 +116,7 @@ currently contains documentation only. See the [mobile overview](mobile/README.m
 - `src/sessions.ts`: combined saved/live inventory and snapshots.
 - `src/storage/`: read-only JSONL discovery and stable inventory IDs.
 - `src/api/`: REST commands, bounded browser events, and static assets.
+- `src/client/`: framework-independent HTTP validation/correlation and snapshot/event synchronization, with platform-injected transports.
 - `src/shared/`: browser-safe project/session/command/snapshot contracts, wire validators, and pure event/status projections. See [shared contracts](src/shared/README.md).
 - `frontend/`: React/Vite browser and focused tests. Session layout, composer, command handling, read eligibility, and scroll lifecycle live in `frontend/src/session/`. The tab-wide launch controller is `frontend/src/launches.ts`; ordered styles live under `frontend/src/styles/`, imported by `style.css`.
 - `tests/`: isolated relay, discovery, configuration, and API tests.
