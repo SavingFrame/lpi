@@ -138,7 +138,7 @@ try {
   render([message, toolResult]);
   await waitFor(() => viewer()?.querySelector('[data-diff]'));
   check(host.querySelector('.tool-block').open, 'live completion keeps the edit open');
-  render([
+  const nestedMessages = [
     {
       ...message,
       content: [
@@ -158,14 +158,17 @@ try {
             args: '{"path":"src/example.ts","edits":...',
             status: 'ok',
           },
+          { id: 'script/2', name: 'read', args: '{"path":"src/example.ts"}', status: 'ok' },
         ],
         pimEditPatches: [{ toolCallId: 'script/1', patch }],
       },
       content: [{ type: 'text', text: 'Script failed after applying edit' }],
     },
-  ]);
-  check(!host.querySelector('diffs-container'), 'nested diffs mount lazily');
-  click(host.querySelector('.codemode-call > summary'));
+  ];
+  render(nestedMessages);
+  const nestedEdit = host.querySelector('.codemode-call');
+  check(nestedEdit.open, 'nested edits start open');
+  check(!host.querySelectorAll('.codemode-call')[1].open, 'other nested calls stay collapsed');
   await waitFor(() => viewer()?.querySelector('[data-unified]'));
   check(viewer().textContent.includes(newLine), 'nested successful edit survives script failure');
   check(!viewer().querySelector('img'), 'nested patch HTML is not executable markup');
@@ -182,6 +185,10 @@ try {
   );
   click(host.querySelector('.edit-raw > summary'));
   await waitFor(() => host.textContent.includes('Saved argument preview'));
+  click(nestedEdit.querySelector('summary'));
+  await new Promise((resolve) => setTimeout(resolve, 20));
+  render([...nestedMessages]);
+  check(!nestedEdit.open, 'manual nested edit collapse survives transcript updates');
   root.unmount();
   check(
     violations.length === 0,

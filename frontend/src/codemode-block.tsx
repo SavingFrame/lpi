@@ -41,6 +41,7 @@ export function CodemodeBlock({
         {state.calls.map((call) => (
           <Disclosure
             className="codemode-call"
+            defaultOpen={call.name === 'edit'}
             key={call.key}
             summary={
               <>
