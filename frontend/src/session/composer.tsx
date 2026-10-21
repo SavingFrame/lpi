@@ -12,6 +12,8 @@ export function Composer({
   id,
   snapshot,
   active,
+  previewing,
+  restoredDraft,
   pending,
   uncertain,
   outcome,
@@ -22,6 +24,8 @@ export function Composer({
   id: string;
   snapshot: Snapshot | null;
   active: boolean;
+  previewing: boolean;
+  restoredDraft: ComposerDraft | null;
   pending: boolean;
   uncertain: boolean;
   outcome: string | null;
@@ -36,6 +40,11 @@ export function Composer({
   const [readingImages, setReadingImages] = useState(false);
   const [mode, setMode] = useState<'prompt' | 'steer' | 'follow_up'>('prompt');
   useEffect(() => sessionStorage.setItem(`draft:${id}`, draft.text), [draft.text, id]);
+  useEffect(() => {
+    if (restoredDraft) {
+      setDraft(restoredDraft);
+    }
+  }, [restoredDraft]);
   const canSend =
     active &&
     !readingImages &&
@@ -89,11 +98,12 @@ export function Composer({
         <ImageAttachments
           images={draft.images}
           onChange={(images) => setDraft((current) => ({ ...current, images }))}
-          disabled={pending || uncertain}
+          disabled={previewing || pending || uncertain}
           onBusy={setReadingImages}
         >
           <Textarea
             aria-label="Message"
+            disabled={previewing}
             placeholder={
               snapshot?.session.connection === 'connected'
                 ? 'What should Pi work on?'
@@ -131,6 +141,7 @@ export function Composer({
             <select
               className="h-8 rounded-md border border-input bg-background px-2 text-xs focus-visible:ring-1 focus-visible:ring-ring"
               value={mode}
+              disabled={previewing}
               onChange={(event) => setMode(event.target.value as typeof mode)}
             >
               <option value="prompt">Prompt</option>

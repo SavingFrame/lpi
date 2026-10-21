@@ -22,6 +22,8 @@ Roots are not a filesystem sandbox. Project trust and agent configuration belong
 | GET | /sessions | Combined saved-file and live-connection inventory |
 | GET | /sessions/:id | Session identity and connection metadata |
 | GET | /sessions/:id/snapshot | History/activity, runtime metadata, epoch, and cursor |
+| GET | /sessions/:id/tree | Compact saved topology and connected native position |
+| GET | /sessions/:id/branch?entryId=:entryId | Read-only context preview through a saved entry |
 | POST | /sessions/:id/commands | Forward a command to a connected native Pi instance |
 | POST | /sessions | Launch a fresh native Pi in a configured project |
 | POST | /sessions/:id/resume | Resume saved history in native Pi |
@@ -31,7 +33,7 @@ Create accepts `{ requestId, projectId }`. Resume accepts `{ requestId, confirme
 
 The dedicated `tmux -L pim` socket hosts one session per runtime, using the pinned Pi CLI and the bridge enabled through existing global Pi extension configuration. The launcher does not pass `--extension`. Managed extensions reserve file IDs in tmux before registration. Resume rejects reserved files and unregistered runtimes, and requires confirmation that external writers have stopped. Reservations survive relay restarts and conservatively accumulate across TUI session switches. No generic terminal-input proxy is exposed. Stop uses the existing generation-checked command endpoint, not a tmux kill endpoint.
 
-Session records contain `id`, `projectId`, `directory`, `file`, `createdAt`, `piSessionId`, `connection`, and `generation`. Pim IDs derive from canonical file paths, so copied files with identical Pi IDs remain distinct. Connection is `connected` or `disconnected`, not a statement about process liveness or ownership.
+Session records contain `id`, `projectId`, `directory`, `file`, `createdAt`, `piSessionId`, `connection`, and `generation`. Pim IDs derive from canonical file paths, so copied files with identical Pi IDs remain distinct. Connection is `connected` or `disconnected`, not a statement about process liveness or ownership. Optional `parentSession` preserves Pi's source-session path for forks, clones, and explicitly parented sessions; it does not identify which operation created the session.
 
 Inventory records also include `activity` (`idle`, `running`, `blocked`, or `unknown`) and `readState: { completionId, viewedCompletionId }`, with nullable opaque IDs. A non-null completion different from the viewed ID is unread, independently of activity or connectivity. Each observed `agent_settled` creates a new UUID persisted in SQLite. Existing saved history has null markers; settlements missed while disconnected are not reconstructed. Notifications are session-level, not branch-specific or proof of task success.
 
@@ -47,7 +49,9 @@ Command POST bodies require JSON content type, a unique request ID, and the curr
 }
 ```
 
-Supported commands: `prompt`, `steer`, `follow_up`, `abort`, `set_model`, `set_thinking_level`, `stop_runtime`, and explicit `extension` actions. Model changes accept `{ type: "set_model", provider, modelId }`; thinking changes accept `{ type: "set_thinking_level", level }` with `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. Both require idle Pi with no queued messages or dialogs. Pi validates model availability/authentication and clamps thinking to model capabilities. These changes affect the session, not defaults for new sessions. Stop is limited to connected Pim-managed runtimes advertising `state.managedRuntime: true`. It requests abort and graceful shutdown without deleting history. Acknowledgment means acceptance, not confirmed process exit; existing tmux reservation checks still apply before resume. Prompt optionally accepts `streamingBehavior: "steer" | "followUp"`. Messages optionally include `images: [{ type: "image", mimeType: "image/png", data: "<base64>" }]`. PNG, JPEG, GIF, and WebP are supported (four images, 4 MiB total decoded bytes). An empty `message` is accepted when images are present. Slash commands, queue editing, and unsupported dialog answers are not exposed.
+Supported commands: `prompt`, `steer`, `follow_up`, `abort`, `set_model`, `set_thinking_level`, `navigate_tree`, `stop_runtime`, and explicit `extension` actions. Model changes accept `{ type: "set_model", provider, modelId }`; thinking changes accept `{ type: "set_thinking_level", level }` with `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. Both require idle Pi with no queued messages or dialogs. Pi validates model availability/authentication and clamps thinking to model capabilities. These changes affect the session, not defaults for new sessions. Stop is limited to connected Pim-managed runtimes advertising `state.managedRuntime: true`. It requests abort and graceful shutdown without deleting history. Acknowledgment means acceptance, not confirmed process exit; existing tmux reservation checks still apply before resume. Prompt optionally accepts `streamingBehavior: "steer" | "followUp"`. Messages optionally include `images: [{ type: "image", mimeType: "image/png", data: "<base64>" }]`. PNG, JPEG, GIF, and WebP are supported (four images, 4 MiB total decoded bytes). An empty `message` is accepted when images are present. Slash commands, queue editing, and unsupported dialog answers are not exposed.
+
+Tree navigation accepts `{ type: "navigate_tree", targetId, expectedLeafId }`, with a nullable expected leaf for the position before all messages. Native Pi revalidates connection, session identity, current leaf, target existence, idle state, queues, and dialogs immediately before navigation. Acknowledgment waits for public `navigateTree()` completion; explicit cancellation rejects. Browser selection of a user message follows native semantics: navigation lands before it. No model-generated summary is requested. Other exceptions/timeouts are unknown outcomes, never replayed. This switches one shared runtime, not an independent parallel branch.
 
 Extension actions use `{ type: "extension", extension: "ask-user-question", action: { toolCallId, answers?, globalNote?, cancel? } }`. Only registered modules are allowed; there is no arbitrary event-bus dispatch. Ask answers require every question answered, with zero-based `questionIndex` and `optionIndexes`, optional custom `text`/per-question `notes`, or explicit `cancel: true`. Ask acknowledgment waits for its correlated authoritative verdict; an explicit rejection does not close the connection. Missing/malformed verdicts are unknown outcomes. See the [module contract](../src/extension-support/ask-user-question/README.md).
 
@@ -59,7 +63,7 @@ Lost responses, timeouts, or connection failures may have unknown outcomes. Neve
 
 Snapshots contain `{ epoch, cursor, session, readState, state, controls, view }`. `readState` is the same durable metadata exposed in inventory; clients should acknowledge the completion from their loaded snapshot, not a newer inventory record.
 
-- `state`: runtime metadata or read-only file status.
+- `state`: runtime metadata or read-only file status. Connected native metadata includes nullable `leafId`, its in-memory tree position.
 - `controls`: current model, `availableModels` (provider/id/name from the authenticated native registry), `scopedModels` (provider/id/name from `ctx.scopedModels`, not a separate favorites store), effective thinking level, `availableThinkingLevels` (from `pi-ai` capabilities for the current native model), and context usage. Disconnected saved-file snapshots have no available models.
 - `view`: current-context messages, authoritative assistant partial, active tools, running/compacting flags, notices, and `extensions` containing registered module-specific pending state. Read-only/disconnected snapshots have no actionable extension state.
 
@@ -68,6 +72,8 @@ Connected snapshots come from the extension's received stream. The server captur
 Saved-file inspection uses Pi's pure JSONL/context helpers, never a SessionManager. It validates header identity and file metadata, rejects malformed/partial records, and reads at most 32 MiB. These snapshots cannot capture in-memory branch selection or unfinished output. Manual refresh sees persisted updates; discovery itself runs at startup.
 
 Disconnected bridges retain explicitly labeled last-known history, not a claim that Pi exited.
+
+Tree responses contain `{ sessionId, generation, connected, activeLeafId, nodes }`. Each compact node has `{ id, parentId, kind, preview, label? }`; previews/labels are bounded to 160 characters and the tree to 100,000 entries. Topology is read from saved JSONL with the existing identity, stable-file, and 32 MiB checks. Only a connected bridge supplies an active leaf; disconnected files cannot recover an in-memory navigation position. Branch previews contain `{ sessionId, entryId, messages }`, using Pi's compaction/context-edit projection for that path. Projected messages preserve their source `entryId`. Neither endpoint opens a SessionManager/runtime or writes history. Pending native output may not yet exist in the file.
 
 ## Connections
 

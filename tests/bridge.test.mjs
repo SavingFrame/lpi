@@ -150,6 +150,8 @@ function fakePi(header, file, entry) {
       getSessionId: () => header.id,
       getHeader: () => header,
       getBranch: () => state.entries,
+      getLeafId: () => state.entries.at(-1)?.id ?? null,
+      getEntry: (id) => state.entries.find((entry) => entry.id === id),
       getSessionName: () => 'Native session',
     },
     isIdle: () => state.idle,
@@ -197,7 +199,13 @@ function fakePi(header, file, entry) {
       ctx.model = model;
       return true;
     },
-    sendUserMessage: (message, options) => sent.push({ message, ...options }),
+    sendUserMessage: (message, options) => {
+      if (options?.expandPromptTemplates && message.startsWith('/pim-tree ')) {
+        void commands.get('pim-tree')(message.split(' ')[1], ctx);
+      } else {
+        sent.push({ message, ...options });
+      }
+    },
   };
   extension(pi);
   const emit = async (type, extra = {}) => handlers.get(type)?.({ type, ...extra }, ctx);
@@ -293,6 +301,76 @@ test('native extension streams history, partial responses, tools and routes comm
   await assert.rejects(
     bridges.command(session.id, generation, { type: 'prompt', message: 'Offline' }),
   );
+});
+
+test('browser tree navigation waits for native completion and synchronizes its in-memory leaf', async (t) => {
+  const { defer, file, header, entry, url, inventory, bridges } = await setup(t);
+  const original = readFileSync(file);
+  const previous = process.env.PIM_BRIDGE_URL;
+  process.env.PIM_BRIDGE_URL = url;
+  const fake = fakePi(header, file, entry);
+  defer(async () => {
+    await fake.emit('session_shutdown');
+    if (previous === undefined) {
+      delete process.env.PIM_BRIDGE_URL;
+    } else {
+      process.env.PIM_BRIDGE_URL = previous;
+    }
+  });
+  let leaf = entry.id;
+  let finish;
+  fake.ctx.sessionManager.getLeafId = () => leaf;
+  fake.ctx.sessionManager.getBranch = () => (leaf === null ? [] : [entry]);
+  fake.ctx.navigateTree = async (target, options) => {
+    assert.equal(target, entry.id);
+    assert.deepEqual(options, { summarize: false });
+    await new Promise((resolve) => {
+      finish = resolve;
+    });
+    leaf = null;
+    await fake.emit('session_tree');
+    return { cancelled: false };
+  };
+  await fake.emit('session_start');
+  await waitFor(() => bridges.list()[0]?.connection === 'connected');
+  const session = bridges.list()[0];
+  let acknowledged = false;
+  const pending = bridges
+    .command(session.id, session.generation, {
+      type: 'navigate_tree',
+      targetId: entry.id,
+      expectedLeafId: entry.id,
+    })
+    .then(() => {
+      acknowledged = true;
+    });
+  await waitFor(() => finish !== undefined);
+  assert.equal(acknowledged, false);
+  finish();
+  await pending;
+  assert.equal(bridges.snapshot(session.id).state.leafId, null);
+  assert.deepEqual(bridges.snapshot(session.id).view.messages, []);
+  assert.equal(inventory.tree(session.id).activeLeafId, null);
+  assert.deepEqual(fake.sent, []);
+  assert.deepEqual(readFileSync(file), original);
+  await assert.rejects(
+    bridges.command(session.id, session.generation, {
+      type: 'navigate_tree',
+      targetId: entry.id,
+      expectedLeafId: entry.id,
+    }),
+    /branch changed/,
+  );
+  fake.ctx.navigateTree = async () => ({ cancelled: true });
+  await assert.rejects(
+    bridges.command(session.id, session.generation, {
+      type: 'navigate_tree',
+      targetId: entry.id,
+      expectedLeafId: null,
+    }),
+    /cancelled/,
+  );
+  assert.equal(bridges.get(session.id).connection, 'connected');
 });
 
 test('model and thinking settings update native Pi and synchronize authoritative controls', async (t) => {

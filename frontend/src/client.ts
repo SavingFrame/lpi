@@ -10,9 +10,12 @@ export const queryClient = new QueryClient({
   },
 });
 
-export const live = new LiveSession(() => {
+export const live = new LiveSession((refreshTrees, sessionId) => {
   void queryClient.invalidateQueries({ queryKey: ['sessions'] });
   void queryClient.invalidateQueries({ queryKey: ['projects'] });
+  if (refreshTrees) {
+    void queryClient.invalidateQueries({ queryKey: sessionId ? ['tree', sessionId] : ['tree'] });
+  }
 });
 
 export const launches = new LaunchController({

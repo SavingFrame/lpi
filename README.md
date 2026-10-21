@@ -40,6 +40,14 @@ The browser receives current-branch history, assistant partials, tool activity, 
 
 `/pim-disconnect` stops the relay connection without stopping Pi. Closing the browser or Pim does not stop the agent. Closing Pi does.
 
+## Branches and related sessions
+
+Expand the chevron beside a session to browse its saved branches. Linear stretches collapse into branch tips, using Pi labels or prompt previews. Only the session row has running/unread status; connected Pi's current position has an **active** marker. Disconnected records show saved paths without claiming an active position.
+
+Click a branch, **Branch from here** on an assistant message, or **Edit and branch** on a user message to preview history without changing Pi. **Continue here** explicitly switches the same native runtime, affecting its terminal and every attached client. Switching requires idle Pi with no queued messages or dialogs. User-message selection resumes before that message and restores its text/images to the browser draft after confirmation. Preview mode disables sending and does not mark the current completion viewed. Files are not restored, and no model-generated branch summary is requested.
+
+Forks remain separate session rows, showing **From …** when Pi's `parentSession` header is available. Pi also records this origin for clones and explicitly parented sessions, so Pim does not claim every derived session is a fork. Create forks in native Pi; browser fork creation and automatic parallel launching are not implemented. Branch previews read persisted JSONL under the existing 32 MiB bound, so unfinished or not-yet-persisted history may be unavailable. Rebuild/restart Pim and reload its bridge in native Pi while idle after updating. Real native-Pi integration remains unverified.
+
 ## Shared read status
 
 Pim stores relay-owned data in SQLite at `~/.local/state/pim/pim.sqlite`. Currently this contains completion/read metadata. Set `PIM_STATE_DIR` to override the directory. This uses Node's built-in `node:sqlite` (experimental on Node 22), with no additional database dependency. Pi's conversation JSONL is never modified.

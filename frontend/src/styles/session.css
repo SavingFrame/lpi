@@ -40,6 +40,17 @@
     border-bottom: 1px solid var(--border);
     overflow-wrap: anywhere;
   }
+  .branch-preview {
+    border-left: 3px solid #93c5fd;
+  }
+  .branch-preview .controls {
+    margin-bottom: 8px;
+  }
+  .message-branch {
+    margin-top: 8px;
+    color: var(--muted-foreground);
+    font-size: 11px;
+  }
   .banner.error {
     color: #f0a8a1;
     background: #2b1e20;

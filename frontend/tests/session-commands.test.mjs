@@ -18,6 +18,7 @@ const commands = [
     extension: 'ask-user-question',
     action: { toolCallId: 'ask', cancel: true },
   },
+  { type: 'navigate_tree', targetId: 'earlier', expectedLeafId: 'current' },
 ];
 
 function setup() {
@@ -229,6 +230,7 @@ for (const [command, outcome] of [
   [commands[0], 'dispatched. Not necessarily finished.'],
   [commands[6], 'Shutdown requested. Runtime exit is not yet confirmed.'],
   [commands[7], 'Answer accepted by the native extension.'],
+  [commands[8], 'Native branch switched.'],
 ]) {
   test(`${command.type} retains its acknowledgment semantics`, async () => {
     const { lane, acknowledge } = setup();

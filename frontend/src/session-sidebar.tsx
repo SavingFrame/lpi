@@ -5,6 +5,7 @@ import {
   ChevronDown,
   Circle,
   Folder,
+  GitFork,
   LoaderCircle,
   LockKeyhole,
   MessageCircleQuestion,
@@ -15,6 +16,7 @@ import { hasUnreadCompletion } from '../../src/shared/session-read-state';
 import type { Project } from '../../src/shared/sessions';
 import { Button } from './components/ui/button';
 import { LaunchSession } from './launch-session';
+import { SessionBranches } from './session-branches';
 import {
   activityCounts,
   groupSessions,
@@ -51,8 +53,10 @@ export function SessionSidebar({
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
+  const [branches, setBranches] = useState<Set<string>>(() => new Set());
   const [now, setNow] = useState(Date.now);
   const groups = groupSessions(projects, sessions, online);
+  const byFile = new Map(sessions.map((session) => [session.file, session]));
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(timer);
@@ -138,44 +142,85 @@ export function SessionSidebar({
                 : status.icon;
             const updatedAt = session.updatedAt ?? session.createdAt;
             const title = session.title || 'Untitled session';
+            const parent = session.parentSession ? byFile.get(session.parentSession) : undefined;
+            const open = branches.has(session.id);
             return (
-              <Link
-                key={session.id}
-                to="/app/projects/$projectId/sessions/$sessionId"
-                params={{ projectId: project.id, sessionId: session.id }}
-                className={`session-link activity-${session.activity} ${hasCompletion ? 'has-completion' : ''} ${isUnread ? 'unread' : ''} ${selectedId === session.id ? 'selected' : ''}`}
-                aria-current={selectedId === session.id ? 'page' : undefined}
-                title={title}
-              >
-                <Icon
-                  className={`session-status-icon ${session.activity === 'running' ? 'working-icon' : ''}`}
-                  size={16}
-                  aria-hidden="true"
-                />
-                <div className="session-summary">
-                  <span className="session-title">{title}</span>
-                  <small>
-                    <span
-                      title={status.description}
-                      className={`session-status status-${session.activity}`}
-                    >
-                      {status.label}
-                    </span>
-                    <time dateTime={updatedAt} title={new Date(updatedAt).toLocaleString()}>
-                      {relativeTime(updatedAt, now)}
-                    </time>
-                  </small>
-                  {isUnread && (
-                    <small
-                      className="completion-notice"
-                      title="An observed turn ended and has not been viewed. This does not imply task success."
-                    >
-                      <CheckCircle2 size={12} aria-hidden="true" />
-                      Unviewed turn
-                    </small>
-                  )}
+              <div key={session.id} className="session-item">
+                <div className="session-row">
+                  <button
+                    type="button"
+                    className="branch-toggle"
+                    aria-label={`${open ? 'Hide' : 'Show'} branches for ${title}`}
+                    aria-expanded={open}
+                    aria-controls={`branches-${session.id}`}
+                    onClick={() =>
+                      setBranches((current) => {
+                        const next = new Set(current);
+                        if (next.has(session.id)) {
+                          next.delete(session.id);
+                        } else {
+                          next.add(session.id);
+                        }
+                        return next;
+                      })
+                    }
+                  >
+                    <ChevronDown size={12} className={open ? '' : 'closed'} aria-hidden="true" />
+                  </button>
+                  <Link
+                    to="/app/projects/$projectId/sessions/$sessionId"
+                    params={{ projectId: project.id, sessionId: session.id }}
+                    className={`session-link activity-${session.activity} ${hasCompletion ? 'has-completion' : ''} ${isUnread ? 'unread' : ''} ${selectedId === session.id ? 'selected' : ''}`}
+                    aria-current={selectedId === session.id ? 'page' : undefined}
+                    title={title}
+                  >
+                    <Icon
+                      className={`session-status-icon ${session.activity === 'running' ? 'working-icon' : ''}`}
+                      size={16}
+                      aria-hidden="true"
+                    />
+                    <div className="session-summary">
+                      <span className="session-title">{title}</span>
+                      <small>
+                        <span
+                          title={status.description}
+                          className={`session-status status-${session.activity}`}
+                        >
+                          {status.label}
+                        </span>
+                        <time dateTime={updatedAt} title={new Date(updatedAt).toLocaleString()}>
+                          {relativeTime(updatedAt, now)}
+                        </time>
+                      </small>
+                      {session.parentSession && (
+                        <small
+                          className="session-origin"
+                          title="Separate session derived from another session. Pi also records this for clones and explicitly parented sessions."
+                        >
+                          <GitFork size={12} aria-hidden="true" />
+                          From {parent?.title || 'another session'}
+                        </small>
+                      )}
+                      {isUnread && (
+                        <small
+                          className="completion-notice"
+                          title="An observed turn ended and has not been viewed. This does not imply task success."
+                        >
+                          <CheckCircle2 size={12} aria-hidden="true" />
+                          Unviewed turn
+                        </small>
+                      )}
+                    </div>
+                  </Link>
                 </div>
-              </Link>
+                {open && (
+                  <SessionBranches
+                    session={session}
+                    selected={selectedId === session.id}
+                    online={online}
+                  />
+                )}
+              </div>
             );
           })}
           {(all || visible.length < items.length) && (

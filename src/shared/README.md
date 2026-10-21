@@ -8,6 +8,7 @@ Pi model/content types are imported with `import type` only.
 - `snapshots.ts`: native status, bridge/browser snapshots, parsers, and shared status/event
   projection. Saved snapshots do not require live runtime metadata.
 - `commands.ts`: native registration identity and the guarded command union/parser.
+- `session-tree.ts`: compact tree topology, bounded ancestry validation, and read-only branch preview contracts.
 - `events.ts`: browser event envelope; payloads are validated by their consuming boundary.
 - `client-state.ts`: messages, conversation views, bounded view parsing, and event reduction.
 - `session-controls.ts`: model/thinking/context wire validation.

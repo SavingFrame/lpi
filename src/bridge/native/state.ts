@@ -1,10 +1,7 @@
 import { getSupportedThinkingLevels } from '@earendil-works/pi-ai/models';
-import {
-  buildSessionContext,
-  type ExtensionAPI,
-  type ExtensionContext,
-} from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { nativeExtensionSupport } from '../../extension-support/native.js';
+import { historyMessages } from '../../pi-history.js';
 import { emptyView, reduceEvent, type View } from '../../shared/client-state.js';
 import type { NativeIdentity } from '../../shared/commands.js';
 import type { NativeStatus } from '../../shared/snapshots.js';
@@ -86,6 +83,7 @@ export class NativeState {
       id: context.sessionManager.getSessionId(),
       cwd: context.cwd,
       createdAt: context.sessionManager.getHeader()?.timestamp ?? new Date().toISOString(),
+      parentSession: context.sessionManager.getHeader()?.parentSession,
     };
   }
 
@@ -94,6 +92,7 @@ export class NativeState {
     return {
       state: {
         managedRuntime: this.managedRuntime,
+        leafId: context.sessionManager.getLeafId(),
         isStreaming: !context.isIdle(),
         hasPendingMessages: context.hasPendingMessages(),
         sessionName: context.sessionManager.getSessionName(),
@@ -126,7 +125,7 @@ export class NativeState {
       ...this.status(),
       view: {
         ...this.current,
-        messages: buildSessionContext(context.sessionManager.getBranch()).messages,
+        messages: historyMessages(context.sessionManager.getBranch()),
       },
     };
   }

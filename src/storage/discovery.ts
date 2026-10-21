@@ -10,12 +10,18 @@ import {
   statSync,
 } from 'node:fs';
 import { isAbsolute, join } from 'node:path';
-import { buildSessionContext, parseSessionEntries } from '@earendil-works/pi-coding-agent';
+import { parseSessionEntries } from '@earendil-works/pi-coding-agent';
+import { historyMessages } from '../pi-history.js';
 import { AppError, object, text } from '../shared/errors.js';
 import { type Project, promptTitle, type Session } from '../shared/sessions.js';
 import { piInventoryId } from './session-id.js';
 
-function header(content: string): { id: string; cwd: string; timestamp: string } {
+function header(content: string): {
+  id: string;
+  cwd: string;
+  timestamp: string;
+  parentSession?: string;
+} {
   const raw = object(JSON.parse(content));
   if (
     raw.type !== 'session' ||
@@ -24,7 +30,9 @@ function header(content: string): { id: string; cwd: string; timestamp: string }
     typeof raw.timestamp !== 'string' ||
     !Number.isFinite(Date.parse(raw.timestamp)) ||
     typeof raw.cwd !== 'string' ||
-    !isAbsolute(raw.cwd)
+    !isAbsolute(raw.cwd) ||
+    (raw.parentSession !== undefined &&
+      (typeof raw.parentSession !== 'string' || !isAbsolute(raw.parentSession)))
   ) {
     throw new Error('Invalid Pi session header');
   }
@@ -32,6 +40,7 @@ function header(content: string): { id: string; cwd: string; timestamp: string }
     id: text(raw.id, 'Pi session ID', 128),
     cwd: raw.cwd,
     timestamp: raw.timestamp,
+    ...(typeof raw.parentSession === 'string' ? { parentSession: raw.parentSession } : {}),
   };
 }
 
@@ -148,6 +157,7 @@ export class SessionDiscovery {
               updatedAt,
               title,
               piSessionId: metadata.id,
+              ...(metadata.parentSession ? { parentSession: metadata.parentSession } : {}),
               connection: 'disconnected',
               generation: 0,
             });
@@ -227,7 +237,7 @@ export function inspectSavedSession(session: Session) {
     }
     const entries = parseSessionEntries(content).filter((entry) => entry.type !== 'session');
     const name = entries.findLast((entry) => entry.type === 'session_info')?.name;
-    return { messages: buildSessionContext(entries).messages, name };
+    return { entries, messages: historyMessages(entries), name };
   } catch (error) {
     if (error instanceof AppError) {
       throw error;

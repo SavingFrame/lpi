@@ -17,6 +17,8 @@ export interface Session {
   updatedAt?: string;
   title?: string;
   piSessionId: string;
+  /** Pi's parentSession header, also used by clone and explicitly parented sessions. */
+  parentSession?: string;
   connection: 'connected' | 'disconnected';
   /** Connection version for rejecting stale commands, not a runtime ownership claim. */
   generation: number;
@@ -76,6 +78,7 @@ export function session(value: unknown): Session {
       (typeof raw.updatedAt !== 'string' || !Number.isFinite(Date.parse(raw.updatedAt)))) ||
     (raw.title !== undefined && typeof raw.title !== 'string') ||
     typeof raw.piSessionId !== 'string' ||
+    (raw.parentSession !== undefined && typeof raw.parentSession !== 'string') ||
     !['connected', 'disconnected'].includes(String(raw.connection)) ||
     typeof raw.generation !== 'number' ||
     !Number.isSafeInteger(raw.generation) ||

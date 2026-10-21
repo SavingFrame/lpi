@@ -67,7 +67,8 @@ export function createApi(
         response.end();
         return;
       }
-      const path = new URL(request.url ?? '/', 'http://localhost').pathname;
+      const url = new URL(request.url ?? '/', 'http://localhost');
+      const path = url.pathname;
       if (request.method === 'GET' && (await serveFrontend(path, response, frontendDirectory))) {
         return;
       }
@@ -79,9 +80,25 @@ export function createApi(
         send(response, 200, { sessions: sessions.list() });
         return;
       }
-      const match = /^\/sessions\/([a-f0-9-]{36})(?:\/(commands|snapshot|resume|viewed))?$/.exec(
-        path,
-      );
+      const match =
+        /^\/sessions\/([a-f0-9-]{36})(?:\/(commands|snapshot|resume|viewed|tree|branch))?$/.exec(
+          path,
+        );
+      if (request.method === 'GET' && match?.[2] === 'tree') {
+        send(response, 200, sessions.tree(String(match[1])));
+        return;
+      }
+      if (request.method === 'GET' && match?.[2] === 'branch') {
+        send(
+          response,
+          200,
+          sessions.preview(
+            String(match[1]),
+            text(url.searchParams.get('entryId'), 'entry ID', 128),
+          ),
+        );
+        return;
+      }
       if (request.method === 'GET' && match?.[2] === 'snapshot') {
         send(response, 200, sessions.snapshot(String(match[1])));
         return;

@@ -38,6 +38,7 @@ The endpoint defaults to `ws://127.0.0.1:3141/bridge`. Set `PIM_BRIDGE_URL` for 
 - Branch navigation, compaction completion, and final settlement refresh history.
 - Current model, thinking, context usage, and queued-message presence, sampled every second.
 - Browser prompt, steer, follow-up, and abort through public extension APIs.
+- Native `leafId` metadata and provenance-preserving finalized messages for sidebar/per-message branch previews. Idle browser navigation validates the expected native leaf and target, then uses public `ExtensionCommandContext.navigateTree()`. A single-use, opaque internal `pim-tree` command obtains a fresh command context through `pi.sendUserMessage(..., { expandPromptTemplates: true })`; it is not an arbitrary remote slash-command facility or terminal proxy. It requests no summary/model turn. Completion/cancellation is acknowledged, while dispatch exceptions and timeouts remain unknown and are not replayed. Native pre-navigation hooks still run and may require terminal input.
 - Browser model/thinking selectors through `pi.setModel()` and `pi.setThinkingLevel()`, restricted to idle Pi with no queued messages or dialogs. Models come from the authenticated native registry. Thinking options come from `getSupportedThinkingLevels(ctx.model)` in `@earendil-works/pi-ai/models`, including custom model mappings and `max` where supported. Pi clamps changes; snapshots report the effective value and supported options.
 - Stop runtime for connected Pim-managed instances through `ctx.abort()` and `ctx.shutdown()`. Acceptance is flushed before shutdown cleanup disconnects the bridge. External instances reject this command.
 - Native prompt lifecycle notices where Pi exposes them. Unsupported dialog answers remain terminal-only.
@@ -81,6 +82,7 @@ The loadable entry point remains `src/bridge/extension.ts` (compiled to
 - `transport.ts`: outbound WebSocket lifecycle, reconnects, bounded sends, status sampling,
   partial throttling, and connection-scoped acknowledgments.
 - `image-entry.ts`: persisted image-submission indicator rendering.
+- `navigation.ts`: single-use command-context navigation, completion/cancellation, and bounded unknown outcomes.
 
 Constructing these modules starts no sockets or timers. Session hooks and explicit connect
 commands start transport resources. Disconnecting the transport preserves native pending

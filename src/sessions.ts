@@ -1,8 +1,10 @@
 import type { NativeBridges } from './bridge/server.js';
 import type { Events } from './events.js';
+import { historyMessages, historyNodes } from './pi-history.js';
 import { emptyView, message, record } from './shared/client-state.js';
 import { AppError } from './shared/errors.js';
 import type { SessionReadState } from './shared/session-read-state.js';
+import { type BranchPreview, type SessionTree, sessionTree } from './shared/session-tree.js';
 import type { InventorySession, Session } from './shared/sessions.js';
 import type { Snapshot } from './shared/snapshots.js';
 import { inspectSavedSession, type SessionDiscovery } from './storage/discovery.js';
@@ -73,6 +75,27 @@ export class Sessions {
 
   validateResume(id: string): void {
     inspectSavedSession(this.get(id));
+  }
+
+  tree(id: string): SessionTree {
+    const session = this.get(id);
+    const native = this.bridges.snapshot(id);
+    const { entries } = inspectSavedSession(session);
+    return sessionTree({
+      sessionId: id,
+      generation: session.generation,
+      connected: session.connection === 'connected',
+      activeLeafId: session.connection === 'connected' ? (native?.state.leafId ?? null) : null,
+      nodes: historyNodes(entries),
+    });
+  }
+
+  preview(id: string, entryId: string): BranchPreview {
+    const { entries } = inspectSavedSession(this.get(id));
+    if (!entries.some((entry) => entry.id === entryId)) {
+      throw new AppError('Branch entry not found; refresh the tree', 404);
+    }
+    return { sessionId: id, entryId, messages: historyMessages(entries, entryId).map(message) };
   }
 
   snapshot(id: string): Snapshot {

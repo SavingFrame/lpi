@@ -10,12 +10,14 @@ export interface NativeIdentity {
   id: string;
   cwd: string;
   createdAt: string;
+  parentSession?: string;
 }
 
 export type BridgeCommand =
   | ExtensionCommand
   | { type: 'set_model'; provider: string; modelId: string }
   | { type: 'set_thinking_level'; level: ThinkingLevel }
+  | { type: 'navigate_tree'; targetId: string; expectedLeafId: string | null }
   | { type: 'abort' }
   | { type: 'stop_runtime' }
   | {
@@ -33,6 +35,14 @@ export function bridgeCommand(value: unknown): BridgeCommand {
   }
   if (type === 'abort' || type === 'stop_runtime') {
     return { type };
+  }
+  if (type === 'navigate_tree') {
+    return {
+      type,
+      targetId: text(raw.targetId, 'target entry ID', 128),
+      expectedLeafId:
+        raw.expectedLeafId === null ? null : text(raw.expectedLeafId, 'expected entry ID', 128),
+    };
   }
   if (type === 'set_model') {
     return {

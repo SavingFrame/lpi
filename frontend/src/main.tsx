@@ -17,6 +17,11 @@ const project = createRoute({
 const session = createRoute({
   getParentRoute: () => root,
   path: '/app/projects/$projectId/sessions/$sessionId',
+  validateSearch: (search: Record<string, unknown>): { branch?: string } => ({
+    ...(typeof search.branch === 'string' && search.branch.length <= 128
+      ? { branch: search.branch }
+      : {}),
+  }),
   component: SessionPage,
 });
 const router = createRouter({

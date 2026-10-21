@@ -1,8 +1,9 @@
-import { LoaderCircle } from 'lucide-react';
+import { GitBranch, LoaderCircle } from 'lucide-react';
 import { imageAttachments } from '../../src/shared/attachments';
 import type { Message, View } from '../../src/shared/client-state';
 import { AskHistory } from './ask-history-card';
 import { SafeMarkdown } from './components/safe-markdown';
+import { Button } from './components/ui/button';
 import { type TranscriptTool, transcriptState } from './transcript-state';
 
 function ToolBlock({ tool }: { tool: TranscriptTool }) {
@@ -122,7 +123,13 @@ function MessageBody({ item, tools }: { item: Message; tools?: Map<string, Trans
   );
 }
 
-export function Transcript({ view }: { view: View }) {
+export function Transcript({
+  view,
+  onPreview,
+}: {
+  view: View;
+  onPreview?: (entryId: string) => void;
+}) {
   const { groups, tools, unpaired } = transcriptState(view);
   return (
     <section className="transcript" aria-label="Conversation">
@@ -162,6 +169,20 @@ export function Transcript({ view }: { view: View }) {
                 ) : (
                   <MessageBody item={item} tools={tools} />
                 )}
+                {onPreview &&
+                  typeof item.entryId === 'string' &&
+                  (item.role === 'user' || item.role === 'assistant') && (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="message-branch"
+                      onClick={() => onPreview(item.entryId as string)}
+                    >
+                      <GitBranch aria-hidden="true" />
+                      {item.role === 'user' ? 'Edit and branch' : 'Branch from here'}
+                    </Button>
+                  )}
               </div>
             ))}
           </div>

@@ -59,6 +59,8 @@ function setup(t) {
       getSessionId: () => sessionId,
       getHeader: () => ({ timestamp: '2026-01-01T00:00:00Z' }),
       getBranch: () => entries,
+      getLeafId: () => entries.at(-1)?.id ?? null,
+      getEntry: (id) => entries.find((entry) => entry.id === id),
       getSessionName: () => 'Native test',
     },
     isIdle: () => true,
@@ -161,7 +163,7 @@ test('native state snapshots rebuild branch history while preserving offline tra
   transport.stop();
   state.resume(context);
   const snapshot = state.snapshot();
-  assert.deepEqual(snapshot.view.messages, [message]);
+  assert.deepEqual(snapshot.view.messages, [{ ...message, entryId: 'first' }]);
   assert.deepEqual(snapshot.view.partial, partial);
   assert.equal(snapshot.view.tools[0].id, 'read-1');
   assert.deepEqual(state.view.messages, []);
@@ -194,7 +196,7 @@ test('session replacement clears transients and support state, unlike a transpor
 
 test('native dispatch checks generations and both identities before calling Pi, consuming IDs', async (t) => {
   const base = setup(t);
-  const connection = { generation: 3, session: base.state.identity() };
+  const connection = { generation: 3, session: base.state.identity(), isCurrent: () => true };
   const frame = { id: 'stale', generation: 2, command: { type: 'prompt', message: 'Hello' } };
   const rejected = await base.commands.execute(frame, connection);
   assert.equal(rejected.outcome, 'rejected');
@@ -214,7 +216,7 @@ test('native dispatch checks generations and both identities before calling Pi, 
 
 test('settings changes guard concurrent commands and dispatch failures remain uncertain', async (t) => {
   const base = setup(t);
-  const connection = { generation: 3, session: base.state.identity() };
+  const connection = { generation: 3, session: base.state.identity(), isCurrent: () => true };
   let finish;
   base.pi.setModel = () => new Promise((resolve) => (finish = resolve));
   const pending = base.commands.execute(
@@ -313,6 +315,147 @@ test('dispatch exceptions close the connection without rejection or automatic re
   );
   await connect();
   assert.equal(calls, 1);
+});
+
+test('tree navigation obtains a fresh command context and acknowledges completion only', async (t) => {
+  const base = setup(t);
+  base.entries.push({
+    type: 'message',
+    id: 'first',
+    parentId: null,
+    message: { role: 'user', timestamp: 1, content: 'Start' },
+  });
+  let complete;
+  let calls = 0;
+  base.context.navigateTree = async (target, options) => {
+    assert.equal(target, 'first');
+    assert.deepEqual(options, { summarize: false });
+    calls++;
+    return new Promise((resolve) => {
+      complete = resolve;
+    });
+  };
+  base.pi.sendUserMessage = (message, options) => {
+    assert.equal(options.expandPromptTemplates, true);
+    const token = message.split(' ')[1];
+    void base.registered.get('pim-tree')(token, base.context);
+    void base.registered.get('pim-tree')(token, base.context);
+  };
+  const connection = { generation: 3, session: base.state.identity(), isCurrent: () => true };
+  let finished = false;
+  const pending = base.commands
+    .execute(
+      {
+        id: 'navigate',
+        generation: 3,
+        command: { type: 'navigate_tree', targetId: 'first', expectedLeafId: 'first' },
+      },
+      connection,
+    )
+    .then((result) => {
+      finished = true;
+      return result;
+    });
+  await waitFor(() => complete !== undefined);
+  assert.equal(finished, false);
+  assert.equal(calls, 1);
+  const blocked = await base.commands.execute(
+    { id: 'blocked', generation: 3, command: { type: 'prompt', message: 'No competing command' } },
+    connection,
+  );
+  assert.match(blocked.error, /navigation in progress/);
+  complete({ cancelled: false });
+  assert.deepEqual(await pending, { id: 'navigate', outcome: 'acknowledged', sync: true });
+  assert.deepEqual(base.sent, []);
+});
+
+test('tree navigation rejects stale leaves, queues, dialogs, missing targets and cancellation', async (t) => {
+  const base = setup(t);
+  const connection = { generation: 3, session: base.state.identity(), isCurrent: () => true };
+  const command = { type: 'navigate_tree', targetId: 'first', expectedLeafId: null };
+  let sequence = 0;
+  const execute = () =>
+    base.commands.execute({ id: `tree-${sequence++}`, generation: 3, command }, connection);
+  assert.match((await execute()).error, /not found/);
+  base.entries.push({
+    type: 'message',
+    id: 'first',
+    parentId: null,
+    message: { role: 'user', timestamp: 1, content: 'Start' },
+  });
+  assert.match((await execute()).error, /branch changed/);
+  command.expectedLeafId = 'first';
+  for (const field of ['isIdle', 'hasPendingMessages']) {
+    const original = base.context[field];
+    base.context[field] = () => field !== 'isIdle';
+    assert.match((await execute()).error, /idle/);
+    base.context[field] = original;
+  }
+  base.state.prompt('confirm', base.context);
+  assert.match((await execute()).error, /dialogs/);
+  base.state.prompt(null, base.context);
+  base.context.navigateTree = async () => ({ cancelled: true });
+  base.pi.sendUserMessage = (message) => {
+    void base.registered.get('pim-tree')(message.split(' ')[1], base.context);
+  };
+  assert.match((await execute()).error, /cancelled/);
+});
+
+test('tree command revalidates the connection and native position before navigation', async (t) => {
+  const base = setup(t);
+  base.entries.push({
+    type: 'message',
+    id: 'first',
+    parentId: null,
+    message: { role: 'user', timestamp: 1, content: 'Start' },
+  });
+  let token;
+  let connected = true;
+  const connection = { generation: 3, session: base.state.identity(), isCurrent: () => connected };
+  base.pi.sendUserMessage = (message) => {
+    token = message.split(' ')[1];
+  };
+  base.context.navigateTree = async () => assert.fail('Stale navigation must not run');
+  const pending = base.commands.execute(
+    {
+      id: 'disconnected-tree',
+      generation: 3,
+      command: { type: 'navigate_tree', targetId: 'first', expectedLeafId: 'first' },
+    },
+    connection,
+  );
+  connected = false;
+  await base.registered.get('pim-tree')(token, base.context);
+  assert.match((await pending).error, /branch changed/);
+});
+
+test('timed-out tree dispatch cannot execute later or replay itself', async (t) => {
+  const base = setup(t);
+  t.mock.timers.enable({ apis: ['setTimeout'] });
+  base.entries.push({
+    type: 'message',
+    id: 'first',
+    parentId: null,
+    message: { role: 'user', timestamp: 1, content: 'Start' },
+  });
+  let token;
+  base.pi.sendUserMessage = (message) => {
+    token = message.split(' ')[1];
+  };
+  base.context.navigateTree = async () => assert.fail('Expired navigation must not run');
+  const connection = { generation: 3, session: base.state.identity(), isCurrent: () => true };
+  const pending = base.commands.execute(
+    {
+      id: 'timeout-tree',
+      generation: 3,
+      command: { type: 'navigate_tree', targetId: 'first', expectedLeafId: 'first' },
+    },
+    connection,
+  );
+  const rejected = assert.rejects(pending, /outcome unknown/);
+  t.mock.timers.tick(8000);
+  await rejected;
+  await base.registered.get('pim-tree')(token, base.context);
 });
 
 test('late model acceptance never acknowledges or syncs a replacement connection', async (t) => {

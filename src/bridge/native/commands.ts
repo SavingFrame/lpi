@@ -1,11 +1,13 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { type BridgeCommand, bridgeCommand, type NativeIdentity } from '../../shared/commands.js';
 import { AppError, text } from '../../shared/errors.js';
+import { NativeNavigation } from './navigation.js';
 import type { NativeState } from './state.js';
 
 interface CommandConnection {
   generation: number | undefined;
   session: NativeIdentity;
+  isCurrent: () => boolean;
 }
 
 type CommandResult =
@@ -19,10 +21,12 @@ export class NativeCommands {
   private readonly seen = new Set<string>();
   private stopping = false;
   private changingSettings = false;
+  private readonly navigation: NativeNavigation;
 
   constructor(pi: ExtensionAPI, state: NativeState) {
     this.pi = pi;
     this.state = state;
+    this.navigation = new NativeNavigation(pi);
   }
 
   async execute(
@@ -41,6 +45,7 @@ export class NativeCommands {
     let command: BridgeCommand;
     try {
       if (
+        !connection.isCurrent() ||
         connection.generation === undefined ||
         raw.generation !== connection.generation ||
         context.sessionManager.getSessionFile() !== connection.session.file ||
@@ -51,6 +56,12 @@ export class NativeCommands {
       command = bridgeCommand(raw.command);
       if (this.stopping) {
         throw new Error('Native runtime is stopping');
+      }
+      if (this.navigation.busy) {
+        throw new Error('Native tree navigation in progress');
+      }
+      if (command.type === 'navigate_tree') {
+        this.validateNavigation(command, context, connection);
       }
       if (this.changingSettings) {
         throw new Error('Native settings change in progress');
@@ -78,6 +89,19 @@ export class NativeCommands {
       };
     }
 
+    if (command.type === 'navigate_tree') {
+      try {
+        await this.navigation.navigate(command.targetId, (fresh) =>
+          this.validateNavigation(command, fresh, connection),
+        );
+      } catch (error) {
+        if (!(error instanceof AppError)) {
+          throw error;
+        }
+        return { id, outcome: 'rejected', error: error.message };
+      }
+      return { id, outcome: 'acknowledged', sync: true };
+    }
     if (command.type === 'extension') {
       try {
         if (!this.state.extensions) {
@@ -150,5 +174,31 @@ export class NativeCommands {
       }
     }
     return { id, outcome: 'acknowledged' };
+  }
+
+  private validateNavigation(
+    command: Extract<BridgeCommand, { type: 'navigate_tree' }>,
+    context: ExtensionContext,
+    connection: CommandConnection,
+  ): void {
+    if (
+      !connection.isCurrent() ||
+      context.sessionManager.getSessionFile() !== connection.session.file ||
+      context.sessionManager.getSessionId() !== connection.session.id ||
+      context.sessionManager.getLeafId() !== command.expectedLeafId
+    ) {
+      throw new AppError('Native branch changed; refresh before navigating', 409);
+    }
+    if (
+      !context.isIdle() ||
+      this.state.view.compacting ||
+      context.hasPendingMessages() ||
+      this.state.view.notice !== null
+    ) {
+      throw new AppError('Wait until native Pi is idle with no queued messages or dialogs', 422);
+    }
+    if (!context.sessionManager.getEntry(command.targetId)) {
+      throw new AppError('Native branch entry not found; refresh the tree', 404);
+    }
   }
 }

@@ -91,9 +91,11 @@ export class SessionCommands {
         outcome:
           command.type === 'stop_runtime'
             ? 'Shutdown requested. Runtime exit is not yet confirmed.'
-            : command.type === 'extension'
-              ? 'Answer accepted by the native extension.'
-              : `${disposition ? String(disposition) : String(result.outcome)}. Not necessarily finished.`,
+            : command.type === 'navigate_tree'
+              ? 'Native branch switched.'
+              : command.type === 'extension'
+                ? 'Answer accepted by the native extension.'
+                : `${disposition ? String(disposition) : String(result.outcome)}. Not necessarily finished.`,
       });
       accepted = true;
     } catch (error) {

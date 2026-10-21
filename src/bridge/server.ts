@@ -297,6 +297,13 @@ export class NativeBridges {
     if (!Number.isFinite(Date.parse(createdAt))) {
       throw new Error('Invalid native creation time');
     }
+    const parentSession =
+      identity.parentSession === undefined
+        ? undefined
+        : text(identity.parentSession, 'parent session path', 4096);
+    if (parentSession !== undefined && !isAbsolute(parentSession)) {
+      throw new Error('Parent session path must be absolute');
+    }
     const id = piInventoryId(file);
     const previous = this.sessions.get(id);
     if (previous && (previous.socket || previous.session.piSessionId !== piSessionId)) {
@@ -317,6 +324,7 @@ export class NativeBridges {
         createdAt,
         updatedAt: new Date().toISOString(),
         piSessionId,
+        ...(parentSession ? { parentSession } : {}),
         connection: 'connected',
         generation: (previous?.session.generation ?? 0) + 1,
       },

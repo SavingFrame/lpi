@@ -2,6 +2,12 @@ import { record } from '../../src/shared/client-state.ts';
 import type { BridgeCommand } from '../../src/shared/commands.ts';
 import { readState, type SessionReadState } from '../../src/shared/session-read-state.ts';
 import {
+  type BranchPreview,
+  branchPreview,
+  type SessionTree,
+  sessionTree,
+} from '../../src/shared/session-tree.ts';
+import {
   type InventorySession,
   inventorySession,
   type Project,
@@ -85,6 +91,34 @@ export async function sessions(): Promise<InventorySession[]> {
 
 export async function inspect(id: string, signal: AbortSignal): Promise<Snapshot> {
   return snapshot(await request(`/sessions/${encodeURIComponent(id)}/snapshot`, undefined, signal));
+}
+
+export async function tree(id: string, signal: AbortSignal): Promise<SessionTree> {
+  const result = sessionTree(
+    await request(`/sessions/${encodeURIComponent(id)}/tree`, undefined, signal),
+  );
+  if (result.sessionId !== id) {
+    throw new Error('Tree session mismatch');
+  }
+  return result;
+}
+
+export async function previewBranch(
+  id: string,
+  entryId: string,
+  signal: AbortSignal,
+): Promise<BranchPreview> {
+  const result = branchPreview(
+    await request(
+      `/sessions/${encodeURIComponent(id)}/branch?entryId=${encodeURIComponent(entryId)}`,
+      undefined,
+      signal,
+    ),
+  );
+  if (result.sessionId !== id || result.entryId !== entryId) {
+    throw new Error('Branch preview mismatch');
+  }
+  return result;
 }
 
 export async function launch(projectId: string, resumeId?: string): Promise<Session> {

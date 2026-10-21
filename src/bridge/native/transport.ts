@@ -185,7 +185,11 @@ export class NativeTransport {
             throw new Error('Unsupported bridge message');
           }
           const generation = this.generation;
-          const result = await this.commands.execute(raw, { generation, session });
+          const result = await this.commands.execute(raw, {
+            generation,
+            session,
+            isCurrent: () => this.socket === current && this.generation === generation,
+          });
           // Async verdicts and settings changes must never acknowledge a new connection.
           if (this.socket !== current || this.generation !== generation) {
             return;

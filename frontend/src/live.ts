@@ -30,9 +30,9 @@ export class LiveSession {
   private version = 0;
   private buffer: ServerEvent[] | null = null;
   private bytes = 0;
-  private readonly invalidate: () => void;
+  private readonly invalidate: (refreshTrees?: boolean, sessionId?: string) => void;
 
-  constructor(invalidate: () => void) {
+  constructor(invalidate: (refreshTrees?: boolean, sessionId?: string) => void) {
     this.invalidate = invalidate;
   }
 
@@ -79,7 +79,7 @@ export class LiveSession {
           this.epoch = raw.epoch;
           this.cursor = raw.cursor;
           this.attempt = 0;
-          this.invalidate();
+          this.invalidate(true);
           this.refresh();
           return;
         }
@@ -106,7 +106,12 @@ export class LiveSession {
               'extension_support',
             ].includes(String(record(item.data).type)))
         ) {
-          this.invalidate();
+          this.invalidate(
+            item.type === 'connection' ||
+              item.type === 'bridge-sync' ||
+              (item.type === 'pi-event' && record(item.data).type === 'agent_settled'),
+            item.sessionId,
+          );
         }
         if (item.sessionId !== this.id) {
           return;
