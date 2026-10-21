@@ -79,7 +79,9 @@ export function createApi(
         send(response, 200, { sessions: sessions.list() });
         return;
       }
-      const match = /^\/sessions\/([a-f0-9-]{36})(?:\/(commands|snapshot|resume))?$/.exec(path);
+      const match = /^\/sessions\/([a-f0-9-]{36})(?:\/(commands|snapshot|resume|viewed))?$/.exec(
+        path,
+      );
       if (request.method === 'GET' && match?.[2] === 'snapshot') {
         send(response, 200, sessions.snapshot(String(match[1])));
         return;
@@ -90,7 +92,11 @@ export function createApi(
       }
       const creating = path === '/sessions';
       const resuming = match?.[2] === 'resume';
-      if (request.method !== 'POST' || (!creating && !resuming && match?.[2] !== 'commands')) {
+      const viewing = match?.[2] === 'viewed';
+      if (
+        request.method !== 'POST' ||
+        (!creating && !resuming && !viewing && match?.[2] !== 'commands')
+      ) {
         throw new AppError('Route not found', 404);
       }
       if (inFlight >= 128) {
@@ -111,6 +117,15 @@ export function createApi(
         throw new AppError('Request ID capacity reached; restart the relay', 503);
       }
       usedRequests.add(requestId);
+      if (viewing) {
+        const completionId = text(raw.completionId, 'completion ID', 128);
+        if (!/^[a-f0-9-]{36}$/.test(completionId)) {
+          throw new AppError('Invalid completion ID', 400);
+        }
+        const readState = sessions.markViewed(String(match?.[1]), completionId);
+        send(response, 200, { requestId, outcome: 'acknowledged', data: { readState } });
+        return;
+      }
       if (creating || resuming) {
         const id = resuming ? String(match?.[1]) : undefined;
         const projectId = id ? sessions.get(id).projectId : text(raw.projectId, 'project ID', 128);
@@ -142,6 +157,7 @@ export function createApi(
     }
   }
 
+  server.once('close', () => sessions.close());
   server.requestTimeout = 15_000;
   server.headersTimeout = 10_000;
   server.maxConnections = 256;

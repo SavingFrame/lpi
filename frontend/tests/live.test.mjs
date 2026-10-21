@@ -11,9 +11,11 @@ import { sessionActivity } from '../../src/session-activity.ts';
 import { sessionControls } from '../../src/session-controls.ts';
 import {
   ApiError,
+  markViewed,
   operate,
   snapshot as parseSnapshot,
   projects,
+  readState,
   session,
   sessions,
 } from '../src/api.ts';
@@ -38,6 +40,7 @@ function boundary(cursor = 0, sessionId = id, epoch = 'server-one') {
       connection: 'connected',
       generation: 3,
     },
+    readState: { completionId: null, viewedCompletionId: null },
     state: { isStreaming: false, hasPendingMessages: false },
     controls: {
       availableModels: [{ provider: 'fake', id: 'first', name: 'First' }],
@@ -147,25 +150,26 @@ test('session validation requires native identity and valid connection metadata'
   assert.throws(() => session({ ...native, generation: -1 }));
 });
 
-test('activity distinguishes observed completion, work, dialogs and unknown connections', () => {
+test('activity describes current work independently of completion notifications', () => {
   const view = emptyView();
-  assert.equal(sessionActivity(true, {}, view, false), 'idle');
-  assert.equal(sessionActivity(true, {}, view, true), 'finished');
-  assert.equal(sessionActivity(true, {}, { ...view, running: true }, true), 'running');
-  assert.equal(sessionActivity(true, {}, { ...view, compacting: true }, true), 'running');
-  assert.equal(sessionActivity(true, { isStreaming: true }, view, false), 'running');
-  assert.equal(sessionActivity(true, { hasPendingMessages: true }, view, true), 'idle');
+  assert.equal(sessionActivity(true, {}, view), 'idle');
+  assert.equal(sessionActivity(true, {}, { ...view, running: true }), 'running');
+  assert.equal(sessionActivity(true, {}, { ...view, compacting: true }), 'running');
+  assert.equal(sessionActivity(true, { isStreaming: true }, view), 'running');
+  assert.equal(sessionActivity(true, { hasPendingMessages: true }, view), 'idle');
   assert.equal(
-    sessionActivity(true, { pendingDialog: 'Confirm?' }, { ...view, running: true }, false),
+    sessionActivity(true, { pendingDialog: 'Confirm?' }, { ...view, running: true }),
     'blocked',
   );
-  assert.equal(sessionActivity(false, { pendingDialog: 'Confirm?' }, view, true), 'unknown');
+  assert.equal(sessionActivity(false, { pendingDialog: 'Confirm?' }, view), 'unknown');
 });
 
 test('session inventory validates activity values', async (t) => {
   let activity = 'running';
   t.mock.method(globalThis, 'fetch', async () =>
-    Response.json({ sessions: [{ ...boundary().session, activity }] }),
+    Response.json({
+      sessions: [{ ...boundary().session, activity, readState: boundary().readState }],
+    }),
   );
   assert.equal((await sessions())[0].activity, 'running');
   activity = 'invalid';
@@ -671,7 +675,7 @@ test('Ask browser state applies open and close events without reloading the conv
   assert.equal(current.view.extensions['ask-user-question'].length, 2);
   assert.equal(current.view.messages, previous.messages);
   assert.equal(current.view.partial, previous.partial);
-  assert.equal(sessionActivity(true, current.state, current.view, false), 'blocked');
+  assert.equal(sessionActivity(true, current.state, current.view), 'blocked');
   assert.equal(requests.length, 1);
   send(2, {
     type: 'extension_support',
@@ -746,4 +750,62 @@ test('Ask answers use the existing correlated, generation-checked command endpoi
   });
   await assert.rejects(operate(id, 3, command), (error) => error.outcome === 'unknown');
   assert.equal(calls, 1);
+});
+
+test('read-state broadcasts update selected metadata and invalidate other sessions without fetching history', async (t) => {
+  const { live, requests, sockets, invalidations } = setup(t);
+  const native = boundary();
+  const completionId = '33333333-3333-3333-3333-333333333333';
+  native.readState = { completionId, viewedCompletionId: null };
+  requests[0].resolve(Response.json(native));
+  await setImmediate();
+  const previous = live.getState().snapshot.view;
+  const initial = invalidations();
+  for (const [index, sessionId] of [id, otherId].entries()) {
+    sockets[0].send({
+      epoch: 'server-one',
+      cursor: index + 1,
+      sessionId,
+      generation: 3,
+      type: 'read-state',
+      data: { completionId, viewedCompletionId: completionId },
+    });
+  }
+  assert.deepEqual(live.getState().snapshot.readState, {
+    completionId,
+    viewedCompletionId: completionId,
+  });
+  assert.equal(live.getState().snapshot.view, previous);
+  assert.equal(invalidations(), initial + 2);
+  assert.equal(requests.length, 1);
+});
+
+test('read-state validation rejects missing or malformed metadata', () => {
+  for (const invalid of [
+    {},
+    { completionId: 12, viewedCompletionId: null },
+    { completionId: null, viewedCompletionId: 'bad' },
+  ]) {
+    assert.throws(() => readState(invalid), /Invalid session read state/);
+    assert.throws(() => parseSnapshot({ ...boundary(), readState: invalid }));
+  }
+});
+
+test('mark viewed sends the loaded completion ID, independent of connection generation', async (t) => {
+  const completionId = '33333333-3333-3333-3333-333333333333';
+  t.mock.method(globalThis, 'fetch', async (path, options) => {
+    const body = JSON.parse(options.body);
+    assert.equal(path, `/sessions/${id}/viewed`);
+    assert.equal(body.completionId, completionId);
+    assert.equal(body.generation, undefined);
+    return Response.json({
+      requestId: body.requestId,
+      outcome: 'acknowledged',
+      data: { readState: { completionId, viewedCompletionId: completionId } },
+    });
+  });
+  assert.deepEqual(await markViewed(id, completionId), {
+    completionId,
+    viewedCompletionId: completionId,
+  });
 });

@@ -5,49 +5,23 @@ import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } fr
 import type { ImageAttachment } from '../../src/attachments';
 import { record } from '../../src/client-state';
 import { ExtensionPanels } from '../../src/extension-support/web';
-import type { SessionActivity } from '../../src/session-activity';
 import { ApiError, operate, projects, sessions } from './api';
 import { chatScroll } from './chat-scroll';
 import { live, queryClient } from './client';
-import { Badge } from './components/ui/badge';
 import { Button } from './components/ui/button';
 import { Textarea } from './components/ui/textarea';
 import { ImageAttachments } from './image-attachments';
 import { LaunchSession } from './launch-session';
+import { ReadCompletion } from './read-completion';
 import { SessionSettings } from './session-controls';
+import { SessionSidebar } from './session-sidebar';
 import { Transcript } from './transcript';
-
-const activityStyles: Record<SessionActivity, { color: string; description: string }> = {
-  running: { color: 'text-sky-300 border-sky-900', description: 'Pi is working or compacting.' },
-  blocked: {
-    color: 'text-amber-300 border-amber-900',
-    description: 'Pi needs input. Supported extension questions can be answered in the browser.',
-  },
-  idle: { color: 'text-zinc-400 border-zinc-700', description: 'Connected, waiting for work.' },
-  finished: {
-    color: 'text-emerald-300 border-emerald-900',
-    description: 'The latest observed run ended. Task success is not guaranteed.',
-  },
-  unknown: {
-    color: 'text-zinc-500 border-zinc-800',
-    description: 'Live activity is unavailable. Pi may still be running.',
-  },
-};
 
 export function Shell() {
   const { projectId, sessionId } = useParams({ strict: false });
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
   const sessionQuery = useQuery({ queryKey: ['sessions'], queryFn: sessions });
   const connection = useSyncExternalStore(live.subscribe, live.getState);
-  const [showAll, setShowAll] = useState(false);
-  const sortedSessions = [...(sessionQuery.data ?? [])].sort(
-    (a, b) => Date.parse(b.updatedAt ?? b.createdAt) - Date.parse(a.updatedAt ?? a.createdAt),
-  );
-  const visibleSessions = showAll ? sortedSessions : sortedSessions.slice(0, 15);
-  const selectedSession = sortedSessions.find((session) => session.id === sessionId);
-  if (selectedSession && !visibleSessions.some((session) => session.id === sessionId)) {
-    visibleSessions.push(selectedSession);
-  }
   useEffect(() => {
     live.connect();
     return live.disconnect;
@@ -76,58 +50,15 @@ export function Shell() {
           </p>
         )}
         <LaunchSession />
-        <nav aria-label="Recent sessions">
-          <h2 className="eyebrow">Recent sessions</h2>
+        <nav aria-label="Sessions by project">
+          <h2 className="eyebrow">Projects</h2>
           {sessionQuery.isPending && <p className="muted">Loading sessions…</p>}
-          {sessionQuery.data?.length === 0 && <p className="muted">No sessions found.</p>}
-          {visibleSessions.map((session) => {
-            const project = projectQuery.data?.find((project) => project.id === session.projectId);
-            const title = session.title || 'Untitled session';
-            const updatedAt = session.updatedAt ?? session.createdAt;
-            const activity =
-              connection.status === 'offline' || connection.status === 'connecting'
-                ? 'unknown'
-                : session.activity;
-            const status = activityStyles[activity];
-            return (
-              <Link
-                className={`session-link ${sessionId === session.id ? 'selected' : ''}`}
-                to="/app/projects/$projectId/sessions/$sessionId"
-                params={{ projectId: session.projectId, sessionId: session.id }}
-                key={session.id}
-                title={title}
-                aria-current={sessionId === session.id ? 'page' : undefined}
-              >
-                <span>{title}</span>
-                <small>
-                  {project?.name ?? 'Project'} ·{' '}
-                  <Badge
-                    variant="outline"
-                    className={`gap-1 px-1.5 py-0 text-[10px] font-normal ${status.color}`}
-                    title={status.description}
-                  >
-                    <span className="size-1.5 rounded-full bg-current" aria-hidden="true" />
-                    {activity}
-                  </Badge>
-                  {session.connection === 'disconnected' && <span>read-only</span>}
-                </small>
-                <small>
-                  <time dateTime={updatedAt}>{new Date(updatedAt).toLocaleString()}</time>
-                </small>
-              </Link>
-            );
-          })}
-          {sortedSessions.length > 15 && (
-            <Button
-              type="button"
-              variant="ghost"
-              size="sm"
-              className="mt-2 w-full"
-              onClick={() => setShowAll(!showAll)}
-            >
-              {showAll ? 'Show recent only' : 'Show older sessions'}
-            </Button>
-          )}
+          <SessionSidebar
+            projects={projectQuery.data ?? []}
+            sessions={sessionQuery.data ?? []}
+            selectedId={sessionId}
+            online={connection.status === 'ready' || connection.status === 'syncing'}
+          />
         </nav>
         <footer className="flex items-center gap-2">
           <Folder size={13} aria-hidden="true" />
@@ -366,6 +297,7 @@ function SessionPane({ id, projectId }: { id: string; projectId: string }) {
         </div>
       )}
       {snapshot && <Transcript view={snapshot.view} />}
+      <ReadCompletion snapshot={snapshot} enabled={connection.status === 'ready' && following} />
       {snapshot && (
         <ExtensionPanels
           key={`${snapshot.session.id}:${snapshot.session.generation}`}

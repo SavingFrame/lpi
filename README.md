@@ -32,11 +32,21 @@ Start Pim, then load the compiled extension in normal interactive Pi:
 pi --extension /absolute/path/to/pim/dist/bridge/extension.js --resume
 ```
 
-Adapt the path to your checkout. Loading the extension connects automatically to `ws://127.0.0.1:3141/bridge`. Set `PIM_BRIDGE_URL` to use another endpoint. The sidebar shows live activity for every session: **running**, **blocked** (Pi needs input), **idle**, or **finished**. Finished means the latest run was observed ending during the current bridge connection, not that the task succeeded. Disconnected sessions show **unknown** activity and remain read-only because Pi may still be running.
+Adapt the path to your checkout. Loading the extension connects automatically to `ws://127.0.0.1:3141/bridge`. Set `PIM_BRIDGE_URL` to use another endpoint. The sidebar shows current activity: **running**, **blocked** (Pi needs input), or **idle**. Turn-completion notifications are separate from activity and do not imply task success. Disconnected sessions use a muted lock and **Saved** label instead of a live activity badge. They remain read-only because Pi may still be running.
+
+The sidebar groups sessions into collapsible projects, ordered by recent activity, with stable folder colors and a **+** button to create a session in each project. Project headers summarize needs-input, running, and unviewed turns. Blue accents mark running sessions, amber marks input requests, and bright green checkmarks mark unviewed turns. Viewed completions retain a muted green checkmark when idle. Selection has a separate outline. Older sessions expand per project; running, waiting, unviewed completions, and the selected session stay visible within expanded project groups.
 
 The browser receives current-branch history, assistant partials, tool activity, runtime metadata, and queued-message presence. Prompt, steer, follow-up, and abort run in that same native Pi process. Attach photos/screenshots using the image picker, clipboard paste, or drag-and-drop (PNG, JPEG, GIF, WebP; up to 4 images and 4 MiB total). Image-only messages are supported; the selected model must support images. A searchable model input and colored thinking slider control connected native Pi when idle with no queued messages or dialogs. The model picker groups Pi scoped models (`enabledModels` / `--models`) first, while keeping all available models selectable. Available models come from Pi's authenticated registry. Thinking options come from `pi-ai` model capabilities, including `max` where supported. Pi remains responsible for applying and clamping changes. Queue editing and unsupported dialog answers remain terminal-only.
 
 `/pim-disconnect` stops the relay connection without stopping Pi. Closing the browser or Pim does not stop the agent. Closing Pi does.
+
+## Shared read status
+
+Pim stores relay-owned data in SQLite at `~/.local/state/pim/pim.sqlite`. Currently this contains completion/read metadata. Set `PIM_STATE_DIR` to override the directory. This uses Node's built-in `node:sqlite` (experimental on Node 22), with no additional database dependency. Pi's conversation JSONL is never modified.
+
+Each observed `agent_settled` event receives a durable opaque completion ID. The database tracks the latest completion and last-viewed completion per session, shared across browser and future mobile clients without accounts. The browser marks only the completion loaded in its transcript viewed, while the tab is visible and following the bottom. Read changes broadcast to connected clients. A stale acknowledgment cannot clear a newer completion.
+
+Read status survives relay restarts and native reconnects. Existing saved history starts without unread notifications. Turns ending while Pim is disconnected are not reconstructed from JSONL. These are session-level turn-ended notifications, not task-success or branch-specific read receipts.
 
 ## Extension support
 
@@ -56,7 +66,7 @@ support module. Real native-Pi integration remains unverified.
 
 ## Create or resume from the browser
 
-Choose a project in the sidebar and click **New session**. For saved history, open the session and click **Resume session**. Pim starts the pinned native Pi CLI in a detached tmux session, then waits for its bridge to register. The bridge must already be enabled through Pi’s global extension configuration. Pim does not pass `--extension`, avoiding duplicate loading. The explicit command above is only for instances without the bridge globally configured. Project-trust prompts and other startup dialogs must be answered in the terminal.
+Click **+** beside a project, or choose a project in the sidebar and click **New session**. For saved history, open the session and click **Resume session**. Pim starts the pinned native Pi CLI in a detached tmux session, then waits for its bridge to register. The bridge must already be enabled through Pi’s global extension configuration. Pim does not pass `--extension`, avoiding duplicate loading. The explicit command above is only for instances without the bridge globally configured. Project-trust prompts and other startup dialogs must be answered in the terminal.
 
 All managed runtimes use the dedicated `pim` socket, separate from your regular tmux server:
 

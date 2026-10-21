@@ -2,7 +2,7 @@ import { EVENT_BUFFER_LIMIT } from '../../src/attachments.ts';
 import { record, reduceEvent } from '../../src/client-state.ts';
 import type { ServerEvent } from '../../src/events.ts';
 import { sessionControls } from '../../src/session-controls.ts';
-import { inspect, type Snapshot } from './api.ts';
+import { inspect, readState, type Snapshot } from './api.ts';
 
 export interface LiveState {
   status: 'connecting' | 'syncing' | 'ready' | 'offline';
@@ -90,7 +90,7 @@ export class LiveSession {
         const item = raw as unknown as ServerEvent;
         this.cursor = item.cursor;
         if (
-          ['connection', 'bridge-status', 'bridge-sync'].includes(item.type) ||
+          ['connection', 'bridge-status', 'bridge-sync', 'read-state'].includes(item.type) ||
           (item.type === 'pi-event' &&
             [
               'agent_start',
@@ -220,6 +220,13 @@ export class LiveSession {
       event.type === 'bridge-sync'
     ) {
       this.refresh();
+      return;
+    }
+    if (event.type === 'read-state') {
+      this.update({
+        ...this.current,
+        snapshot: { ...snapshot, cursor: event.cursor, readState: readState(event.data) },
+      });
       return;
     }
     if (event.type === 'bridge-status') {

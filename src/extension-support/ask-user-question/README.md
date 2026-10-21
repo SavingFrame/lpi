@@ -18,6 +18,13 @@ Pim dependency or API key is required.
   disabled. If preview content is unavailable, the browser says to inspect the terminal.
 - Submit all answers together or explicitly decline the questionnaire.
 - Multiple questionnaires tracked independently by tool-call ID.
+- Completed questionnaires stay in a read-only form layout directly in the transcript.
+  All available choices remain visible in their original order, with selected radios or
+  checkboxes marked at normal contrast. Custom answers and provided notes remain visible;
+  there are no submit/cancel actions. Previews and raw tool data remain available. Skipped
+  questions, cancellation, and errors are explicit. This reads native persisted results,
+  including terminal answers; missing or unsupported result details fall back to the
+  normal tool display.
 - Native UI remains usable. The extension owns validation and first-answer-wins behavior;
   a later browser submission is rejected, not applied to a different question.
 

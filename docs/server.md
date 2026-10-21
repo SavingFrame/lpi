@@ -12,6 +12,8 @@ Pim discovers saved sessions and routes browser commands into connected native P
 
 Roots are not a filesystem sandbox. Project trust and agent configuration belong to native Pi.
 
+`PIM_STATE_DIR` selects the relay data directory, default `~/.local/state/pim`. The relay creates `pim.sqlite` there using Node's built-in `node:sqlite` (experimental on Node 22). SQLite currently stores session completion/read markers. It is reserved for relay-owned data, never Pi messages or runtime ownership. Read markers are shared across all trusted clients; there are no per-user accounts.
+
 ## REST
 
 | Method | Path | Operation |
@@ -23,6 +25,7 @@ Roots are not a filesystem sandbox. Project trust and agent configuration belong
 | POST | /sessions/:id/commands | Forward a command to a connected native Pi instance |
 | POST | /sessions | Launch a fresh native Pi in a configured project |
 | POST | /sessions/:id/resume | Resume saved history in native Pi |
+| POST | /sessions/:id/viewed | Acknowledge the specific completion viewed by a client |
 
 Create accepts `{ requestId, projectId }`. Resume accepts `{ requestId, confirmedOffline: true }`; the project comes from the saved record. Both return `{ requestId, outcome: "acknowledged", data: { session } }` after correlated bridge registration. They do not use connection generations. Launch checks are serialized, bounded to 32 managed tmux sessions, and wait up to 20 seconds for registration. Timeouts and lost subprocess results are unknown outcomes, never automatically replayed.
 
@@ -30,7 +33,11 @@ The dedicated `tmux -L pim` socket hosts one session per runtime, using the pinn
 
 Session records contain `id`, `projectId`, `directory`, `file`, `createdAt`, `piSessionId`, `connection`, and `generation`. Pim IDs derive from canonical file paths, so copied files with identical Pi IDs remain distinct. Connection is `connected` or `disconnected`, not a statement about process liveness or ownership.
 
-POST bodies require JSON content type, a unique request ID, and the current connection generation:
+Inventory records also include `activity` (`idle`, `running`, `blocked`, or `unknown`) and `readState: { completionId, viewedCompletionId }`, with nullable opaque IDs. A non-null completion different from the viewed ID is unread, independently of activity or connectivity. Each observed `agent_settled` creates a new UUID persisted in SQLite. Existing saved history has null markers; settlements missed while disconnected are not reconstructed. Notifications are session-level, not branch-specific or proof of task success.
+
+Viewed accepts `{ requestId, completionId }` without a connection generation, including for saved/disconnected sessions. It returns `{ requestId, outcome: "acknowledged", data: { readState } }`. Only an ID matching the current latest completion is marked viewed. Older acknowledgments are successful no-ops and cannot regress viewed state. Repeating the same acknowledgment with a fresh request ID is safe. A `read-state` event broadcasts the resulting metadata.
+
+Command POST bodies require JSON content type, a unique request ID, and the current connection generation:
 
 ```json
 {
@@ -50,7 +57,7 @@ Lost responses, timeouts, or connection failures may have unknown outcomes. Neve
 
 ## Snapshots
 
-Snapshots contain `{ epoch, cursor, session, state, controls, view }`.
+Snapshots contain `{ epoch, cursor, session, readState, state, controls, view }`. `readState` is the same durable metadata exposed in inventory; clients should acknowledge the completion from their loaded snapshot, not a newer inventory record.
 
 - `state`: runtime metadata or read-only file status.
 - `controls`: current model, `availableModels` (provider/id/name from the authenticated native registry), `scopedModels` (provider/id/name from `ctx.scopedModels`, not a separate favorites store), effective thinking level, `availableThinkingLevels` (from `pi-ai` capabilities for the current native model), and context usage. Disconnected saved-file snapshots have no available models.
@@ -74,6 +81,7 @@ Subsequent events contain `epoch`, `cursor`, `sessionId`, `generation`, `type`, 
 - `pi-event`: supported native agent/message/tool events and Pim `extension_support` notifications. A support notification carries `{ extensions, notice }`, replaces validated module state, and updates the waiting notice without reloading history.
 - `bridge-sync`: refreshed branch/activity snapshot.
 - `bridge-status`: changed runtime metadata.
+- `read-state`: shared completion/read metadata after a viewed acknowledgment. Refresh inventory and apply it to the selected snapshot without replacing history. Settlement events refresh inventory; native final branch sync refreshes the selected snapshot and its latest completion ID.
 
 Subscribe first, buffer events while loading the snapshot, discard events at or before its cursor, then apply newer events. Cursors are global; epochs distinguish server restarts. Gaps, epoch mismatches, connection changes, synchronization events, and settlement require fresh inspection.
 

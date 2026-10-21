@@ -1,9 +1,11 @@
 import type { NativeBridges } from './bridge/server.js';
-import { emptyView, message } from './client-state.js';
+import { emptyView, message, record } from './client-state.js';
 import { AppError } from './errors.js';
 import type { Events } from './events.js';
 import type { SessionActivity } from './session-activity.js';
+import type { SessionReadState } from './session-read-state.js';
 import { inspectSavedSession, type SessionDiscovery } from './storage/discovery.js';
+import type { SessionReadStore } from './storage/read-state.js';
 
 export interface Session {
   id: string;
@@ -49,13 +51,39 @@ export class Sessions {
   private readonly bridges: NativeBridges;
   private readonly events: Events;
 
-  constructor(discovery: SessionDiscovery, bridges: NativeBridges, events: Events) {
+  private readonly readStates: SessionReadStore;
+  private readonly unsubscribe: () => void;
+
+  constructor(
+    discovery: SessionDiscovery,
+    bridges: NativeBridges,
+    events: Events,
+    readStates: SessionReadStore,
+  ) {
     this.discovery = discovery;
     this.bridges = bridges;
     this.events = events;
+    this.readStates = readStates;
+    this.unsubscribe = events.subscribe((event) => {
+      if (event.type === 'pi-event' && record(event.data).type === 'agent_settled') {
+        this.readStates.complete(event.sessionId);
+      }
+    });
   }
 
-  list(): (Session & { activity: SessionActivity })[] {
+  close(): void {
+    this.unsubscribe();
+    this.readStates.close();
+  }
+
+  markViewed(id: string, completionId: string): SessionReadState {
+    const session = this.get(id);
+    const readState = this.readStates.markViewed(id, completionId);
+    this.events.publish(id, session.generation, 'read-state', readState);
+    return readState;
+  }
+
+  list(): (Session & { activity: SessionActivity; readState: SessionReadState })[] {
     const native = this.bridges.list();
     const ids = new Set(native.map((session) => session.id));
     const visibleNative = native.filter(
@@ -69,7 +97,7 @@ export class Sessions {
         .filter((session) => !ids.has(session.id))
         .map((session) => ({ ...session, activity: 'unknown' as const })),
       ...visibleNative,
-    ];
+    ].map((session) => ({ ...session, readState: this.readStates.get(session.id) }));
   }
 
   get(id: string): Session {
@@ -86,14 +114,16 @@ export class Sessions {
 
   snapshot(id: string) {
     const native = this.bridges.snapshot(id);
+    const readState = this.readStates.get(id);
     if (native) {
-      return { ...this.events.checkpoint(), session: this.get(id), ...native };
+      return { ...this.events.checkpoint(), session: this.get(id), readState, ...native };
     }
     const session = this.get(id);
     const inspected = this.discovery.inspect(id);
     return {
       ...this.events.checkpoint(),
       session,
+      readState,
       state: { sessionName: inspected.name, readOnly: true, bridgeConnected: false },
       controls: {
         availableModels: [],

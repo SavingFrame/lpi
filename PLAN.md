@@ -27,7 +27,8 @@ There is no RPC runtime, writable managed catalog, ownership coordinator, parkin
 - Searchable browser model picker with Pi scoped-model grouping and a colored, supported-level thinking slider through public Pi APIs, gated on idle state with no queued messages or dialogs. Model availability comes from the native registry; thinking options come from `pi-ai` model capabilities, including model-specific mappings and `max`. Pi applies and clamps changes.
 - Browser prompt, steering, follow-up, and abort routed into the connected native Pi runtime, including image attachments from file selection, paste, or drag-and-drop.
 - One React/Vite browser client with snapshot/event reconnect synchronization. Live status metadata and lifecycle events update locally; HTTP snapshots remain for initial load, reconnects, generation changes, and explicit branch syncs.
-- Live sidebar activity for all sessions: running, blocked on a native dialog, idle, finished after an observed run ends, or unknown when disconnected. Completion is connection-local and does not imply task success.
+- Project-grouped, collapsible sidebar with per-project session creation, stable folder colors, relative timestamps, project activity counts, and distinct running/input/completion accents. Selection is visually separate from activity. Live activity is running, blocked on a native dialog, idle, or unavailable when disconnected (shown as a saved/read-only session). Turn-ended notifications are separate from runtime activity and do not imply task success.
+- Shared, durable session-level completion/read metadata in a separate SQLite database (`PIM_STATE_DIR` or `~/.local/state/pim/pim.sqlite`), using built-in `node:sqlite`. Observed settlement creates an opaque completion ID; conditional viewed acknowledgments cannot clear a newer completion. Read changes broadcast to all clients. Browser acknowledgment requires a loaded transcript, visible tab, and following the bottom. Restarts/reconnects preserve read status; historical/offline settlements are not inferred from saved JSONL.
 - Explicit per-extension support modules with separate shared/native/browser registrations. Ask User Question (`@juicesharp/rpiv-ask-user-question`, public contract inspected at 2.13.9) supports browser selections, custom text, notes, previews, and cancellation through public events, preserving native UI. Pending questions survive transport reconnects; answers require authoritative verdicts and are never automatically replayed. Coverage uses fake native contexts and mocked browser transport; real native-Pi integration remains unverified.
 - Connection generations, request correlation, bounded delivery, and unknown mutation outcomes without automatic replay.
 - Deterministic tests using temporary files, fake public Pi contexts, local transports, and mocked browser transport. No model calls.
@@ -36,7 +37,7 @@ Real native Pi with the installed extension set remains unverified.
 
 ## Core constraints
 
-- Native Pi is the only agent runtime and session-file writer. Pim reads history, never writes conversations.
+- Native Pi is the only agent runtime and session-file writer. Pim reads history, never writes conversations. Its SQLite database stores relay-owned data, currently completion/read metadata, not Pi conversation history.
 - Saved files and live connections are different things. A disconnected instance may still be executing.
 - Server or browser disconnects do not stop Pi.
 - Connection generations reject stale commands; they are not runtime ownership claims or filesystem locks.

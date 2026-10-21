@@ -22,6 +22,7 @@ import {
 } from '../dist/extension-support/ask-user-question/contract.js';
 import { Sessions } from '../dist/sessions.js';
 import { SessionDiscovery } from '../dist/storage/discovery.js';
+import { SessionReadStore } from '../dist/storage/read-state.js';
 import {
   answer as askAnswer,
   prompt as askPrompt,
@@ -62,7 +63,7 @@ async function setup(t, timeout = 1000) {
   const events = new Events();
   const discovery = new SessionDiscovery([sessions], config.projects);
   const bridges = new NativeBridges(config, events, timeout);
-  const inventory = new Sessions(discovery, bridges, events);
+  const inventory = new Sessions(discovery, bridges, events, new SessionReadStore(':memory:'));
   const api = createApi(config, inventory, bridges);
   const closeSockets = attachWebSockets(api, config, events, bridges);
   api.listen(0, '127.0.0.1');
@@ -661,7 +662,7 @@ test('empty native sessions stay visible while live but disappear after disconne
   );
 });
 
-test('inventory reports live activity and never infers completion after disconnect or reconnect', async (t) => {
+test('inventory separates live activity from durable unread completions across reconnects', async (t) => {
   const { open, bridges, inventory, events, snapshot } = await setup(t);
   assert.equal(inventory.list()[0].activity, 'unknown');
   const { socket, attached } = await open();
@@ -682,16 +683,29 @@ test('inventory reports live activity and never infers completion after disconne
   assert.equal(activity(), 'blocked');
   await send({ type: 'status', state: snapshot.state, controls: snapshot.controls });
   await send({ type: 'event', event: { type: 'agent_settled' } });
-  assert.equal(activity(), 'finished');
+  assert.equal(activity(), 'idle');
+  const firstCompletion = inventory.snapshot(attached.sessionId).readState.completionId;
+  assert.equal(typeof firstCompletion, 'string');
+  assert.equal(inventory.list()[0].readState.viewedCompletionId, null);
   await send({ type: 'event', event: { type: 'agent_start' } });
   assert.equal(activity(), 'running');
   await send({ type: 'event', event: { type: 'agent_settled' } });
-  assert.equal(activity(), 'finished');
+  assert.equal(activity(), 'idle');
+  const latest = inventory.snapshot(attached.sessionId).readState;
+  assert.notEqual(latest.completionId, firstCompletion);
+  inventory.markViewed(attached.sessionId, firstCompletion);
+  assert.equal(inventory.snapshot(attached.sessionId).readState.viewedCompletionId, null);
   socket.terminate();
   await waitFor(() => bridges.get(attached.sessionId).connection === 'disconnected');
   assert.equal(activity(), 'unknown');
   const reconnected = await open();
   assert.equal(activity(), 'idle');
+  assert.deepEqual(inventory.snapshot(attached.sessionId).readState, latest);
+  inventory.markViewed(attached.sessionId, latest.completionId);
+  assert.equal(
+    inventory.snapshot(attached.sessionId).readState.viewedCompletionId,
+    latest.completionId,
+  );
   reconnected.socket.terminate();
 });
 

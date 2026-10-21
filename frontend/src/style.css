@@ -73,7 +73,7 @@
 @layer components {
   .shell {
     display: grid;
-    grid-template-columns: 272px minmax(0, 1fr);
+    grid-template-columns: 296px minmax(0, 1fr);
     height: 100dvh;
     overflow: hidden;
   }
@@ -150,10 +150,95 @@
     padding: 0 10px;
     margin-bottom: 12px;
   }
+  .project-group {
+    margin-bottom: 16px;
+  }
+  .project-header {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 4px;
+  }
+  .project-header > div {
+    display: contents;
+  }
+  :where(.project-header) .error {
+    grid-column: 1 / -1;
+  }
+  .project-toggle {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    min-width: 0;
+    padding: 7px 4px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  .project-toggle svg {
+    flex-shrink: 0;
+  }
+  .project-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .project-count {
+    color: var(--muted-foreground);
+    font-size: 10px;
+    font-weight: 400;
+  }
+  .project-chevron {
+    color: var(--muted-foreground);
+  }
+  .project-chevron.closed {
+    transform: rotate(-90deg);
+  }
+  .project-new-session {
+    width: 28px;
+    height: 28px;
+    color: #d4d4d8;
+    border-color: transparent;
+    background: transparent;
+  }
+  .project-status {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 10px;
+    padding: 0 8px 6px 24px;
+    font-size: 10px;
+  }
+  .project-status:empty {
+    display: none;
+  }
+  .project-status > span {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .status-running {
+    color: #93c5fd;
+  }
+  .status-blocked {
+    color: #fcd34d;
+  }
+  .status-unread {
+    color: #6ee7b7;
+  }
+  .project-empty {
+    margin: 4px 0 8px 26px;
+    color: var(--muted-foreground);
+    font-size: 11px;
+  }
+  .show-project-sessions {
+    margin-left: 24px;
+    color: var(--muted-foreground);
+    font-size: 11px;
+  }
   .session-link {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: flex-start;
+    gap: 9px;
     padding: 10px;
     margin-bottom: 3px;
     border: 1px solid transparent;
@@ -170,7 +255,11 @@
     border-color: var(--border);
     color: var(--foreground);
   }
-  .session-link > span {
+  .session-summary {
+    flex: 1;
+    min-width: 0;
+  }
+  .session-title {
     overflow: hidden;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -178,12 +267,76 @@
     overflow-wrap: anywhere;
     font-weight: 500;
   }
+  .session-status-icon {
+    flex-shrink: 0;
+    margin-top: 3px;
+    color: #71717a;
+  }
+  .activity-running .session-status-icon {
+    color: #93c5fd;
+  }
+  .activity-blocked .session-status-icon {
+    color: #fcd34d;
+  }
+  .activity-idle.has-completion .session-status-icon {
+    color: #86b695;
+  }
+  .activity-idle.unread .session-status-icon {
+    color: #6ee7b7;
+  }
+  .session-link.activity-running {
+    box-shadow: inset 3px 0 #60a5fa;
+  }
+  .session-link.activity-blocked {
+    box-shadow: inset 3px 0 #fbbf24;
+    background: #fbbf2409;
+  }
+  .session-link.activity-idle.unread,
+  .session-link.activity-unknown.unread {
+    box-shadow: inset 3px 0 #34d399;
+  }
+  .session-link.unread .session-title {
+    color: #ecfdf5;
+    font-weight: 650;
+  }
+  .session-link.selected {
+    outline: 1px solid #71717a;
+    outline-offset: -1px;
+    background: #303034;
+  }
+  .working-icon {
+    animation: working-spin 2s linear infinite;
+  }
+  @keyframes working-spin {
+    to {
+      transform: rotate(360deg);
+    }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .working-icon {
+      animation: none;
+    }
+  }
   .session-link small {
     display: flex;
+    justify-content: space-between;
     align-items: center;
     gap: 5px;
     font-size: 11px;
     color: var(--muted-foreground);
+  }
+  .session-link .session-status {
+    color: inherit;
+  }
+  .session-link .status-running {
+    color: #93c5fd;
+  }
+  .session-link .status-blocked {
+    color: #fcd34d;
+  }
+  .session-link .completion-notice {
+    justify-content: flex-start;
+    color: #6ee7b7;
   }
   .sidebar footer {
     margin-top: 28px;

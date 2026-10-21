@@ -8,6 +8,7 @@ import { loadConfig } from '../dist/config.js';
 import { Events } from '../dist/events.js';
 import { Sessions } from '../dist/sessions.js';
 import { SessionDiscovery } from '../dist/storage/discovery.js';
+import { SessionReadStore } from '../dist/storage/read-state.js';
 import { fixture } from './helpers.mjs';
 
 const piId = '3b3bc786-0ff4-4ae9-a50e-bda91a3b3dd7';
@@ -155,7 +156,7 @@ test('saved sessions are read-only through HTTP until explicitly resumed', async
   const events = new Events();
   const bridges = new NativeBridges(config, events);
   defer(() => bridges.close());
-  const inventory = new Sessions(discovery, bridges, events);
+  const inventory = new Sessions(discovery, bridges, events, new SessionReadStore(':memory:'));
   const session = discovery.list()[0];
   const api = createApi(config, inventory, bridges);
   await new Promise((resolve) => api.listen(0, '127.0.0.1', resolve));

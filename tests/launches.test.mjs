@@ -7,6 +7,7 @@ import { Events } from '../dist/events.js';
 import { Launches } from '../dist/launches.js';
 import { Sessions } from '../dist/sessions.js';
 import { SessionDiscovery } from '../dist/storage/discovery.js';
+import { SessionReadStore } from '../dist/storage/read-state.js';
 import { fixture } from './helpers.mjs';
 
 const id = '11111111-1111-1111-1111-111111111111';
@@ -153,7 +154,8 @@ test('resume revalidates saved identity and rejects incomplete history before di
   const events = new Events();
   const bridges = new NativeBridges(config, events);
   defer(() => bridges.close());
-  const sessions = new Sessions(discovery, bridges, events);
+  const sessions = new Sessions(discovery, bridges, events, new SessionReadStore(':memory:'));
+  defer(() => sessions.close());
   const savedId = sessions.list()[0].id;
   sessions.validateResume(savedId);
   const calls = [];

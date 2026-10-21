@@ -34,7 +34,6 @@ interface Pending {
 }
 
 interface NativeSession {
-  finished: boolean;
   launchId?: string;
   session: Session;
   socket?: WebSocket;
@@ -237,12 +236,6 @@ export class NativeBridges {
             throw new Error('Native snapshot limit reached');
           }
           native.snapshot = next;
-          if (event.type === 'agent_start') {
-            native.finished = false;
-          }
-          if (event.type === 'agent_settled') {
-            native.finished = true;
-          }
           this.events.publish(native.session.id, native.session.generation, 'pi-event', event);
         } else {
           throw new Error('Unsupported bridge frame');
@@ -324,7 +317,6 @@ export class NativeBridges {
       throw new Error('Native session inventory limit reached');
     }
     const native: NativeSession = {
-      finished: false,
       launchId: raw.launchId === undefined ? undefined : text(raw.launchId, 'launch ID', 128),
       socket,
       pending: new Map(),
@@ -373,7 +365,6 @@ export class NativeBridges {
           native.session.connection === 'connected',
           native.snapshot.state,
           native.snapshot.view,
-          native.finished,
         ),
       })),
     );

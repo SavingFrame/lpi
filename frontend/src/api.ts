@@ -3,12 +3,14 @@ import type { Project } from '../../src/config.ts';
 import { extensionSnapshots } from '../../src/extension-support/registry.ts';
 import type { SessionActivity } from '../../src/session-activity.ts';
 import { type SessionControls, sessionControls } from '../../src/session-controls.ts';
+import type { SessionReadState } from '../../src/session-read-state.ts';
 import type { Session } from '../../src/sessions.ts';
 
 export interface Snapshot {
   epoch: string;
   cursor: number;
   session: Session;
+  readState: SessionReadState;
   state: Record<string, unknown>;
   controls: SessionControls;
   view: View;
@@ -45,6 +47,19 @@ export function session(value: unknown): Session {
   return raw as unknown as Session;
 }
 
+export function readState(value: unknown): SessionReadState {
+  const raw = record(value);
+  for (const id of [raw.completionId, raw.viewedCompletionId]) {
+    if (id !== null && (typeof id !== 'string' || !/^[a-f0-9-]{36}$/.test(id))) {
+      throw new Error('Invalid session read state');
+    }
+  }
+  return {
+    completionId: raw.completionId as string | null,
+    viewedCompletionId: raw.viewedCompletionId as string | null,
+  };
+}
+
 export function snapshot(value: unknown): Snapshot {
   const raw = record(value);
   const view = record(raw.view);
@@ -65,6 +80,7 @@ export function snapshot(value: unknown): Snapshot {
     epoch: raw.epoch,
     cursor: raw.cursor,
     session: session(raw.session),
+    readState: readState(raw.readState),
     state: record(raw.state),
     controls: sessionControls(raw.controls),
     view: {
@@ -151,7 +167,9 @@ export async function projects(): Promise<Project[]> {
   });
 }
 
-export async function sessions(): Promise<(Session & { activity: SessionActivity })[]> {
+export async function sessions(): Promise<
+  (Session & { activity: SessionActivity; readState: SessionReadState })[]
+> {
   const raw = record(await request('/sessions'));
   if (!Array.isArray(raw.sessions)) {
     throw new Error('Invalid sessions');
@@ -163,12 +181,11 @@ export async function sessions(): Promise<(Session & { activity: SessionActivity
       activity !== 'idle' &&
       activity !== 'running' &&
       activity !== 'blocked' &&
-      activity !== 'finished' &&
       activity !== 'unknown'
     ) {
       throw new Error('Invalid session activity');
     }
-    return { ...item, activity };
+    return { ...item, activity, readState: readState(record(value).readState) };
   });
 }
 
@@ -184,6 +201,13 @@ export async function launch(projectId: string, resumeId?: string): Promise<Sess
     }),
   );
   return session(record(result.data).session);
+}
+
+export async function markViewed(id: string, completionId: string): Promise<SessionReadState> {
+  const result = record(
+    await request(`/sessions/${encodeURIComponent(id)}/viewed`, { completionId }),
+  );
+  return readState(record(result.data).readState);
 }
 
 export async function operate(

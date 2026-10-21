@@ -11,13 +11,19 @@ import { NativeBridges } from '../dist/bridge/server.js';
 import { Events } from '../dist/events.js';
 import { Sessions } from '../dist/sessions.js';
 import { SessionDiscovery } from '../dist/storage/discovery.js';
+import { SessionReadStore } from '../dist/storage/read-state.js';
 import { fixture } from './helpers.mjs';
 
 test('relay REST, host/origin checks, WebSocket events and removed runtime endpoints', async (t) => {
   const { config, defer } = fixture(t);
   const events = new Events();
   const bridges = new NativeBridges(config, events);
-  const sessions = new Sessions(new SessionDiscovery([], config.projects), bridges, events);
+  const sessions = new Sessions(
+    new SessionDiscovery([], config.projects),
+    bridges,
+    events,
+    new SessionReadStore(':memory:'),
+  );
   const server = createApi(config, sessions, bridges);
   const closeSockets = attachWebSockets(server, config, events, bridges);
   defer(async () => {
@@ -93,7 +99,12 @@ test('launch API correlates create/resume requests and rejects replay', async (t
   const { config, defer } = fixture(t);
   const events = new Events();
   const bridges = new NativeBridges(config, events);
-  const sessions = new Sessions(new SessionDiscovery([], config.projects), bridges, events);
+  const sessions = new Sessions(
+    new SessionDiscovery([], config.projects),
+    bridges,
+    events,
+    new SessionReadStore(':memory:'),
+  );
   const id = '11111111-1111-1111-1111-111111111111';
   const calls = [];
   const launches = {
@@ -146,7 +157,12 @@ test('production frontend serves deep links and assets without bypassing origin 
   writeFileSync(join(directory, 'assets', 'test.js'), 'console.log("test");');
   const events = new Events();
   const bridges = new NativeBridges(config, events);
-  const sessions = new Sessions(new SessionDiscovery([], config.projects), bridges, events);
+  const sessions = new Sessions(
+    new SessionDiscovery([], config.projects),
+    bridges,
+    events,
+    new SessionReadStore(':memory:'),
+  );
   const server = createApi(config, sessions, bridges, directory);
   defer(async () => {
     server.close();

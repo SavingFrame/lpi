@@ -1,13 +1,12 @@
 import type { View } from './client-state.js';
 
-export type SessionActivity = 'idle' | 'running' | 'blocked' | 'finished' | 'unknown';
+export type SessionActivity = 'idle' | 'running' | 'blocked' | 'unknown';
 
-/** Completion is observed in this bridge connection, never inferred from saved history. */
+/** Runtime activity is separate from durable completion/read notifications. */
 export function sessionActivity(
   connected: boolean,
   state: Record<string, unknown>,
   view: Pick<View, 'running' | 'compacting'>,
-  finished: boolean,
 ): SessionActivity {
   if (!connected) {
     return 'unknown';
@@ -18,8 +17,5 @@ export function sessionActivity(
   if (view.running || view.compacting || state.isStreaming === true) {
     return 'running';
   }
-  if (state.hasPendingMessages === true) {
-    return 'idle';
-  }
-  return finished ? 'finished' : 'idle';
+  return 'idle';
 }

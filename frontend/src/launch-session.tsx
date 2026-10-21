@@ -1,24 +1,50 @@
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { useNavigate } from '@tanstack/react-router';
-import { useState } from 'react';
+import { LoaderCircle, Plus } from 'lucide-react';
+import { useState, useSyncExternalStore } from 'react';
 import { ApiError, launch, projects } from './api';
 import { live, queryClient } from './client';
 import { Button } from './components/ui/button';
 
-export function LaunchSession({ projectId, resumeId }: { projectId?: string; resumeId?: string }) {
+const pendingLaunches = new Set<string>();
+const launchListeners = new Set<() => void>();
+const subscribeLaunch = (listener: () => void) => {
+  launchListeners.add(listener);
+  return () => launchListeners.delete(listener);
+};
+const notifyLaunch = () => {
+  for (const listener of launchListeners) {
+    listener();
+  }
+};
+
+export function LaunchSession({
+  projectId,
+  resumeId,
+  compact = false,
+}: {
+  projectId?: string;
+  resumeId?: string;
+  compact?: boolean;
+}) {
   const navigate = useNavigate();
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
   const [selected, setSelected] = useState(projectId ?? '');
   const key = `launch-uncertain:${resumeId ?? 'new'}`;
-  const [uncertain, setUncertain] = useState(() => sessionStorage.getItem(key) === 'true');
+  const launchState = useSyncExternalStore(subscribeLaunch, () =>
+    pendingLaunches.has(key)
+      ? 'pending'
+      : sessionStorage.getItem(key) === 'true'
+        ? 'uncertain'
+        : 'ready',
+  );
+  const uncertain = launchState === 'uncertain';
   const mutation = useMutation({
-    mutationFn: () => {
-      sessionStorage.setItem(key, 'true');
-      return launch(projectId ?? selected, resumeId);
-    },
+    mutationFn: () => launch(projectId ?? selected, resumeId),
     onSuccess: (session) => {
       sessionStorage.removeItem(key);
-      setUncertain(false);
+      pendingLaunches.delete(key);
+      notifyLaunch();
       void queryClient.invalidateQueries({ queryKey: ['sessions'] });
       void navigate({
         to: '/app/projects/$projectId/sessions/$sessionId',
@@ -29,16 +55,16 @@ export function LaunchSession({ projectId, resumeId }: { projectId?: string; res
     onError: (error) => {
       if (error instanceof ApiError && error.outcome === 'rejected') {
         sessionStorage.removeItem(key);
-      } else {
-        setUncertain(true);
       }
+      pendingLaunches.delete(key);
+      notifyLaunch();
       void queryClient.invalidateQueries({ queryKey: ['sessions'] });
       live.refresh();
     },
   });
   return (
     <div className="flex flex-col gap-2">
-      {!resumeId && (
+      {!resumeId && !projectId && (
         <select
           aria-label="Project for new session"
           className="h-8 rounded-md border border-input bg-background px-2 text-xs"
@@ -57,8 +83,15 @@ export function LaunchSession({ projectId, resumeId }: { projectId?: string; res
       <Button
         type="button"
         variant="outline"
-        size="sm"
-        disabled={mutation.isPending || uncertain || !(projectId ?? selected)}
+        size={compact ? 'icon' : 'sm'}
+        className={compact ? 'project-new-session' : undefined}
+        aria-label={
+          compact
+            ? `New session in ${projectQuery.data?.find((project) => project.id === projectId)?.name ?? 'project'}`
+            : undefined
+        }
+        title={compact ? 'New session in this project' : undefined}
+        disabled={launchState !== 'ready' || !(projectId ?? selected)}
         onClick={() => {
           if (
             resumeId &&
@@ -68,17 +101,35 @@ export function LaunchSession({ projectId, resumeId }: { projectId?: string; res
           ) {
             return;
           }
+          if (pendingLaunches.has(key) || sessionStorage.getItem(key) === 'true') {
+            return;
+          }
+          pendingLaunches.add(key);
+          sessionStorage.setItem(key, 'true');
+          notifyLaunch();
           mutation.mutate();
         }}
       >
-        {mutation.isPending ? 'Waiting for Pi…' : resumeId ? 'Resume session' : 'New session'}
+        {compact ? (
+          mutation.isPending ? (
+            <LoaderCircle size={15} className="working-icon" aria-hidden="true" />
+          ) : (
+            <Plus size={15} aria-hidden="true" />
+          )
+        ) : mutation.isPending ? (
+          'Waiting for Pi…'
+        ) : resumeId ? (
+          'Resume session'
+        ) : (
+          'New session'
+        )}
       </Button>
       {mutation.error && (
         <p className="error text-xs" role="alert">
           {mutation.error.message}
         </p>
       )}
-      {uncertain && (
+      {uncertain && !compact && (
         <div className="text-xs" role="status">
           <p>Launch outcome unknown. Inspect recent sessions and tmux -L pim list-sessions.</p>
           <Button
@@ -87,7 +138,7 @@ export function LaunchSession({ projectId, resumeId }: { projectId?: string; res
             size="sm"
             onClick={() => {
               sessionStorage.removeItem(key);
-              setUncertain(false);
+              notifyLaunch();
               mutation.reset();
             }}
           >

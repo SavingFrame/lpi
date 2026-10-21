@@ -2,9 +2,18 @@ import { LoaderCircle } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { imageAttachments } from '../../src/attachments';
 import type { Message, View } from '../../src/client-state';
+import { AskHistory } from './ask-history-card';
 import { type TranscriptTool, transcriptState } from './transcript-state';
 
 function ToolBlock({ tool }: { tool: TranscriptTool }) {
+  return (
+    <AskHistory tool={tool}>
+      <RawToolBlock tool={tool} />
+    </AskHistory>
+  );
+}
+
+function RawToolBlock({ tool }: { tool: TranscriptTool }) {
   const args = tool.args;
   const input =
     typeof args === 'object' && args !== null
@@ -147,10 +156,19 @@ export function Transcript({ view }: { view: View }) {
               <div key={group.messageKeys[messageIndex]}>
                 {item.isError === true && <p className="error">Error</p>}
                 {item.role === 'toolResult' ? (
-                  <details>
-                    <summary>Tool output</summary>
-                    <MessageBody item={item} />
-                  </details>
+                  <AskHistory
+                    tool={{
+                      name: String(item.toolName),
+                      args: undefined,
+                      result: item,
+                      status: item.isError === true ? 'Failed' : 'Completed',
+                    }}
+                  >
+                    <details>
+                      <summary>Tool output</summary>
+                      <MessageBody item={item} />
+                    </details>
+                  </AskHistory>
                 ) : (
                   <MessageBody item={item} tools={tools} />
                 )}
