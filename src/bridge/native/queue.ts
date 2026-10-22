@@ -3,7 +3,7 @@ import { AgentSession, type ExtensionContext } from '@earendil-works/pi-coding-a
 import { AppError } from '../../shared/errors.js';
 import type { PendingQueue } from '../../shared/queue.js';
 
-/** Unsupported Pi 1.3.0 adapter. Never creates a runtime or replaces its queues. */
+/** Unsupported Pi 1.4.0 adapter. Never creates a runtime or replaces its queues. */
 export class NativeQueue {
   private session: AgentSession | undefined;
   private unsubscribe: (() => void) | undefined;
