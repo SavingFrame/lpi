@@ -1,5 +1,6 @@
 import { useState, useSyncExternalStore } from 'react';
 import {
+  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -32,6 +33,12 @@ export function SessionShell({
   const insets = useSafeAreaInsets();
   const selected = inventory.sessions.find((session) => session.id === inventory.selectedId);
   const online = connection.status === 'ready';
+  const running =
+    online &&
+    selected !== undefined &&
+    connection.snapshot?.session.id === selected.id &&
+    connection.snapshot.session.connection === 'connected' &&
+    connection.snapshot.view.running;
   const status =
     connection.status === 'offline'
       ? 'Offline · Last-known history'
@@ -41,7 +48,9 @@ export function SessionShell({
           ? 'Choose a conversation'
           : connection.snapshot?.session.connection === 'disconnected'
             ? 'Saved · Read only'
-            : 'Live';
+            : running
+              ? 'Running'
+              : 'Live';
   return (
     <Drawer
       open={open}
@@ -84,42 +93,53 @@ export function SessionShell({
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={insets.top}
       >
-        <View style={styles.header}>
-          <Pressable
-            style={styles.iconButton}
-            accessibilityRole="button"
-            accessibilityLabel="Open projects and sessions"
-            onPress={() => setOpen(true)}
-          >
-            <View style={styles.menu}>
-              <View style={styles.menuLine} />
-              <View style={styles.menuLine} />
-              <View style={styles.menuLine} />
-            </View>
-          </Pressable>
-          <View style={styles.titleContainer}>
-            <Text style={styles.title} numberOfLines={1}>
-              {selected?.title || 'Pim'}
-            </Text>
-            <Text style={[styles.status, !online && styles.warning]} numberOfLines={1}>
-              {status}
-            </Text>
-          </View>
-        </View>
-        {connection.status === 'offline' && (
-          <Text style={styles.warningBanner}>Connection lost. Pi may still be running.</Text>
-        )}
-        {(inventory.error || connection.error) && (
-          <Text accessibilityRole="alert" style={styles.error}>
-            {inventory.error || connection.error}
-          </Text>
-        )}
         <Conversation
           key={inventory.selectedId ?? 'none'}
           client={client}
           session={selected}
           connection={connection}
           visible={visible && !open}
+          renderHeader={(runtimeControl) => (
+            <>
+              <View style={styles.header}>
+                <Pressable
+                  style={styles.iconButton}
+                  accessibilityRole="button"
+                  accessibilityLabel="Open projects and sessions"
+                  onPress={() => setOpen(true)}
+                >
+                  <View style={styles.menu}>
+                    <View style={styles.menuLine} />
+                    <View style={styles.menuLine} />
+                    <View style={styles.menuLine} />
+                  </View>
+                </Pressable>
+                <View style={styles.titleContainer}>
+                  <Text style={styles.title} numberOfLines={1}>
+                    {selected?.title || 'Pim'}
+                  </Text>
+                  <View style={styles.statusRow}>
+                    {running && <ActivityIndicator size="small" color={colors.running} />}
+                    <Text
+                      style={[styles.status, !online && styles.warning, running && styles.running]}
+                      numberOfLines={1}
+                    >
+                      {status}
+                    </Text>
+                  </View>
+                </View>
+                {runtimeControl}
+              </View>
+              {connection.status === 'offline' && (
+                <Text style={styles.warningBanner}>Connection lost. Pi may still be running.</Text>
+              )}
+              {(inventory.error || connection.error) && (
+                <Text accessibilityRole="alert" style={styles.error}>
+                  {inventory.error || connection.error}
+                </Text>
+              )}
+            </>
+          )}
         />
       </KeyboardAvoidingView>
     </Drawer>
@@ -148,7 +168,9 @@ const styles = StyleSheet.create({
   menuLine: { height: 2, width: 20, borderRadius: 1, backgroundColor: colors.text },
   titleContainer: { flex: 1, gap: 4, paddingRight: 16 },
   title: { color: colors.text, fontSize: 16, fontWeight: '600' },
-  status: { color: colors.muted, fontSize: 12 },
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  status: { color: colors.muted, fontSize: 12, flexShrink: 1 },
+  running: { color: colors.running },
   warning: { color: colors.blocked },
   warningBanner: { color: colors.blocked, fontSize: 12, lineHeight: 18, padding: 12 },
   error: { color: colors.error, padding: 12, fontSize: 13 },

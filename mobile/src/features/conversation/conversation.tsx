@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, useSyncExternalStore } from 'react';
+import { type ReactNode, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { Pressable, Text } from 'react-native';
 import type { LiveState } from '../../../../src/client/live';
 import type { InventorySession } from '../../../../src/shared/sessions';
@@ -15,16 +15,18 @@ export function Conversation({
   session,
   connection,
   visible,
+  renderHeader,
 }: {
   client: MobileRelay;
   session: InventorySession | undefined;
   connection: LiveState;
   visible: boolean;
+  renderHeader: (runtimeControl: ReactNode) => ReactNode;
 }) {
   const [following, setFollowing] = useState(false);
   const [picking, setPicking] = useState(false);
   const [answering, setAnswering] = useState(false);
-  const [confirmingStop, setConfirmingStop] = useState(false);
+  const [confirmingRuntime, setConfirmingRuntime] = useState(false);
   const read = useSyncExternalStore(client.reads.subscribe, client.reads.getState);
   const id = session?.id;
   const onFollowing = useCallback((value: boolean) => setFollowing(value), []);
@@ -35,23 +37,37 @@ export function Conversation({
     client.setReading(
       id,
       following,
-      visible && !picking && !answering && !confirmingStop && connection.status === 'ready',
+      visible && !picking && !answering && !confirmingRuntime && connection.status === 'ready',
     );
     return () => client.setReading(id, false, false);
-  }, [client, id, following, visible, picking, answering, confirmingStop, connection]);
+  }, [client, id, following, visible, picking, answering, confirmingRuntime, connection]);
   return (
     <>
       {session &&
-        connection.snapshot?.session.id === session.id &&
-        connection.snapshot.session.connection === 'connected' &&
-        connection.snapshot.state.managedRuntime === true && (
-          <StopSession
-            messages={client.messages(session.id, session.projectId)}
-            generation={connection.snapshot.session.generation}
-            enabled={visible && !picking && !answering && connection.status === 'ready'}
-            onOpen={setConfirmingStop}
-          />
-        )}
+      connection.snapshot?.session.id === session.id &&
+      connection.snapshot.session.connection === 'disconnected' ? (
+        <ResumeSession
+          client={client}
+          id={session.id}
+          enabled={visible && !picking && !answering && connection.status === 'ready'}
+          onOpen={setConfirmingRuntime}
+          renderHeader={renderHeader}
+        />
+      ) : (
+        renderHeader(
+          session &&
+            connection.snapshot?.session.id === session.id &&
+            connection.snapshot.session.connection === 'connected' &&
+            connection.snapshot.state.managedRuntime === true ? (
+            <StopSession
+              messages={client.messages(session.id, session.projectId)}
+              generation={connection.snapshot.session.generation}
+              enabled={visible && !picking && !answering && connection.status === 'ready'}
+              onOpen={setConfirmingRuntime}
+            />
+          ) : null,
+        )
+      )}
       <ConversationPreview connection={connection} onFollowing={onFollowing} />
       {read.error && read.target?.id === id && (
         <Pressable
@@ -73,15 +89,6 @@ export function Conversation({
           onOpen={setAnswering}
         />
       )}
-      {session &&
-        connection.snapshot?.session.id === session.id &&
-        connection.snapshot.session.connection === 'disconnected' && (
-          <ResumeSession
-            client={client}
-            id={session.id}
-            enabled={visible && connection.status === 'ready'}
-          />
-        )}
       {session && (
         <MessageComposer
           messages={client.messages(session.id, session.projectId)}

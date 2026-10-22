@@ -128,7 +128,7 @@ commands, and known Device Hub/input issues.
   or dismissing native dialogs. Draft saving is silent; storage failures show a small icon
   with an on-demand retry dialog. The composer remains editable while a request is pending;
   acceptance preserves newer edits.
-- Connected, Pim-managed sessions show Stop runtime above the conversation. A destructive
+- Connected, Pim-managed sessions show a power icon in the top-right header to stop the runtime. A destructive
   confirmation explains that active work stops but saved history stays. Stop shares the
   composer command lane and rejects confirmations for an older runtime generation.
   Acknowledgment means shutdown was requested, not that exit is confirmed. Unmanaged
@@ -155,8 +155,9 @@ commands, and known Device Hub/input issues.
   waiting. A shared durable launch lane blocks duplicate requests and survives app restarts.
   Unknown outcomes require runtime inspection and explicit review; review never retries.
   Creation UI and real-Pi launching still need device/integration validation.
-- Synchronized saved conversations show Resume with explicit confirmation that no Pi
-  process still uses the file. Resume keeps server-side reservation and external-writer
+- Saved conversations show a green Resume runtime power button in the same top-right header
+  position as Stop runtime. It is enabled only when synchronized and requires explicit confirmation
+  that no Pi process still uses the file. Resume keeps server-side reservation and external-writer
   protections, uses its own durable lane, and refreshes the same conversation after acknowledgment.
   Unknown resume outcomes require inspection and explicit review. Reconnect never resumes.
 - Pending Ask User Question prompts open a native questionnaire sheet with single/multiple
