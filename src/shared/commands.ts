@@ -15,6 +15,8 @@ export interface NativeIdentity {
 
 export type BridgeCommand =
   | ExtensionCommand
+  | { type: 'compact'; instructions?: string }
+  | { type: 'slash_command'; name: string; args: string }
   | { type: 'set_model'; provider: string; modelId: string }
   | { type: 'set_thinking_level'; level: ThinkingLevel }
   | { type: 'navigate_tree'; targetId: string; expectedLeafId: string | null }
@@ -33,6 +35,22 @@ export function bridgeCommand(value: unknown): BridgeCommand {
   const type = text(raw.type, 'command type', 64);
   if (type === 'extension') {
     return extensionCommand(raw);
+  }
+  if (type === 'compact') {
+    return {
+      type,
+      instructions:
+        raw.instructions === undefined
+          ? undefined
+          : text(raw.instructions, 'compaction instructions'),
+    };
+  }
+  if (type === 'slash_command') {
+    const name = text(raw.name, 'slash command', 256);
+    if (/\s|\//.test(name)) {
+      throw new AppError('Invalid slash command', 400);
+    }
+    return { type, name, args: raw.args === '' ? '' : text(raw.args, 'command arguments') };
   }
   if (type === 'abort' || type === 'stop_runtime') {
     return { type };

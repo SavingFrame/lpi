@@ -1,17 +1,22 @@
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ArrowDown, ArrowUp, Square } from 'lucide-react';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { type ComposerDraft, composerCommand } from '../../../src/client/drafts';
 import type { BridgeCommand } from '../../../src/shared/commands';
+import { composerCommands } from '../../../src/shared/composer-commands';
 import type { Snapshot } from '../../../src/shared/snapshots';
-import { drafts } from '../client';
+import { searchFiles } from '../api';
+import { drafts, launches } from '../client';
 import { Button } from '../components/ui/button';
 import { Textarea } from '../components/ui/textarea';
 import { ImageAttachments } from '../image-attachments';
 import { SessionSettings } from '../session-controls';
+import { fileReference, referencePath, slashSuggestions } from './composer-input';
 import { PendingMessages } from './pending-queue';
 
 export function Composer({
   id,
+  projectId,
   snapshot,
   active,
   previewing,
@@ -22,8 +27,10 @@ export function Composer({
   following,
   onFollow,
   onCommand,
+  onNew,
 }: {
   id: string;
+  projectId: string;
   snapshot: Snapshot | null;
   active: boolean;
   previewing: boolean;
@@ -34,11 +41,87 @@ export function Composer({
   following: boolean;
   onFollow: () => void;
   onCommand: (command: BridgeCommand) => Promise<boolean>;
+  onNew: () => Promise<boolean>;
 }) {
   const [controller] = useState(() => drafts.get(id));
   const draftState = useSyncExternalStore(controller.subscribe, controller.getState);
   const { draft } = draftState;
   const [readingImages, setReadingImages] = useState(false);
+  const [inputError, setInputError] = useState<string | null>(null);
+  const [caret, setCaret] = useState(draft.text.length);
+  const [selected, setSelected] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
+  const launchState = useSyncExternalStore(launches.subscribe, () => launches.getState());
+  useEffect(() => {
+    void launches.initialize();
+  }, []);
+  const reference = fileReference(draft.text, caret);
+  const fileQuery = reference?.query ?? null;
+  const [debouncedFileQuery, setDebouncedFileQuery] = useState<string | null>(null);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedFileQuery(fileQuery), 120);
+    return () => clearTimeout(timer);
+  }, [fileQuery]);
+  const referenceQuery = useQuery({
+    queryKey: ['project-file-search', projectId, debouncedFileQuery],
+    placeholderData: keepPreviousData,
+    queryFn: ({ signal }) => searchFiles(projectId, debouncedFileQuery ?? '', signal),
+    enabled: fileQuery !== null && fileQuery === debouncedFileQuery && !previewing,
+    retry: false,
+  });
+  const refreshingReferences =
+    Boolean(reference) && (fileQuery !== debouncedFileQuery || referenceQuery.isPlaceholderData);
+  const suggestions =
+    dismissed || previewing
+      ? []
+      : reference
+        ? (referenceQuery.data?.entries ?? []).map((entry) => ({
+            name: `${entry.path.split('/').at(-1)}${entry.directory ? '/' : ''}`,
+            path: `${entry.path}${entry.directory ? '/' : ''}`,
+            description: entry.path,
+            source: 'file' as const,
+          }))
+        : slashSuggestions(draft.text, snapshot?.state.commands);
+  const highlighted = Math.min(selected, Math.max(0, suggestions.length - 1));
+  const suggestionList = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const list = suggestionList.current;
+    const row = suggestions.length ? list?.children.item(highlighted) : null;
+    if (!list || !row) {
+      return;
+    }
+    const bounds = list.getBoundingClientRect();
+    const selectedBounds = row.getBoundingClientRect();
+    if (selectedBounds.top < bounds.top) {
+      list.scrollTop += selectedBounds.top - bounds.top;
+    } else if (selectedBounds.bottom > bounds.bottom) {
+      list.scrollTop += selectedBounds.bottom - bounds.bottom;
+    }
+  }, [highlighted, suggestions.length]);
+  function chooseSuggestion(index: number) {
+    const item = suggestions[index];
+    if (!item || refreshingReferences) {
+      return;
+    }
+    const path = 'path' in item ? item.path : item.name;
+    const replacement = reference
+      ? path.endsWith('/')
+        ? `@${/\s/.test(path) ? '"' : ''}${path}`
+        : `${referencePath(path)} `
+      : `/${item.name} `;
+    const text = reference
+      ? draft.text.slice(0, reference.start) + replacement + draft.text.slice(reference.end)
+      : replacement;
+    const nextCaret = reference ? reference.start + replacement.length : replacement.length;
+    controller.update((current) => ({ ...current, text }));
+    setCaret(nextCaret);
+    setSelected(0);
+    setDismissed(!reference || !path.endsWith('/'));
+    requestAnimationFrame(() => {
+      input.current?.focus();
+      input.current?.setSelectionRange(nextCaret, nextCaret);
+    });
+  }
   const input = useRef<HTMLTextAreaElement>(null);
   useEffect(() => {
     input.current?.focus({ preventScroll: true });
@@ -52,7 +135,11 @@ export function Composer({
     }
   }, [controller, restoredDraft]);
   const canSend =
-    active &&
+    !previewing &&
+    (active || /^\/new\s*$/.test(draft.text)) &&
+    !pending &&
+    !uncertain &&
+    (!/^\/new\s*$/.test(draft.text) || launchState.status === 'ready') &&
     !draftState.loading &&
     !readingImages &&
     Boolean(draft.text.trim() || draft.images.length);
@@ -108,6 +195,29 @@ export function Composer({
           </Button>
         </div>
       )}
+      {typeof snapshot?.state.compactionError === 'string' && (
+        <p className="banner error" role="alert">
+          {snapshot.state.compactionError}
+        </p>
+      )}
+      {inputError && (
+        <p className="banner error" role="alert">
+          {inputError}
+        </p>
+      )}
+      {launchState.error && (
+        <p className="banner error" role="alert">
+          {launchState.error.message}
+        </p>
+      )}
+      {launchState.status === 'uncertain' && (
+        <div className="banner error">
+          Launch outcome unknown. Inspect sessions and tmux before retrying.{' '}
+          <Button type="button" variant="ghost" size="sm" onClick={() => launches.review()}>
+            I inspected the runtimes
+          </Button>
+        </div>
+      )}
       <form
         onSubmit={async (event) => {
           event.preventDefault();
@@ -115,6 +225,38 @@ export function Composer({
             return;
           }
           const submitted = draft;
+          setInputError(null);
+          if (submitted.text.trimStart().startsWith('/')) {
+            const match = /^\/(\S+)(?:\s+([\s\S]*))?$/.exec(submitted.text.trim());
+            const name = match?.[1] ?? '';
+            const args = match?.[2] ?? '';
+            if (submitted.images.length) {
+              setInputError('Send images separately from slash commands.');
+              return;
+            }
+            if (name === 'new') {
+              if (args) {
+                setInputError(`/${name} does not take arguments.`);
+                return;
+              }
+              controller.settle(submitted, await onNew());
+              return;
+            }
+            if (
+              name !== 'compact' &&
+              !composerCommands(snapshot?.state.commands).some((command) => command.name === name)
+            ) {
+              setInputError('Unknown command. Choose an available command from the / menu.');
+              return;
+            }
+            const accepted = await onCommand(
+              name === 'compact'
+                ? { type: 'compact', instructions: args || undefined }
+                : { type: 'slash_command', name, args },
+            );
+            controller.settle(submitted, accepted);
+            return;
+          }
           onFollow();
           const accepted = await onCommand(
             composerCommand(submitted, snapshot?.view.running === true),
@@ -122,6 +264,47 @@ export function Composer({
           controller.settle(submitted, accepted);
         }}
       >
+        {suggestions.length > 0 && (
+          <div
+            ref={suggestionList}
+            id="composer-suggestions"
+            role="listbox"
+            aria-busy={refreshingReferences}
+            aria-label={reference ? 'Project file references' : 'Commands'}
+            className="composer-suggestions"
+          >
+            {suggestions.map((item, index) => (
+              <div
+                tabIndex={-1}
+                key={`${item.source}:${'path' in item ? item.path : item.name}`}
+                id={`composer-suggestion-${index}`}
+                role="option"
+                aria-selected={index === highlighted}
+              >
+                <button
+                  type="button"
+                  aria-disabled={refreshingReferences}
+                  title={`${item.description}${item.source === 'extension' ? '\nMay require interaction in the native terminal. Sending confirms dispatch, not completion.' : ''}`}
+                  tabIndex={-1}
+                  onMouseDown={(event) => event.preventDefault()}
+                  onClick={() => chooseSuggestion(index)}
+                >
+                  <strong>
+                    {reference ? '@' : '/'}
+                    {item.name}
+                  </strong>
+                  <small>{item.source}</small>
+                  <span>{item.description}</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+        {reference && fileQuery === debouncedFileQuery && referenceQuery.error && (
+          <p role="status" className="error text-xs">
+            {referenceQuery.error.message}
+          </p>
+        )}
         <ImageAttachments
           images={draft.images}
           onChange={(images) => controller.update((current) => ({ ...current, images }))}
@@ -131,6 +314,13 @@ export function Composer({
           <Textarea
             ref={input}
             aria-label="Message"
+            aria-controls={suggestions.length ? 'composer-suggestions' : undefined}
+            aria-expanded={suggestions.length > 0}
+            aria-autocomplete="list"
+            aria-activedescendant={
+              suggestions.length ? `composer-suggestion-${highlighted}` : undefined
+            }
+            onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
             disabled={previewing}
             placeholder={
               snapshot?.session.connection === 'connected'
@@ -141,16 +331,40 @@ export function Composer({
             onChange={(event) => {
               const text = event.target.value;
               controller.update((current) => ({ ...current, text }));
+              setCaret(event.target.selectionStart);
+              setSelected(0);
+              setDismissed(false);
+              setInputError(null);
             }}
             onKeyDown={(event) => {
               if (
                 event.nativeEvent.isComposing ||
-                event.repeat ||
+                (event.repeat && event.key !== 'ArrowDown' && event.key !== 'ArrowUp') ||
                 event.ctrlKey ||
                 event.metaKey ||
                 event.shiftKey
               ) {
                 return;
+              }
+              if (suggestions.length && !event.altKey) {
+                if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+                  event.preventDefault();
+                  setSelected(
+                    (highlighted + (event.key === 'ArrowDown' ? 1 : -1) + suggestions.length) %
+                      suggestions.length,
+                  );
+                  return;
+                }
+                if (event.key === 'Tab' || event.key === 'Enter') {
+                  event.preventDefault();
+                  chooseSuggestion(highlighted);
+                  return;
+                }
+                if (event.key === 'Escape') {
+                  event.preventDefault();
+                  setDismissed(true);
+                  return;
+                }
               }
               if (event.key === 'Enter' && event.altKey) {
                 event.preventDefault();

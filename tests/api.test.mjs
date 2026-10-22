@@ -39,6 +39,19 @@ test('relay REST, host/origin checks, WebSocket events and removed runtime endpo
   const projectResponse = await fetch(`${base}/projects`, { headers });
   assert.deepEqual((await projectResponse.json()).projects, config.projects);
   assert.equal(config.projects[0].name, 'test');
+  writeFileSync(join(config.projects[0].directory, 'hello.txt'), 'Not returned by search');
+  const files = await fetch(`${base}/projects/test/files?query=hello`, { headers });
+  assert.equal(files.status, 200);
+  assert.deepEqual(await files.json(), {
+    entries: [{ path: 'hello.txt', directory: false }],
+    truncated: false,
+  });
+  assert.equal((await fetch(`${base}/projects/test/files?query=..%2Foutside`)).status, 400);
+  assert.equal(
+    (await fetch(`${base}/projects/test/files`, { headers: { Origin: 'https://evil.example' } }))
+      .status,
+    403,
+  );
   assert.equal((await fetch(`${base}/sessions`)).status, 200);
   assert.equal((await fetch(`${base}/sessions`, { headers })).status, 200);
   const lanOrigin = 'http://192.168.1.20:3141';

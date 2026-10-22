@@ -51,7 +51,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
       if (
         await context.ui.confirm(
           'Connect to Pim?',
-          `Share this transcript and allow remote prompts, branch navigation, model/thinking changes, supported extension answers, queue inspection/clearing, and abort requests through ${transport.url}?`,
+          `Share this transcript and allow remote prompts, compaction, extension commands and skills (including terminal dialogs), branch navigation, model/thinking changes, supported extension answers, queue inspection/clearing, and abort requests through ${transport.url}?`,
         )
       ) {
         state.resume(context);
@@ -86,7 +86,23 @@ export default function nativeBridge(pi: ExtensionAPI): void {
     forward({ ...event }, context);
   });
   pi.on('session_tree', (_event, context) => sync(context));
-  pi.on('session_compact', (_event, context) => sync(context));
+  pi.on('session_before_compact', (_event, context) => {
+    forward({ type: 'compaction_start' }, context);
+  });
+  pi.on('session_compact', (_event, context) => {
+    forward({ type: 'compaction_end' }, context);
+    sync(context);
+  });
+  pi.on('session_compact_failed', (event, context) => {
+    forward(
+      {
+        type: 'compaction_end',
+        errorMessage: event.errorMessage ?? (event.aborted ? 'Compaction cancelled' : undefined),
+      },
+      context,
+    );
+    sync(context);
+  });
   pi.on('ui_prompt_start', (event, context) => {
     state.prompt(event.kind, context);
     transport.sync();

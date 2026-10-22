@@ -30,6 +30,9 @@ test('Chromium focuses the composer on session open without stealing focus on up
   });
   const output = Array.isArray(bundle) ? bundle[0].output : bundle.output;
   const page = output.find((entry) => entry.type === 'chunk').code;
+  const css = output.find(
+    (entry) => entry.type === 'asset' && entry.fileName.endsWith('.css'),
+  ).source;
   const result = Promise.withResolvers();
   const server = createServer(async (request, response) => {
     if (request.url === '/result' && request.method === 'POST') {
@@ -47,7 +50,11 @@ test('Chromium focuses the composer on session open without stealing focus on up
       return;
     }
     const sources = {
-      '/': ['text/html', '<!doctype html><script type="module" src="/page.js"></script>'],
+      '/': [
+        'text/html',
+        '<!doctype html><link rel="stylesheet" href="/style.css"><script type="module" src="/page.js"></script>',
+      ],
+      '/style.css': ['text/css', css],
       '/page.js': ['text/javascript', page],
     };
     const source = sources[request.url];
@@ -57,7 +64,7 @@ test('Chromium focuses the composer on session open without stealing focus on up
     }
     response.writeHead(200, {
       'Content-Type': source[0],
-      'Content-Security-Policy': "default-src 'self'; style-src 'unsafe-inline'",
+      'Content-Security-Policy': "default-src 'self'; style-src 'self' 'unsafe-inline'",
     });
     response.end(source[1]);
   });

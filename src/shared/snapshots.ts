@@ -1,4 +1,5 @@
 import { record, reduceEvent, type View, view } from './client-state.ts';
+import { composerCommands } from './composer-commands.ts';
 import { pendingQueue } from './queue.ts';
 import { type SessionControls, sessionControls } from './session-controls.ts';
 import { readState, type SessionReadState } from './session-read-state.ts';
@@ -37,6 +38,7 @@ export function nativeStatus(value: unknown): NativeStatus {
   return {
     state: {
       ...state,
+      commands: composerCommands(state.commands),
       queue: pendingQueue(state.queue),
       isStreaming: state.isStreaming,
       hasPendingMessages: state.hasPendingMessages,
@@ -77,6 +79,7 @@ export function snapshot(value: unknown): Snapshot {
   }
   const state = record(raw.state);
   pendingQueue(state.queue);
+  composerCommands(state.commands);
   return {
     epoch: raw.epoch,
     cursor: raw.cursor,

@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
 import { type BridgeCommand, bridgeCommand, type NativeIdentity } from '../../shared/commands.js';
 import { AppError, text } from '../../shared/errors.js';
+import { nativeComposerCommands } from './composer-commands.js';
 import { NativeNavigation } from './navigation.js';
 import type { NativeState } from './state.js';
 
@@ -21,6 +22,7 @@ export class NativeCommands {
   private readonly seen = new Set<string>();
   private stopping = false;
   private changingSettings = false;
+  private compacting = false;
   private readonly navigation: NativeNavigation;
 
   constructor(pi: ExtensionAPI, state: NativeState) {
@@ -66,11 +68,23 @@ export class NativeCommands {
       if (command.type === 'clear_queue') {
         this.state.queue.validate(command.expectedRevision);
       }
+      if (this.compacting && command.type !== 'abort') {
+        throw new Error('Native compaction in progress');
+      }
+      if (command.type === 'slash_command') {
+        const name = command.name;
+        if (!nativeComposerCommands(this.pi).some((item) => item.name === name)) {
+          throw new Error('Command is no longer available; refresh the session');
+        }
+      }
       if (this.changingSettings) {
         throw new Error('Native settings change in progress');
       }
       if (
-        (command.type === 'set_model' || command.type === 'set_thinking_level') &&
+        (command.type === 'set_model' ||
+          command.type === 'set_thinking_level' ||
+          command.type === 'compact' ||
+          command.type === 'slash_command') &&
         (!context.isIdle() ||
           this.state.view.compacting ||
           context.hasPendingMessages() ||
@@ -92,6 +106,33 @@ export class NativeCommands {
       };
     }
 
+    if (command.type === 'compact') {
+      this.compacting = true;
+      try {
+        context.compact({
+          customInstructions: command.instructions,
+          onComplete: () => {
+            this.compacting = false;
+          },
+          onError: (error) => {
+            this.compacting = false;
+            context.ui.notify(`Compaction failed: ${error.message}`, 'error');
+          },
+        });
+      } catch (error) {
+        this.compacting = false;
+        throw error;
+      }
+      // Accepted for execution. Lifecycle events report ongoing compaction.
+      return { id, outcome: 'acknowledged', sync: true };
+    }
+    if (command.type === 'slash_command') {
+      this.pi.sendUserMessage(`/${command.name}${command.args ? ` ${command.args}` : ''}`, {
+        expandPromptTemplates: true,
+      });
+      // Public dispatch is fire-and-forget. Acceptance is not handler completion.
+      return { id, outcome: 'acknowledged' };
+    }
     if (command.type === 'clear_queue') {
       this.state.queue.clear();
       return { id, outcome: 'acknowledged', sync: true };

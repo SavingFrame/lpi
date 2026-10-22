@@ -1,5 +1,6 @@
 import { record } from '../shared/client-state.ts';
 import type { BridgeCommand } from '../shared/commands.ts';
+import { type ProjectFileSearch, projectFileSearch } from '../shared/project-files.ts';
 import { readState, type SessionReadState } from '../shared/session-read-state.ts';
 import {
   type BranchPreview,
@@ -112,6 +113,20 @@ export class RelayApi {
       throw new Error('Invalid projects');
     }
     return raw.projects.map(project);
+  }
+
+  async searchFiles(
+    projectId: string,
+    query: string,
+    signal: AbortSignal,
+  ): Promise<ProjectFileSearch> {
+    return projectFileSearch(
+      await this.request(
+        `/projects/${encodeURIComponent(projectId)}/files?query=${encodeURIComponent(query)}`,
+        undefined,
+        signal,
+      ),
+    );
   }
 
   async sessions(): Promise<InventorySession[]> {

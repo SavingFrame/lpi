@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { answer as askAnswer } from '../../src/extension-support/ask-user-question/tests/fixtures.mjs';
-import { ApiError, markViewed, operate, projects, sessions } from '../src/api.ts';
+import { ApiError, markViewed, operate, projects, searchFiles, sessions } from '../src/api.ts';
 import { boundary, id } from './live-fixture.mjs';
 
 test('session inventory validates activity values', async (t) => {
@@ -14,6 +14,23 @@ test('session inventory validates activity values', async (t) => {
   assert.equal((await sessions())[0].activity, 'running');
   activity = 'invalid';
   await assert.rejects(sessions(), /Invalid session activity/);
+});
+
+test('project file search sends the full query and validates root-relative results', async (t) => {
+  let result = {
+    entries: [{ path: 'frontend/src/composer.tsx', directory: false }],
+    truncated: false,
+  };
+  t.mock.method(globalThis, 'fetch', async (path) => {
+    assert.equal(path, '/projects/project/files?query=src%2Fcom');
+    return Response.json(result);
+  });
+  assert.deepEqual(await searchFiles('project', 'src/com', new AbortController().signal), result);
+  result = { entries: [{ path: '../outside', directory: false }], truncated: false };
+  await assert.rejects(
+    searchFiles('project', 'src/com', new AbortController().signal),
+    /Invalid project file entry/,
+  );
 });
 
 test('project queries preserve discovered folder names', async (t) => {
@@ -61,6 +78,28 @@ test('invalid successful mutation acknowledgments remain unknown', async (t) => 
     (error) => error instanceof ApiError && error.outcome === 'unknown',
   );
   assert.equal(calls, 1);
+});
+
+test('LAN HTTP can send mutations without crypto.randomUUID', async (t) => {
+  const crypto = globalThis.crypto;
+  t.mock.getter(globalThis, 'crypto', () => ({
+    getRandomValues: crypto.getRandomValues.bind(crypto),
+  }));
+  assert.equal(globalThis.crypto.randomUUID, undefined);
+  const requestIds = [];
+  t.mock.method(globalThis, 'fetch', async (_path, options) => {
+    const body = JSON.parse(options.body);
+    assert.match(
+      body.requestId,
+      /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/,
+    );
+    requestIds.push(body.requestId);
+    return Response.json({ requestId: body.requestId, outcome: 'acknowledged' });
+  });
+  await operate(id, 3, { type: 'prompt', message: 'hello' });
+  await operate(id, 3, { type: 'prompt', message: 'again' });
+  assert.equal(requestIds.length, 2);
+  assert.notEqual(requestIds[0], requestIds[1]);
 });
 
 test('correlated mutation acceptance is returned without retrying', async (t) => {

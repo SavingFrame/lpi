@@ -76,6 +76,7 @@ function setup(t) {
     on: (name, handler) => handlers.set(name, handler),
     registerCommand: (name, options) => registered.set(name, options.handler),
     registerEntryRenderer() {},
+    getCommands: () => [],
     getThinkingLevel: () => 'off',
     setThinkingLevel() {},
     setModel: async () => true,

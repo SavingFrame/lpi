@@ -2,6 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import type { NativeBridges } from '../bridge/server.js';
 import type { Config } from '../config.js';
 import { Launches } from '../launches.js';
+import { searchProjectFiles } from '../project-files.js';
 import type { Sessions } from '../sessions.js';
 import { COMMAND_BODY_LIMIT } from '../shared/attachments.js';
 import { bridgeCommand } from '../shared/commands.js';
@@ -47,6 +48,7 @@ export function createApi(
 ) {
   const usedRequests = new Set<string>();
   let inFlight = 0;
+  let fileSearches = 0;
   const server = createServer((request, response) => {
     void handle(request, response);
   });
@@ -74,6 +76,29 @@ export function createApi(
       }
       if (request.method === 'GET' && path === '/projects') {
         send(response, 200, { projects: config.projects });
+        return;
+      }
+      const files = /^\/projects\/([^/]+)\/files$/.exec(path);
+      if (request.method === 'GET' && files) {
+        if (fileSearches >= 8) {
+          throw new AppError('Project search concurrency limit reached', 429);
+        }
+        fileSearches++;
+        const controller = new AbortController();
+        const abort = () => controller.abort();
+        response.once('close', abort);
+        try {
+          const result = await searchProjectFiles(
+            config,
+            decodeURIComponent(String(files[1])),
+            url.searchParams.get('query') ?? '',
+            controller.signal,
+          );
+          send(response, 200, result);
+        } finally {
+          fileSearches--;
+          response.off('close', abort);
+        }
         return;
       }
       if (request.method === 'GET' && path === '/sessions') {

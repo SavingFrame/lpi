@@ -5,6 +5,7 @@ import { historyMessages } from '../../pi-history.js';
 import { emptyView, reduceEvent, type View } from '../../shared/client-state.js';
 import type { NativeIdentity } from '../../shared/commands.js';
 import type { NativeStatus } from '../../shared/snapshots.js';
+import { nativeComposerCommands } from './composer-commands.js';
 import { NativeQueue } from './queue.js';
 
 /** Session-scoped Pi state, retained independently of the relay connection. */
@@ -16,6 +17,7 @@ export class NativeState {
   private current: View = emptyView();
   private support: ReturnType<typeof nativeExtensionSupport> | undefined;
   private nativeNotice: string | null = null;
+  private compactionError: string | null = null;
 
   constructor(pi: ExtensionAPI) {
     this.pi = pi;
@@ -41,6 +43,7 @@ export class NativeState {
     this.dispose();
     this.context = context;
     this.nativeNotice = null;
+    this.compactionError = null;
     this.current = { ...emptyView(), running: !context.isIdle() };
     if (context.mode === 'tui') {
       this.queue.start(() => this.context);
@@ -95,6 +98,8 @@ export class NativeState {
     const context = this.requireContext();
     return {
       state: {
+        commands: nativeComposerCommands(this.pi),
+        compactionError: this.compactionError,
         managedRuntime: this.managedRuntime,
         leafId: context.sessionManager.getLeafId(),
         isStreaming: !context.isIdle(),
@@ -139,6 +144,11 @@ export class NativeState {
     this.context = context;
     if (context.mode !== 'tui') {
       return false;
+    }
+    if (event.type === 'compaction_start') {
+      this.compactionError = null;
+    } else if (event.type === 'compaction_end') {
+      this.compactionError = typeof event.errorMessage === 'string' ? event.errorMessage : null;
     }
     this.support?.observe(event);
     // Track transient state offline; history always comes from Pi's current branch.

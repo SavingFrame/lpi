@@ -7,7 +7,7 @@ import { ExtensionPanels } from '../../../src/extension-support/web';
 import { emptyView } from '../../../src/shared/client-state';
 import { previewBranch, projects } from '../api';
 import { Welcome } from '../app';
-import { live, queryClient } from '../client';
+import { launches, live, queryClient } from '../client';
 import { ConfirmButton } from '../components/confirm-button';
 import { Button } from '../components/ui/button';
 import { LaunchSession } from '../launch-session';
@@ -319,6 +319,7 @@ function SessionPane({
       )}
       <Composer
         id={id}
+        projectId={projectId}
         snapshot={snapshot}
         active={commands.active && !branch}
         previewing={Boolean(branch)}
@@ -328,6 +329,17 @@ function SessionPane({
         outcome={commands.outcome}
         following={following}
         onFollow={follow}
+        onNew={async () => {
+          const created = await launches.start(projectId);
+          if (!created) {
+            return false;
+          }
+          void navigate({
+            to: '/app/projects/$projectId/sessions/$sessionId',
+            params: { projectId: created.projectId, sessionId: created.id },
+          });
+          return true;
+        }}
         onCommand={commands.submit}
       />
     </div>
