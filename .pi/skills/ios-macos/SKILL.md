@@ -23,6 +23,21 @@ bash .pi/skills/ios-macos/scripts/ios-mac.sh logs
 - `screenshot [local.png]` copies a simulator screenshot locally and prints its path.
   Inspect it with the read tool. `logs` captures the last 80 Metro lines.
 
+## Mobile development handoff
+
+After mobile changes, sync the latest source to the prepared Mac before asking the user
+to check on their phone or simulator. Local edits do not reach the Mac's Metro automatically:
+
+```sh
+bash .pi/skills/ios-macos/scripts/ios-mac.sh sync
+```
+
+Reuse the running Metro so connected phones receive Fast Refresh. Use `start` if Metro
+is stopped; use `run` only when simulator startup is also wanted. Report successful sync
+before handing testing back to the user. Sync does not establish device validation.
+If dependencies changed, syncing alone is insufficient; update remote dependencies
+explicitly before testing, following the boundaries below.
+
 ## Existing setup
 
 SSH: `user@192.168.100.209`. Checkout: `/Users/user/Projects/pim-mobile-test.VdZTqa`.

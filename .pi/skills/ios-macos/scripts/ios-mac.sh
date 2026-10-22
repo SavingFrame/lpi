@@ -103,9 +103,13 @@ open_app() {
     version=$(plutil -extract CFBundleShortVersionString raw -o - "$installed/Info.plist")
   fi
   if [[ ${version%%.*} != "$sdk" ]]; then
-    [[ $sdk == 58 ]] || fail 'Prepared Expo Go cache does not match this SDK. Update the setup explicitly.'
-    app="$WORK/.tools/expo-home/ios-simulator-app-cache/Expo-Go-58.0.5.tar.app"
-    [[ -d $app ]] || fail 'Matching cached Expo Go is missing. No download was attempted.'
+    local -a cached_apps
+    shopt -s nullglob
+    cached_apps=("$WORK/.tools/expo-home/ios-simulator-app-cache/Expo-Go-$sdk."*.tar.app)
+    shopt -u nullglob
+    [[ ${#cached_apps[@]} == 1 && -d ${cached_apps[0]} ]] || \
+      fail 'Expected one matching cached Expo Go. Update the cache explicitly; no download was attempted.'
+    app=${cached_apps[0]}
     xcrun simctl install "$UDID" "$app"
   fi
   xcrun simctl openurl "$UDID" "exp://$HOST:8081?__expo_disable_fab=1&__expo_disable_auto_launch=1&__expo_disable_onboarding=1"
