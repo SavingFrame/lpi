@@ -119,8 +119,11 @@ commands, and known Device Hub/input issues.
   a 12-point trailing gap. Native visible-position anchoring preserves older reading positions.
   Following stays active across streaming and keyboard/composer resizing, pauses when scrolling
   back or inspecting details, and resumes through Latest or scrolling to the bottom.
-  Controller tests cover follow/read eligibility; native anchoring, long transcripts, and
-  keyboard interactions still need simulator/device validation.
+  Short histories use their natural content height so keyboard resizing cannot anchor blank
+  space. An isolated iPhone 17 simulator fixture reproduced the blank transcript before this
+  fix and verified messages remain visible with the keyboard open and closed afterward.
+  Controller tests cover follow/read eligibility; long-transcript anchoring, gestures, and
+  physical-device keyboard behavior still need validation.
 - A multiline composer persists server/session-scoped drafts on this device. Send uses
   prompt while idle and steer while running. One button at the right of the input sends
   text/images, switches to Stop when Pi is running and the draft is empty, and shows a disabled

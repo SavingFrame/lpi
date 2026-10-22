@@ -81,6 +81,13 @@ test('replaces the empty native list on history arrival, then preserves its iden
     pending.props.data[0].key,
     'late call preserves the draft row identity',
   );
+  assert.equal(loaded.props.inverted, true);
+  assert.equal(
+    loaded.props.contentContainerStyle.flexGrow,
+    undefined,
+    'short history must not grow blank space that native anchoring can preserve on keyboard resize',
+  );
+  assert.equal(loaded.props.contentContainerStyle.justifyContent, undefined);
   assert.ok(
     loaded.props.maintainVisibleContentPosition,
     'keep anchoring while reading older messages',

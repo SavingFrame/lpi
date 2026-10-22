@@ -18,6 +18,7 @@ import {
   type SessionFilter,
   visibleSessions,
 } from '../../src/client/inventory';
+import { relativeTime } from '../../src/client/relative-time';
 import type { SessionActivity } from '../../src/shared/session-activity';
 import { hasUnreadCompletion } from '../../src/shared/session-read-state';
 import type { InventorySession, Project } from '../../src/shared/sessions';
@@ -25,7 +26,7 @@ import { ArchiveSession } from './archive-session';
 import { Button } from './components/ui/button';
 import { LaunchSession } from './launch-session';
 import { SessionBranches, SessionBranchToggle } from './session-branches';
-import { projectColor, relativeTime } from './sidebar-state';
+import { projectColor } from './sidebar-state';
 
 const statuses = {
   running: { label: 'Running', icon: LoaderCircle, description: 'Pi is working or compacting.' },

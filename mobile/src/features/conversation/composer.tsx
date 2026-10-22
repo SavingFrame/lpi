@@ -2,6 +2,7 @@ import { type ReactNode, useEffect, useSyncExternalStore } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Keyboard,
   Pressable,
   StyleSheet,
   Text,
@@ -110,11 +111,11 @@ export function MessageComposer({
           accessibilityState={{ disabled: !enabled, busy: command.pending }}
           disabled={!enabled}
           style={[styles.button, !enabled && styles.disabled]}
-          onPress={() => {
+          onPress={async () => {
             if (stopping) {
               void messages.commands.submit({ type: 'abort' });
-            } else {
-              void messages.send();
+            } else if (await messages.send()) {
+              Keyboard.dismiss();
             }
           }}
         >

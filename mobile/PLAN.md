@@ -12,7 +12,10 @@ reconnect, and native conversation rendering with Markdown/code, horizontally sc
 tables, and visible compact tool groups with collapsible per-call arguments/output.
 Thinking content is hidden. The transcript now uses an inverted native list, visible-position
 anchoring, and gesture-driven follow state with a small trailing gap. Focused controller
-regressions pass; native anchoring and keyboard/long-transcript interactions remain unverified.
+regressions pass. An isolated iPhone 17 simulator fixture reproduced a blank short transcript
+on keyboard opening; natural-height inverted content fixes it, with open/closed keyboard
+screenshots verified. Long-transcript anchoring, gestures, and physical-device keyboard
+interactions remain unverified.
 The compact header and flat drawer rows
 replace the initial default-button presentation. Dependencies are installed and pinned;
 typechecks, isolated transport/lifecycle tests, and iOS JavaScript export pass. Expo Go

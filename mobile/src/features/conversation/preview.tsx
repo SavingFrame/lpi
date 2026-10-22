@@ -329,8 +329,8 @@ export function ConversationPreview({
 const styles = StyleSheet.create({
   container: { flex: 1 },
   content: {
-    flexGrow: 1,
-    justifyContent: 'flex-end',
+    // Inversion already anchors short histories at the bottom. Stretching this
+    // container makes native position maintenance anchor viewport-sized blank space.
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 20,

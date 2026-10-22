@@ -6,8 +6,9 @@ import {
   groupSessions,
   visibleSessions,
 } from '../../src/client/inventory.ts';
+import { relativeTime } from '../../src/client/relative-time.ts';
 import { hasUnreadCompletion } from '../../src/shared/session-read-state.ts';
-import { projectColor, relativeTime } from '../src/sidebar-state.ts';
+import { projectColor } from '../src/sidebar-state.ts';
 
 const projects = [
   { id: 'a', name: 'same', directory: '/projects/a' },
@@ -151,7 +152,12 @@ test('project colors remain stable and relative times are compact', () => {
   assert.equal(projectColor('a'), projectColor('a'));
   assert.match(projectColor('a'), /^#[0-9a-f]{6}$/);
   const now = Date.parse('2026-01-01T12:00:00Z');
+  assert.equal(relativeTime('invalid', now), '');
   assert.equal(relativeTime('2026-01-01T12:01:00Z', now), 'now');
+  assert.equal(relativeTime('2026-01-01T11:59:01Z', now), 'now');
+  assert.equal(relativeTime('2026-01-01T11:59:00Z', now), '1m');
+  assert.equal(relativeTime('2026-01-01T11:00:00Z', now), '1h');
+  assert.equal(relativeTime('2025-12-31T12:00:00Z', now), '1d');
   assert.equal(relativeTime('2026-01-01T11:55:00Z', now), '5m');
   assert.equal(relativeTime('2026-01-01T10:00:00Z', now), '2h');
   assert.equal(relativeTime('2025-12-30T12:00:00Z', now), '2d');
