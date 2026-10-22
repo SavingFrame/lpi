@@ -1,4 +1,3 @@
-import { record } from '../shared/client-state.ts';
 import type { BridgeCommand } from '../shared/commands.ts';
 import type { RelayApi } from './api.ts';
 import type { LiveState } from './live.ts';
@@ -85,7 +84,6 @@ export class SessionCommands {
     const result = await this.guard.run(
       async () => {
         const result = await this.environment.dispatch(this.id, generation, command);
-        const disposition = result.data == null ? null : record(result.data).disposition;
         this.outcome =
           command.type === 'stop_runtime'
             ? 'Shutdown requested. Runtime exit is not yet confirmed.'
@@ -95,7 +93,7 @@ export class SessionCommands {
                 ? 'Native branch switched.'
                 : command.type === 'extension'
                   ? 'Answer accepted by the native extension.'
-                  : `${disposition ? String(disposition) : String(result.outcome)}. Not necessarily finished.`;
+                  : null;
         return result;
       },
       () =>

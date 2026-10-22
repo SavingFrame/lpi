@@ -234,7 +234,7 @@ test('failing to persist the reload guard prevents dispatch', async () => {
 });
 
 for (const [command, outcome] of [
-  [commands[0], 'dispatched. Not necessarily finished.'],
+  ...commands.slice(0, 6).map((command) => [command, null]),
   [commands[6], 'Shutdown requested. Runtime exit is not yet confirmed.'],
   [commands[7], 'Answer accepted by the native extension.'],
   [commands[8], 'Native branch switched.'],
@@ -250,13 +250,13 @@ for (const [command, outcome] of [
   });
 }
 
-test('a valid acknowledgment without disposition keeps the outcome fallback', async () => {
+test('a valid acknowledgment without disposition does not show a generic status', async () => {
   const { lane, requests } = await setup();
   const result = lane.submit(commands[0]);
   await setImmediate();
   requests[0].resolve({ outcome: 'acknowledged' });
   assert.equal(await result, true);
-  assert.equal(lane.getState().outcome, 'acknowledged. Not necessarily finished.');
+  assert.equal(lane.getState().outcome, null);
 });
 
 test('command state snapshots are stable between updates and subscriptions clean up', async () => {
