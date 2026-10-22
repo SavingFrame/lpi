@@ -11,6 +11,7 @@ import { createApi } from '../dist/src/api/http.js';
 import { attachWebSockets } from '../dist/src/api/websocket.js';
 import { NativeBridges } from '../dist/src/bridge/server.js';
 import { Events } from '../dist/src/events.js';
+import { Launches } from '../dist/src/launches.js';
 import { Sessions } from '../dist/src/sessions.js';
 import { emptyView } from '../dist/src/shared/client-state.js';
 import { SessionDiscovery } from '../dist/src/storage/discovery.js';
@@ -27,7 +28,7 @@ export async function waitFor(check) {
   assert.fail('Bridge condition did not become true');
 }
 
-export async function setup(t, timeout = 1000) {
+export async function setup(t, timeout = 1000, tmux = async () => '') {
   const base = fixture(t);
   const { root, config, defer } = base;
   const sessions = join(root, 'home', '.pi', 'agent', 'sessions');
@@ -52,7 +53,13 @@ export async function setup(t, timeout = 1000) {
   const discovery = new SessionDiscovery([sessions], config.projects);
   const bridges = new NativeBridges(config, events, timeout);
   const inventory = new Sessions(discovery, bridges, events, new SessionReadStore(':memory:'));
-  const api = createApi(config, inventory, bridges);
+  const api = createApi(
+    config,
+    inventory,
+    bridges,
+    'frontend/dist',
+    new Launches(config, inventory, bridges, tmux),
+  );
   const closeSockets = attachWebSockets(api, config, events, bridges);
   api.listen(0, '127.0.0.1');
   await once(api, 'listening');

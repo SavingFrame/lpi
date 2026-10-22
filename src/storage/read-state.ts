@@ -16,6 +16,9 @@ export class SessionReadStore {
         completion_id TEXT NOT NULL,
         viewed_completion_id TEXT
       ) STRICT;
+      CREATE TABLE IF NOT EXISTS session_archive_state (
+        session_id TEXT PRIMARY KEY
+      ) STRICT;
     `);
   }
 
@@ -51,6 +54,24 @@ export class SessionReadStore {
     `)
       .run(sessionId, completionId);
     return this.get(sessionId);
+  }
+
+  isArchived(sessionId: string): boolean {
+    return (
+      this.database
+        .prepare('SELECT 1 FROM session_archive_state WHERE session_id = ?')
+        .get(sessionId) !== undefined
+    );
+  }
+
+  setArchived(sessionId: string, archived: boolean): void {
+    this.database
+      .prepare(
+        archived
+          ? 'INSERT OR IGNORE INTO session_archive_state (session_id) VALUES (?)'
+          : 'DELETE FROM session_archive_state WHERE session_id = ?',
+      )
+      .run(sessionId);
   }
 
   close(): void {

@@ -16,7 +16,7 @@ export function StopSession({
   onOpen: (open: boolean) => void;
 }) {
   const command = useSyncExternalStore(messages.commands.subscribe, messages.commands.getState);
-  const available = enabled && messages.commands.available();
+  const available = enabled && messages.commands.canStop(generation);
   return (
     <RuntimeButton
       label={command.pending ? 'Stopping runtime' : 'Stop runtime'}

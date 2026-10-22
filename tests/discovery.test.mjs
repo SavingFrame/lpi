@@ -6,6 +6,7 @@ import { createApi } from '../dist/src/api/http.js';
 import { NativeBridges } from '../dist/src/bridge/server.js';
 import { loadConfig } from '../dist/src/config.js';
 import { Events } from '../dist/src/events.js';
+import { Launches } from '../dist/src/launches.js';
 import { Sessions } from '../dist/src/sessions.js';
 import { SessionDiscovery } from '../dist/src/storage/discovery.js';
 import { SessionReadStore } from '../dist/src/storage/read-state.js';
@@ -158,7 +159,13 @@ test('saved sessions are read-only through HTTP until explicitly resumed', async
   defer(() => bridges.close());
   const inventory = new Sessions(discovery, bridges, events, new SessionReadStore(':memory:'));
   const session = discovery.list()[0];
-  const api = createApi(config, inventory, bridges);
+  const api = createApi(
+    config,
+    inventory,
+    bridges,
+    'frontend/dist',
+    new Launches(config, inventory, bridges, async () => ''),
+  );
   await new Promise((resolve) => api.listen(0, '127.0.0.1', resolve));
   defer(() => new Promise((resolve) => api.close(resolve)));
   config.port = api.address().port;

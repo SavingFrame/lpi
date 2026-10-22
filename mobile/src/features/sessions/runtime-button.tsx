@@ -8,6 +8,7 @@ export function RuntimeButton({
   disabled,
   color,
   onPress,
+  icon = 'power',
 }: {
   label: string;
   hint: string;
@@ -15,6 +16,7 @@ export function RuntimeButton({
   disabled: boolean;
   color: string;
   onPress: () => void;
+  icon?: 'power' | 'archive' | 'restore';
 }) {
   return (
     <Pressable
@@ -28,8 +30,22 @@ export function RuntimeButton({
     >
       {pending ? (
         <ActivityIndicator size="small" color={color} />
+      ) : icon !== 'power' ? (
+        <View accessible={false} style={styles.archiveIcon}>
+          <View style={[styles.archiveLid, { borderColor: color }]} />
+          <View style={[styles.archiveBox, { borderColor: color }]}>
+            {icon === 'restore' ? (
+              <View style={styles.restoreArrow}>
+                <View style={[styles.arrowHead, { borderColor: color }]} />
+                <View style={[styles.arrowStem, { backgroundColor: color }]} />
+              </View>
+            ) : (
+              <View style={[styles.archiveHandle, { backgroundColor: color }]} />
+            )}
+          </View>
+        </View>
       ) : (
-        <View style={[styles.powerIcon, { borderColor: color }]}>
+        <View accessible={false} style={[styles.powerIcon, { borderColor: color }]}>
           <View style={[styles.powerStem, { backgroundColor: color }]} />
         </View>
       )}
@@ -46,20 +62,41 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   powerIcon: {
-    width: 20,
-    height: 20,
-    borderWidth: 2,
-    borderRadius: 10,
+    width: 16,
+    height: 16,
+    borderWidth: 1.5,
+    borderRadius: 8,
   },
   powerStem: {
     position: 'absolute',
-    top: -5,
-    left: 5,
-    width: 6,
-    height: 12,
+    top: -4,
+    left: 4,
+    width: 5,
+    height: 9,
     borderColor: colors.background,
     borderLeftWidth: 2,
     borderRightWidth: 2,
   },
+  archiveIcon: { width: 16, height: 16, alignItems: 'center' },
+  archiveLid: { width: 16, height: 5, borderWidth: 1.5, borderRadius: 1 },
+  archiveBox: {
+    width: 13,
+    height: 10,
+    borderWidth: 1.5,
+    borderTopWidth: 0,
+    borderBottomLeftRadius: 2,
+    borderBottomRightRadius: 2,
+    alignItems: 'center',
+  },
+  archiveHandle: { width: 5, height: 1.5, marginTop: 3 },
+  restoreArrow: { alignItems: 'center', marginTop: 2 },
+  arrowHead: {
+    width: 5,
+    height: 5,
+    borderTopWidth: 1.5,
+    borderLeftWidth: 1.5,
+    transform: [{ rotate: '45deg' }],
+  },
+  arrowStem: { position: 'absolute', top: 1, width: 1.5, height: 6 },
   disabled: { opacity: 0.4 },
 });

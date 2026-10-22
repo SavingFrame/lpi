@@ -1,23 +1,31 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useParams } from '@tanstack/react-router';
 import { Folder, Terminal } from 'lucide-react';
-import { useEffect, useSyncExternalStore } from 'react';
+import { type CSSProperties, useEffect, useState, useSyncExternalStore } from 'react';
+import { filterSessions, type SessionFilter } from '../../src/client/inventory';
 import { projects, sessions } from './api';
 import { live } from './client';
-import { LaunchSession } from './launch-session';
 import { SessionSidebar } from './session-sidebar';
 
 export function Shell() {
+  const [filter, setFilter] = useState<SessionFilter>('all');
+  const [search, setSearch] = useState('');
+  const [width, setWidth] = useState(360);
   const { projectId, sessionId } = useParams({ strict: false });
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
-  const sessionQuery = useQuery({ queryKey: ['sessions'], queryFn: sessions });
+  const sessionQuery = useQuery({
+    queryKey: ['sessions'],
+    queryFn: sessions,
+  });
   const status = useSyncExternalStore(live.subscribe, () => live.getState().status);
+  const online = status === 'ready' || status === 'syncing';
+  const filters = ['all', 'live', 'saved', 'archived'] as const;
   useEffect(() => {
     live.connect();
     return live.disconnect;
   }, []);
   return (
-    <div className="shell">
+    <div className="shell" style={{ '--sidebar-width': `${width}px` } as CSSProperties}>
       <aside className="sidebar">
         <div className="brand">
           <Link to="/">
@@ -39,15 +47,54 @@ export function Shell() {
             No project folders found. Add a folder under a configured root, then restart the server.
           </p>
         )}
-        <LaunchSession />
         <nav aria-label="Sessions by project">
+          <label className="session-search">
+            <span className="sr-only">Search sessions</span>
+            <input
+              type="search"
+              placeholder="Search sessions or projects…"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+            />
+          </label>
+          <fieldset className="session-visibility" aria-label="Session visibility">
+            {filters.map((item) => (
+              <button
+                key={item}
+                type="button"
+                aria-pressed={filter === item}
+                onClick={() => setFilter(item)}
+              >
+                {item === 'all'
+                  ? 'All'
+                  : item === 'live'
+                    ? 'Live'
+                    : item === 'saved'
+                      ? 'Saved'
+                      : 'Archived'}
+                <span>
+                  {
+                    filterSessions(
+                      sessionQuery.data ?? [],
+                      projectQuery.data ?? [],
+                      item,
+                      search,
+                      online,
+                    ).length
+                  }
+                </span>
+              </button>
+            ))}
+          </fieldset>
           <h2 className="eyebrow">Projects</h2>
           {sessionQuery.isPending && <p className="muted">Loading sessions…</p>}
           <SessionSidebar
             projects={projectQuery.data ?? []}
             sessions={sessionQuery.data ?? []}
             selectedId={sessionId}
-            online={status === 'ready' || status === 'syncing'}
+            filter={filter}
+            search={search}
+            online={online}
           />
         </nav>
         <footer className="flex items-center gap-2">
@@ -56,6 +103,34 @@ export function Shell() {
             'Select a project'}
         </footer>
       </aside>
+      <button
+        type="button"
+        className="sidebar-resize"
+        aria-label="Resize sidebar"
+        title="Drag to resize. Left and Right arrows adjust width; Home resets."
+        onPointerDown={(event) => {
+          event.currentTarget.setPointerCapture(event.pointerId);
+          event.preventDefault();
+        }}
+        onPointerMove={(event) => {
+          if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+            const left = event.currentTarget.parentElement?.getBoundingClientRect().left ?? 0;
+            setWidth(Math.max(320, Math.min(520, event.clientX - left)));
+          }
+        }}
+        onPointerUp={(event) => event.currentTarget.releasePointerCapture(event.pointerId)}
+        onKeyDown={(event) => {
+          if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+            event.preventDefault();
+            setWidth((current) =>
+              Math.max(320, Math.min(520, current + (event.key === 'ArrowRight' ? 10 : -10))),
+            );
+          } else if (event.key === 'Home') {
+            event.preventDefault();
+            setWidth(360);
+          }
+        }}
+      />
       <main>
         <Outlet />
       </main>

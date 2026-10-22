@@ -107,7 +107,9 @@ export class LiveSession {
         const item = raw as unknown as ServerEvent;
         this.cursor = item.cursor;
         if (
-          ['connection', 'bridge-status', 'bridge-sync', 'read-state'].includes(item.type) ||
+          ['connection', 'bridge-status', 'bridge-sync', 'read-state', 'archive-state'].includes(
+            item.type,
+          ) ||
           (item.type === 'pi-event' &&
             [
               'agent_start',

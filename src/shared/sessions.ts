@@ -50,6 +50,8 @@ export function promptTitle(content: unknown): string | undefined {
 
 export interface InventorySession extends Session {
   activity: SessionActivity;
+  archived: boolean;
+  managedRuntime: boolean;
   readState: SessionReadState;
 }
 
@@ -101,5 +103,17 @@ export function inventorySession(value: unknown): InventorySession {
   ) {
     throw new Error('Invalid session activity');
   }
-  return { ...item, activity, readState: readState(raw.readState) };
+  if (typeof raw.managedRuntime !== 'boolean') {
+    throw new Error('Invalid managed runtime state');
+  }
+  if (typeof raw.archived !== 'boolean') {
+    throw new Error('Invalid session archive state');
+  }
+  return {
+    ...item,
+    activity,
+    archived: raw.archived,
+    managedRuntime: raw.managedRuntime,
+    readState: readState(raw.readState),
+  };
 }

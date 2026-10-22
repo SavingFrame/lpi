@@ -8,6 +8,7 @@ import { createApi } from '../dist/src/api/http.js';
 import { attachWebSockets } from '../dist/src/api/websocket.js';
 import { NativeBridges } from '../dist/src/bridge/server.js';
 import { Events } from '../dist/src/events.js';
+import { Launches } from '../dist/src/launches.js';
 import { Sessions } from '../dist/src/sessions.js';
 import { hasUnreadCompletion } from '../dist/src/shared/session-read-state.js';
 import { SessionDiscovery } from '../dist/src/storage/discovery.js';
@@ -81,7 +82,13 @@ test('read API broadcasts shared metadata to both clients and never modifies Pi 
     events,
     store,
   );
-  const server = createApi(config, inventory, bridges);
+  const server = createApi(
+    config,
+    inventory,
+    bridges,
+    'frontend/dist',
+    new Launches(config, inventory, bridges, async () => ''),
+  );
   const closeSockets = attachWebSockets(server, config, events, bridges);
   defer(async () => {
     closeSockets();

@@ -2,7 +2,6 @@ import { type ReactNode, useCallback, useEffect, useState, useSyncExternalStore 
 import { Pressable, Text } from 'react-native';
 import type { LiveState } from '../../../../src/client/live';
 import type { InventorySession } from '../../../../src/shared/sessions';
-import { MobileExtensionPanels } from '../../extensions';
 import type { MobileRelay } from '../../lib/relay';
 import { colors } from '../../theme/colors';
 import { ResumeSession } from '../sessions/resume';
@@ -26,7 +25,6 @@ export function Conversation({
 }) {
   const [following, setFollowing] = useState(false);
   const [picking, setPicking] = useState(false);
-  const [answering, setAnswering] = useState(false);
   const [confirmingRuntime, setConfirmingRuntime] = useState(false);
   const [choosingSettings, setChoosingSettings] = useState(false);
   const read = useSyncExternalStore(client.reads.subscribe, client.reads.getState);
@@ -41,23 +39,12 @@ export function Conversation({
       following,
       visible &&
         !picking &&
-        !answering &&
         !confirmingRuntime &&
         !choosingSettings &&
         connection.status === 'ready',
     );
     return () => client.setReading(id, false, false);
-  }, [
-    client,
-    id,
-    following,
-    visible,
-    picking,
-    answering,
-    confirmingRuntime,
-    choosingSettings,
-    connection,
-  ]);
+  }, [client, id, following, visible, picking, confirmingRuntime, choosingSettings, connection]);
   return (
     <>
       {session &&
@@ -66,7 +53,7 @@ export function Conversation({
         <ResumeSession
           client={client}
           id={session.id}
-          enabled={visible && !picking && !answering && connection.status === 'ready'}
+          enabled={visible && !picking && connection.status === 'ready'}
           onOpen={setConfirmingRuntime}
           renderHeader={renderHeader}
         />
@@ -79,13 +66,27 @@ export function Conversation({
             <StopSession
               messages={client.messages(session.id, session.projectId)}
               generation={connection.snapshot.session.generation}
-              enabled={visible && !picking && !answering && connection.status === 'ready'}
+              enabled={visible && !picking && connection.status === 'ready'}
               onOpen={setConfirmingRuntime}
             />
           ) : null,
         )
       )}
-      <ConversationPreview connection={connection} onFollowing={onFollowing} />
+      <ConversationPreview
+        key={`${session?.id}:${connection.snapshot?.session.generation}`}
+        connection={connection}
+        onFollowing={onFollowing}
+        messages={session ? client.messages(session.id, session.projectId) : undefined}
+        questionsEnabled={
+          visible &&
+          !picking &&
+          !confirmingRuntime &&
+          !choosingSettings &&
+          connection.status === 'ready' &&
+          connection.snapshot?.session.id === session?.id &&
+          connection.snapshot?.session.connection === 'connected'
+        }
+      />
       {read.error && read.target?.id === id && (
         <Pressable
           accessibilityRole="button"
@@ -96,15 +97,6 @@ export function Conversation({
             Read status could not be saved. Tap to retry.
           </Text>
         </Pressable>
-      )}
-      {session && connection.snapshot?.session.id === session.id && (
-        <MobileExtensionPanels
-          key={`${session.id}:${connection.snapshot.session.generation}`}
-          extensions={connection.snapshot.view.extensions}
-          messages={client.messages(session.id, session.projectId)}
-          enabled={visible && !picking && connection.status === 'ready'}
-          onOpen={setAnswering}
-        />
       )}
       {session && (
         <MessageComposer
@@ -117,7 +109,6 @@ export function Conversation({
                 enabled={
                   visible &&
                   !picking &&
-                  !answering &&
                   !confirmingRuntime &&
                   connection.status === 'ready' &&
                   connection.snapshot.session.connection === 'connected' &&

@@ -10,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import type { LiveState } from '../../../../src/client/live';
+import { MobileQuestion } from '../../extensions';
+import type { MobileMessages } from '../../lib/messages';
 import { colors } from '../../theme/colors';
 import { CodeBlock, Markdown } from './markdown';
 import { conversationScroll } from './scroll';
@@ -130,7 +132,13 @@ function ToolDetail({ tool, onInspect }: { tool: ToolEntry; onInspect: () => voi
   );
 }
 
-function MessageRow({ row, onInspect }: { row: ConversationRow; onInspect: () => void }) {
+function MessageRow({
+  row,
+  onInspect,
+}: {
+  row: Exclude<ConversationRow, { kind: 'question' }>;
+  onInspect: () => void;
+}) {
   if (row.kind === 'tools') {
     const running = row.tools.filter((tool) => tool.status === 'running').length;
     const errors = row.tools.filter((tool) => tool.status === 'error').length;
@@ -192,9 +200,13 @@ function MessageRow({ row, onInspect }: { row: ConversationRow; onInspect: () =>
 export function ConversationPreview({
   connection,
   onFollowing,
+  messages,
+  questionsEnabled = false,
 }: {
   connection: LiveState;
   onFollowing: (following: boolean) => void;
+  messages?: MobileMessages;
+  questionsEnabled?: boolean;
 }) {
   const snapshot = connection.snapshot;
   const list = useRef<FlatList<ConversationRow>>(null);
@@ -210,16 +222,31 @@ export function ConversationPreview({
       }),
     [onFollowing],
   );
-  const rows = useMemo(
-    () =>
-      snapshot
-        ? conversationRows(
-            [...snapshot.view.messages, ...(snapshot.view.partial ? [snapshot.view.partial] : [])],
-            snapshot.view.tools,
-          ).reverse()
-        : [],
-    [snapshot],
-  );
+  const rows = useMemo(() => {
+    if (!snapshot) {
+      return [];
+    }
+    const timeline = conversationRows(
+      [...snapshot.view.messages, ...(snapshot.view.partial ? [snapshot.view.partial] : [])],
+      snapshot.view.tools,
+    );
+    // A public prompt can arrive before its tool call is present in the transcript.
+    for (const prompt of snapshot.view.extensions?.['ask-user-question'] ?? []) {
+      if (!timeline.some((row) => row.kind === 'question' && row.tool.id === prompt.toolCallId)) {
+        timeline.push({
+          kind: 'question',
+          key: `question:${prompt.toolCallId}`,
+          tool: {
+            key: prompt.toolCallId,
+            id: prompt.toolCallId,
+            name: 'ask_user_question',
+            status: 'running',
+          },
+        });
+      }
+    }
+    return timeline.reverse();
+  }, [snapshot]);
   return (
     <View style={styles.container}>
       <FlatList
@@ -239,7 +266,23 @@ export function ConversationPreview({
         keyboardShouldPersistTaps="handled"
         contentInsetAdjustmentBehavior="never"
         automaticallyAdjustKeyboardInsets={false}
-        renderItem={({ item }) => <MessageRow row={item} onInspect={scroll.pause} />}
+        renderItem={({ item }) =>
+          item.kind === 'question' ? (
+            <MobileQuestion
+              key={item.tool.id ?? item.key}
+              tool={item.tool}
+              prompt={snapshot?.view.extensions?.['ask-user-question']?.find(
+                (prompt) => prompt.toolCallId === item.tool.id,
+              )}
+              messages={messages}
+              enabled={questionsEnabled}
+            >
+              <ToolDetail tool={item.tool} onInspect={scroll.pause} />
+            </MobileQuestion>
+          ) : (
+            <MessageRow row={item} onInspect={scroll.pause} />
+          )
+        }
         ItemSeparatorComponent={() => <View style={styles.separator} />}
         onScroll={({ nativeEvent }) => scroll.scroll(nativeEvent.contentOffset.y)}
         onScrollBeginDrag={scroll.beginInteraction}

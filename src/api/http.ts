@@ -106,7 +106,7 @@ export function createApi(
         return;
       }
       const match =
-        /^\/sessions\/([a-f0-9-]{36})(?:\/(commands|snapshot|resume|viewed|tree|branch))?$/.exec(
+        /^\/sessions\/([a-f0-9-]{36})(?:\/(commands|snapshot|resume|viewed|archive|tree|branch))?$/.exec(
           path,
         );
       if (request.method === 'GET' && match?.[2] === 'tree') {
@@ -135,9 +135,10 @@ export function createApi(
       const creating = path === '/sessions';
       const resuming = match?.[2] === 'resume';
       const viewing = match?.[2] === 'viewed';
+      const archiving = match?.[2] === 'archive';
       if (
         request.method !== 'POST' ||
-        (!creating && !resuming && !viewing && match?.[2] !== 'commands')
+        (!creating && !resuming && !viewing && !archiving && match?.[2] !== 'commands')
       ) {
         throw new AppError('Route not found', 404);
       }
@@ -159,6 +160,18 @@ export function createApi(
         throw new AppError('Request ID capacity reached; restart the relay', 503);
       }
       usedRequests.add(requestId);
+      if (archiving) {
+        if (typeof raw.archived !== 'boolean') {
+          throw new AppError('Invalid session archive state', 400);
+        }
+        sessions.setArchived(String(match?.[1]), raw.archived);
+        send(response, 200, {
+          requestId,
+          outcome: 'acknowledged',
+          data: { archived: raw.archived },
+        });
+        return;
+      }
       if (viewing) {
         const completionId = text(raw.completionId, 'completion ID', 128);
         if (!/^[a-f0-9-]{36}$/.test(completionId)) {

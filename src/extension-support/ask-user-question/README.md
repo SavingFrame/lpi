@@ -41,18 +41,20 @@ never answers, declines, or restarts a tool.
 `draft.ts` owns framework-independent selection, custom-answer, note, and answer-validation
 helpers for browser and mobile. It imports only the shared extension contract, not React,
 browser components, CSS, or native Pi. Mobile rendering is registered explicitly in
-`mobile/src/extensions/index.tsx`, with the native questionnaire sheet in
+`mobile/src/extensions/index.tsx`, with inline chat questionnaires in
 `mobile/src/extensions/ask-user-question.tsx`. It supports selections, custom text, notes,
 Markdown previews, submit/cancel, and command uncertainty through the shared composer lane.
-Closing the sheet preserves its mounted draft without declining; navigation or a new bridge
-generation discards it. Mobile history keeps the normal tool display. Isolated mobile
-transport tests pass; native interaction and real-Pi integration remain unverified.
+Unmounting or a new bridge generation discards memory-only drafts. Both clients use
+`history.ts` to read persisted native answers. Mobile shows completed questions, choices,
+custom answers, and notes inline, with the normal tool fallback for unsupported results.
+Isolated rendering and transport tests pass; native interaction and real-Pi integration
+remain unverified.
 
 ## Browser entry points
 
 Pending questions render through this module's `web.tsx`, registered explicitly in
 `src/extension-support/web.tsx`. Persisted answers are parsed by
-`frontend/src/ask-history.ts` and rendered by `frontend/src/ask-history-card.tsx`, wired
+`history.ts` (re-exported by `frontend/src/ask-history.ts`) and rendered by `frontend/src/ask-history-card.tsx`, wired
 explicitly into `frontend/src/transcript.tsx` with the normal raw tool fallback. Both
 preview surfaces use `frontend/src/components/safe-markdown.ts`. This per-extension
 integration is intentional; adding another extension does not require a generic UI

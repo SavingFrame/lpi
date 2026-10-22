@@ -160,14 +160,14 @@ commands, and known Device Hub/input issues.
   that no Pi process still uses the file. Resume keeps server-side reservation and external-writer
   protections, uses its own durable lane, and refreshes the same conversation after acknowledgment.
   Unknown resume outcomes require inspection and explicit review. Reconnect never resumes.
-- Pending Ask User Question prompts open a native questionnaire sheet with single/multiple
+- Ask User Question prompts appear directly in the scrolling chat, with single/multiple
   selections, custom text, per-question/global notes, Markdown previews, submission, and
-  explicit cancellation. Close preserves the mounted draft without answering. Drafts are
-  memory-only and reset on navigation or bridge generation changes. Answers share the
-  composer command lane and require the native extension verdict; unknown outcomes block
-  new commands without replay. Read acknowledgments pause while the sheet is open.
-  Resume and questionnaire controls have isolated transport tests, but native interaction
-  and real-Pi integration remain unverified.
+  explicit cancellation. No questionnaire sheet needs opening. Drafts are memory-only;
+  unmounting or bridge generation changes discard them. Answers share the composer command
+  lane and require the native extension verdict; unknown outcomes block new commands without
+  replay. Completed questions and recorded answers, including terminal answers, remain inline
+  as read-only cards. Unsupported results retain the normal tool display. Isolated rendering
+  and transport tests pass; native interaction and real-Pi integration remain unverified.
 - One pill inside the composer, beside the attachment button and below the text input,
   shows the current model and a color-coded thinking level with text. It opens a bottom
   sheet containing supported thinking levels and searchable model selection, with Pi scoped

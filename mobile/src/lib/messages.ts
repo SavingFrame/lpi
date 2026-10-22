@@ -46,11 +46,7 @@ export class MobileMessages {
   };
 
   stopRuntime = (generation: number): Promise<boolean> => {
-    const snapshot = this.environment.connection().snapshot;
-    if (snapshot?.state.managedRuntime !== true || snapshot.session.generation !== generation) {
-      return Promise.resolve(false);
-    }
-    return this.commands.submit({ type: 'stop_runtime' });
+    return this.commands.stopRuntime(generation);
   };
 
   send = async (): Promise<boolean> => {

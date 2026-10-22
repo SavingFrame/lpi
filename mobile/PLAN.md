@@ -28,7 +28,7 @@ validation. Per-project fresh-session creation now uses the shared durable launc
 acknowledged session, and exposes explicit uncertain-outcome review without replay.
 Isolated mobile launch tests cover dispatch, restart uncertainty, and suspension during
 persistence; native UI and real-Pi launch validation remain pending.
-Explicit saved-session resume and mobile Ask User Question rendering are now implemented.
+Explicit saved-session resume and inline-chat mobile Ask User Question rendering are now implemented.
 Resume requires offline confirmation and uses the shared durable resume lane. Questionnaires
 use an explicit mobile registration, native modal controls, shared drafts/validation, and
 the composer command guard for answers/cancellation. Isolated transport coverage passes;

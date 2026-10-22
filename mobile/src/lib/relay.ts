@@ -113,6 +113,7 @@ export class MobileRelay {
         server: this.origin,
         storage: this.storage,
         connection: this.live.getState,
+        runtime: () => this.current.sessions.find((session) => session.id === id),
         dispatch: this.api.operate.bind(this.api),
         refresh: () => {
           this.live.refresh();
@@ -145,6 +146,17 @@ export class MobileRelay {
     return this.launchSession(session.projectId, id);
   };
 
+  setArchived = async (id: string, archived: boolean): Promise<void> => {
+    if (!this.active || this.live.getState().status !== 'ready') {
+      throw new Error('Reconnect before changing session visibility.');
+    }
+    try {
+      await this.api.setArchived(id, archived);
+    } finally {
+      await this.refresh();
+    }
+  };
+
   createSession = (projectId: string): Promise<boolean> => this.launchSession(projectId);
 
   private launchSession = async (projectId: string, resumeId?: string): Promise<boolean> => {
@@ -165,6 +177,8 @@ export class MobileRelay {
         {
           ...session,
           activity: 'unknown',
+          managedRuntime: true,
+          archived: this.current.sessions.find((item) => item.id === session.id)?.archived ?? false,
           readState: this.current.sessions.find((item) => item.id === session.id)?.readState ?? {
             completionId: null,
             viewedCompletionId: null,

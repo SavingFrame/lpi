@@ -7,6 +7,7 @@ Pi runs the agent and keeps its normal session files. Pim connects to that same 
 ## Features
 
 - Browse live and saved sessions, grouped by project.
+- Archive sessions and restore them from the Archived view across browser and mobile.
 - Follow streaming responses, tool activity, and code diffs.
 - Send prompts, steer running agents, and attach images.
 - Inspect queued steering/follow-up text and clear the native session queue.
@@ -16,6 +17,21 @@ Pi runs the agent and keeps its normal session files. Pim connects to that same 
 - Explore conversation branches and continue from earlier messages.
 - Create, resume, and stop Pim-managed sessions.
 - Track running agents, input requests, and unread completions across browsers.
+
+The browser sidebar is wider and resizable by dragging its right edge (or focusing the edge and
+using Left/Right arrows; Home resets). Search session titles or project paths and filter by
+**All**, **Live**, **Saved**, or **Archived**. Create sessions with each project's **+** button.
+
+Live Pim-managed sessions show **Stop runtime** instead of Archive. Stopping requires confirmation
+and interrupts active work, but never archives automatically. Stop externally managed Pi in its
+terminal. Disconnected sessions can be archived immediately, without tmux inspection or offline
+confirmation. A disconnected Pi may still be running; archiving only hides the session and never
+stops a process or deletes history.
+
+Use **Archive** beside a disconnected session in the browser or mobile drawer to hide it.
+Switch to **Archived** to restore hidden sessions before resuming their runtimes. History, unread
+completions, drafts, and already-open conversations are preserved. Archive state is shared across
+clients and survives relay restarts in Pim's SQLite database, separate from Pi's JSONL files.
 
 Type `/` for compact, single-line command suggestions (five visible rows). Arrow keys select and
 scroll the menu, Enter or Tab completes, and Escape closes suggestions without aborting Pi.

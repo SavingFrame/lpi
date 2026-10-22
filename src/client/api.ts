@@ -180,6 +180,20 @@ export class RelayApi {
     return session(record(result.data).session);
   }
 
+  async setArchived(id: string, archived: boolean): Promise<void> {
+    const result = record(
+      await this.request(`/sessions/${encodeURIComponent(id)}/archive`, {
+        archived,
+      }),
+    );
+    if (record(result.data).archived !== archived) {
+      throw new ApiError(
+        'Invalid archive acknowledgment. Refresh sessions to inspect state.',
+        'unknown',
+      );
+    }
+  }
+
   async markViewed(id: string, completionId: string): Promise<SessionReadState> {
     const result = record(
       await this.request(`/sessions/${encodeURIComponent(id)}/viewed`, { completionId }),

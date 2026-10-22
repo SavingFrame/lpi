@@ -18,6 +18,8 @@ const session = {
   connection: 'connected',
   generation: 1,
   activity: 'idle',
+  archived: false,
+  managedRuntime: false,
   readState: { completionId: null, viewedCompletionId: null },
 };
 
@@ -336,6 +338,33 @@ function acknowledge(request) {
     }),
   );
 }
+
+test('mobile archives without closing the conversation and refreshes authoritative visibility', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  await loadConversation(fixture, { running: true });
+  const snapshot = fixture.client.live.getState().snapshot;
+  const archiving = fixture.client.setArchived(id, true);
+  const request = fixture.requests.findLast((item) => item.request.method === 'POST');
+  assert.ok(request.url.endsWith('/archive'));
+  assert.equal(JSON.parse(request.request.body).archived, true);
+  assert.equal(JSON.parse(request.request.body).confirmedOffline, undefined);
+  request.resolve(
+    Response.json({
+      requestId: JSON.parse(request.request.body).requestId,
+      outcome: 'acknowledged',
+      data: { archived: true },
+    }),
+  );
+  await setImmediate();
+  await fixture.inventory([{ ...session, archived: true }]);
+  await archiving;
+  assert.equal(fixture.client.getState().sessions[0].archived, true);
+  assert.equal(fixture.client.getState().selectedId, id);
+  assert.equal(fixture.client.live.getState().snapshot, snapshot);
+  fixture.client.stop();
+  await assert.rejects(fixture.client.setArchived(id, false), /Reconnect/);
+  assert.equal(fixture.requests.filter((item) => item.request.method === 'POST').length, 1);
+});
 
 test('mobile resumes only an explicitly selected saved snapshot and refreshes the same session', async (t) => {
   const fixture = setup(t, undefined, undefined, true);

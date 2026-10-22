@@ -48,6 +48,15 @@ export class Sessions {
     return readState;
   }
 
+  setArchived(id: string, archived: boolean): void {
+    const session = this.get(id);
+    if (archived && session.connection === 'connected') {
+      throw new AppError('Stop the runtime before archiving this session', 409);
+    }
+    this.readStates.setArchived(id, archived);
+    this.events.publish(id, session.generation, 'archive-state', { archived });
+  }
+
   list(): InventorySession[] {
     const native = this.bridges.list();
     const ids = new Set(native.map((session) => session.id));
@@ -62,7 +71,12 @@ export class Sessions {
         .filter((session) => !ids.has(session.id))
         .map((session) => ({ ...session, activity: 'unknown' as const })),
       ...visibleNative,
-    ].map((session) => ({ ...session, readState: this.readStates.get(session.id) }));
+    ].map((session) => ({
+      ...session,
+      readState: this.readStates.get(session.id),
+      archived: this.readStates.isArchived(session.id),
+      managedRuntime: this.bridges.snapshot(session.id)?.state.managedRuntime === true,
+    }));
   }
 
   get(id: string): Session {
@@ -74,6 +88,9 @@ export class Sessions {
   }
 
   validateResume(id: string): void {
+    if (this.readStates.isArchived(id)) {
+      throw new AppError('Restore this session before resuming its runtime', 409);
+    }
     inspectSavedSession(this.get(id));
   }
 

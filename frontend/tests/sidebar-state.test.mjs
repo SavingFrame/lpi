@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { activityCounts, groupSessions, visibleSessions } from '../../src/client/inventory.ts';
+import {
+  activityCounts,
+  filterSessions,
+  groupSessions,
+  visibleSessions,
+} from '../../src/client/inventory.ts';
 import { hasUnreadCompletion } from '../../src/shared/session-read-state.ts';
 import { projectColor, relativeTime } from '../src/sidebar-state.ts';
 
@@ -17,6 +22,7 @@ const session = (id, projectId, activity, updatedAt = '2026-01-01T12:00:00Z') =>
   createdAt: '2026-01-01T00:00:00Z',
   connection: 'connected',
   generation: 1,
+  archived: false,
   readState: { completionId: null, viewedCompletionId: null },
 });
 
@@ -99,6 +105,46 @@ test('recent sessions retain selected, active, and unread rows while older histo
   );
   assert.equal(visibleSessions(items, 'selected', true, 1), items);
   assert.equal(items.length, 6);
+});
+
+test('archive view excludes archived running, unread, and selected sessions from normal groups', () => {
+  const hidden = {
+    ...session('archived', 'a', 'running'),
+    archived: true,
+    readState: { completionId: 'turn', viewedCompletionId: null },
+  };
+  const items = [session('visible', 'a', 'idle'), hidden];
+  const normal = groupSessions(projects, items, true)[0].sessions;
+  assert.deepEqual(
+    visibleSessions(normal, hidden.id, false).map((item) => item.id),
+    ['visible'],
+  );
+  const archived = groupSessions(projects, items, true, true)[0].sessions;
+  assert.deepEqual(
+    archived.map((item) => item.id),
+    ['archived'],
+  );
+  assert.equal(archived[0].activity, 'running');
+  assert.equal(hasUnreadCompletion(archived[0].readState), true);
+  assert.equal(items[1].archived, true);
+});
+
+test('search and live/saved filters include idle runtimes without mistaking offline activity for exit', () => {
+  const live = { ...session('live', 'a', 'idle'), title: 'Review API' };
+  const saved = {
+    ...session('saved', 'b', 'unknown'),
+    connection: 'disconnected',
+    title: 'Review UI',
+  };
+  const archived = { ...saved, id: 'archived', archived: true };
+  const items = [live, saved, archived];
+  assert.deepEqual(filterSessions(items, projects, 'live', '', true), [live]);
+  assert.deepEqual(filterSessions(items, projects, 'live', '', false), []);
+  assert.deepEqual(filterSessions(items, projects, 'saved', '', false), [saved]);
+  assert.deepEqual(filterSessions(items, projects, 'all', 'REVIEW api', true), [live]);
+  assert.deepEqual(filterSessions(items, projects, 'all', '/projects/b', true), [saved]);
+  assert.deepEqual(filterSessions(items, projects, 'archived', 'review', true), [archived]);
+  assert.equal(filterSessions(items, projects, 'all', 'missing', true).length, 0);
 });
 
 test('project colors remain stable and relative times are compact', () => {

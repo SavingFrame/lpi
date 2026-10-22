@@ -22,6 +22,7 @@ test('replaces the empty native list on history arrival, then preserves its iden
     'react/jsx-runtime': require('react/jsx-runtime'),
     'react-native': { FlatList, Platform: { OS: 'ios' }, StyleSheet: { create: (value) => value } },
     '../../theme/colors': { colors: {} },
+    '../../extensions': { MobileQuestion: Symbol('MobileQuestion') },
     './markdown': {},
     './scroll': { conversationScroll },
     './timeline': { conversationRows },
@@ -37,10 +38,10 @@ test('replaces the empty native list on history arrival, then preserves its iden
       return modules[name];
     },
   });
-  const render = (messages) => {
+  const render = (messages, extensions = {}) => {
     const element = exports.ConversationPreview({
       connection: {
-        snapshot: messages === null ? null : { view: { messages, tools: [] } },
+        snapshot: messages === null ? null : { view: { messages, tools: [], extensions } },
       },
       onFollowing: () => {},
     });
@@ -57,6 +58,29 @@ test('replaces the empty native list on history arrival, then preserves its iden
   assert.equal(render([]).key, empty.key);
   assert.equal(render([message, { ...message, timestamp: 2 }]).key, loaded.key);
   assert.equal(render([{ ...message, content: 'Streaming update' }]).key, loaded.key);
+  const prompt = { toolCallId: 'ask-1', questions: [] };
+  const extensions = { 'ask-user-question': [prompt] };
+  const pending = render([message], extensions);
+  assert.equal(pending.props.data[0].kind, 'question');
+  const question = pending.props.renderItem({ item: pending.props.data[0] });
+  assert.equal(question.props.prompt, prompt);
+  const withCall = render(
+    [
+      message,
+      {
+        role: 'assistant',
+        timestamp: 2,
+        content: [{ type: 'toolCall', id: 'ask-1', name: 'ask_user_question', arguments: {} }],
+      },
+    ],
+    extensions,
+  );
+  assert.equal(withCall.props.data.filter((row) => row.kind === 'question').length, 1);
+  assert.equal(
+    withCall.props.data[0].key,
+    pending.props.data[0].key,
+    'late call preserves the draft row identity',
+  );
   assert.ok(
     loaded.props.maintainVisibleContentPosition,
     'keep anchoring while reading older messages',

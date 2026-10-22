@@ -3,6 +3,9 @@ import { type ContentBlock, messageBlocks } from './content.ts';
 
 export interface ToolEntry {
   key: string;
+  id?: string;
+  args?: unknown;
+  result?: Message;
   name: string;
   preview?: string;
   arguments?: string;
@@ -12,7 +15,8 @@ export interface ToolEntry {
 
 export type ConversationRow =
   | { kind: 'message'; key: string; role: string; blocks: ContentBlock[] }
-  | { kind: 'tools'; key: string; tools: ToolEntry[] };
+  | { kind: 'tools'; key: string; tools: ToolEntry[] }
+  | { kind: 'question'; key: string; tool: ToolEntry };
 
 /** A bounded, single-line hint only. Keep the original arguments untouched for inspection. */
 export function toolPreview(args: unknown): string | undefined {
@@ -37,6 +41,10 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
   const rows: ConversationRow[] = [];
   const calls = new Map<string, ToolEntry>();
   function addTool(tool: ToolEntry) {
+    if (tool.name === 'ask_user_question') {
+      rows.push({ kind: 'question', key: `question:${tool.id ?? tool.key}`, tool });
+      return;
+    }
     const previous = rows.at(-1);
     if (previous?.kind === 'tools') {
       previous.tools.push(tool);
@@ -53,13 +61,16 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
         .map((block) => block.text)
         .join('\n\n');
       if (matched && matched.status === 'unknown') {
+        matched.result = message;
         matched.output = output;
         matched.status = message.isError === true ? 'error' : 'complete';
       } else {
         // History can start after a call or contain results without an ID. Keep them visible.
         addTool({
           key,
+          id,
           name: String(message.toolName ?? 'Tool output'),
+          result: message,
           output,
           status: message.isError === true ? 'error' : 'complete',
         });
@@ -93,6 +104,8 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
         flush();
         const tool: ToolEntry = {
           key: `${key}:tool:${partIndex}`,
+          id: typeof part.id === 'string' ? part.id : undefined,
+          args: part.arguments,
           name: String(part.name ?? 'Tool'),
           preview: toolPreview(part.arguments),
           arguments: JSON.stringify(part.arguments ?? {}, null, 2),
@@ -125,6 +138,8 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
     } else {
       addTool({
         key: `active:${tool.id}`,
+        id: tool.id,
+        args: tool.args,
         name: tool.name,
         preview: toolPreview(tool.args),
         arguments: JSON.stringify(tool.args, null, 2),

@@ -57,6 +57,24 @@ export class Launches {
     this.timeout = timeout;
   }
 
+  private async checkReservations(names: string[], id: string): Promise<void> {
+    for (const name of names) {
+      const options = await this.run(['show-options', '-t', `=${name}:`]);
+      if (options.includes(`@pim_file_${id} `)) {
+        throw new AppError(
+          `Pi may still be running in tmux session ${name}. Wait for exit or inspect with tmux -L pim attach -t ${name}`,
+          409,
+        );
+      }
+      if (!options.includes('@pim_file_')) {
+        throw new AppError(
+          `Tmux session ${name} has not registered its file yet. Inspect it before resuming`,
+          409,
+        );
+      }
+    }
+  }
+
   async start(projectId: string, resumeId?: string, confirmedOffline = false): Promise<Session> {
     if (this.busy) {
       throw new AppError('Another launch is being checked. Wait before trying again', 409);
@@ -83,21 +101,7 @@ export class Launches {
         throw new AppError('Managed runtime limit reached', 429);
       }
       if (saved) {
-        for (const name of names) {
-          const options = await this.run(['show-options', '-t', `=${name}:`]);
-          if (options.includes(`@pim_file_${saved.id} `)) {
-            throw new AppError(
-              `Pi may still be running in tmux session ${name}. Wait for its bridge or attach with tmux -L pim attach -t ${name}`,
-              409,
-            );
-          }
-          if (!options.includes('@pim_file_')) {
-            throw new AppError(
-              `Tmux session ${name} has not registered its file yet. Inspect it before resuming`,
-              409,
-            );
-          }
-        }
+        await this.checkReservations(names, saved.id);
         if (!confirmedOffline) {
           throw new AppError('Confirm that no Pi process outside Pim is using this file', 409);
         }

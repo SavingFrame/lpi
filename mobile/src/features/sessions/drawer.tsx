@@ -11,8 +11,10 @@ import {
 import { activityCounts, groupSessions, visibleSessions } from '../../../../src/client/inventory';
 import type { LaunchController } from '../../../../src/client/launches';
 import { hasUnreadCompletion } from '../../../../src/shared/session-read-state';
+import type { MobileMessages } from '../../lib/messages';
 import type { InventoryState } from '../../lib/relay';
 import { colors } from '../../theme/colors';
+import { InventoryAction } from './inventory-action';
 
 export function ProjectDrawer({
   inventory,
@@ -23,6 +25,8 @@ export function ProjectDrawer({
   onRefresh,
   launches,
   onCreate,
+  onArchive,
+  messages,
 }: {
   inventory: InventoryState;
   online: boolean;
@@ -32,6 +36,8 @@ export function ProjectDrawer({
   onRefresh: () => void;
   launches: LaunchController;
   onCreate: (projectId: string) => void;
+  onArchive: (id: string, archived: boolean) => Promise<void>;
+  messages: (id: string, projectId: string) => MobileMessages;
 }) {
   const launch = useSyncExternalStore(launches.subscribe, launches.getState);
   useEffect(() => {
@@ -39,7 +45,8 @@ export function ProjectDrawer({
   }, [launches]);
   const [collapsed, setCollapsed] = useState(new Set<string>());
   const [expanded, setExpanded] = useState(new Set<string>());
-  const groups = groupSessions(inventory.projects, inventory.sessions, online);
+  const [archived, setArchived] = useState(false);
+  const groups = groupSessions(inventory.projects, inventory.sessions, online, archived);
   function toggle(id: string, current: Set<string>) {
     const next = new Set(current);
     if (next.has(id)) {
@@ -62,6 +69,29 @@ export function ProjectDrawer({
           <Text style={styles.closeText}>×</Text>
         </Pressable>
       </View>
+      <View style={styles.counts}>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: !archived }}
+          style={styles.footerButton}
+          onPress={() => setArchived(false)}
+        >
+          <Text style={[styles.footerText, !archived && styles.unreadTitle]}>Sessions</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityState={{ selected: archived }}
+          style={styles.footerButton}
+          onPress={() => setArchived(true)}
+        >
+          <Text style={[styles.footerText, archived && styles.unreadTitle]}>Archived</Text>
+        </Pressable>
+      </View>
+      {archived && (
+        <Text style={styles.notice}>
+          Archived sessions. History is preserved; Pi may still be running.
+        </Text>
+      )}
       {launch.status === 'pending' && <Text style={styles.notice}>Waiting for Pi…</Text>}
       {launch.error && (
         <Text accessibilityRole="alert" style={styles.error}>
@@ -170,57 +200,66 @@ export function ProjectDrawer({
                     ? ''
                     : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
                   return (
-                    <Pressable
-                      key={session.id}
-                      accessibilityRole="button"
-                      accessibilityState={{ selected }}
-                      accessibilityLabel={`${session.title || 'Untitled session'}, ${status}${unread ? ', unread' : ''}`}
-                      onPress={() => onSelect(session.id)}
-                      style={[styles.session, selected && styles.selected]}
-                    >
-                      <View
-                        style={[
-                          styles.marker,
-                          {
-                            backgroundColor:
-                              session.activity === 'running'
-                                ? colors.running
-                                : session.activity === 'blocked'
-                                  ? colors.blocked
-                                  : unread
-                                    ? colors.unread
-                                    : 'transparent',
-                          },
-                        ]}
-                      />
-                      <View style={styles.sessionBody}>
-                        <Text
-                          style={[styles.sessionTitle, unread && styles.unreadTitle]}
-                          numberOfLines={2}
-                        >
-                          {session.title || 'Untitled session'}
-                        </Text>
-                        <View style={styles.meta}>
+                    <View key={session.id} style={styles.sessionRow}>
+                      <Pressable
+                        accessibilityRole="button"
+                        accessibilityState={{ selected }}
+                        accessibilityLabel={`${session.title || 'Untitled session'}, ${status}${unread ? ', unread' : ''}`}
+                        onPress={() => onSelect(session.id)}
+                        style={[styles.session, selected && styles.selected]}
+                      >
+                        <View
+                          style={[
+                            styles.marker,
+                            {
+                              backgroundColor:
+                                session.activity === 'running'
+                                  ? colors.running
+                                  : session.activity === 'blocked'
+                                    ? colors.blocked
+                                    : unread
+                                      ? colors.unread
+                                      : 'transparent',
+                            },
+                          ]}
+                        />
+                        <View style={styles.sessionBody}>
                           <Text
-                            style={
-                              session.activity === 'running'
-                                ? styles.running
-                                : session.activity === 'blocked'
-                                  ? styles.blocked
-                                  : styles.metadata
-                            }
+                            style={[styles.sessionTitle, unread && styles.unreadTitle]}
+                            numberOfLines={2}
                           >
-                            {status}
-                            {unread ? ' · Unread' : ''}
+                            {session.title || 'Untitled session'}
                           </Text>
-                          <Text style={styles.metadata}>{dateLabel}</Text>
+                          <View style={styles.meta}>
+                            <Text
+                              style={
+                                session.activity === 'running'
+                                  ? styles.running
+                                  : session.activity === 'blocked'
+                                    ? styles.blocked
+                                    : styles.metadata
+                              }
+                            >
+                              {status}
+                              {unread ? ' · Unread' : ''}
+                            </Text>
+                            <Text style={styles.metadata}>{dateLabel}</Text>
+                          </View>
                         </View>
-                      </View>
-                    </Pressable>
+                      </Pressable>
+                      <InventoryAction
+                        session={session}
+                        messages={messages(session.id, session.projectId)}
+                        online={online}
+                        onArchive={onArchive}
+                      />
+                    </View>
                   );
                 })}
               {!closed && sessions.length === 0 && (
-                <Text style={styles.empty}>No sessions yet.</Text>
+                <Text style={styles.empty}>
+                  {archived ? 'No archived sessions.' : 'No sessions yet.'}
+                </Text>
               )}
               {!closed && (all || visible.length < sessions.length) && (
                 <Pressable
@@ -287,7 +326,9 @@ const styles = StyleSheet.create({
   running: { color: colors.running, fontSize: 11 },
   blocked: { color: colors.blocked, fontSize: 11 },
   unread: { color: colors.unread, fontSize: 11 },
+  sessionRow: { flexDirection: 'row', alignItems: 'flex-start' },
   session: {
+    flex: 1,
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 10,

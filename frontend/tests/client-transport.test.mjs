@@ -27,6 +27,61 @@ test('shared transport uses injected addressing and request IDs without replayin
   });
 });
 
+test('archive transport sends explicit state, validates acknowledgments, and never retries', async () => {
+  let calls = 0;
+  let verdict = true;
+  const api = new RelayApi({
+    requestId: () => 'archive-request',
+    fetch: async (path, request) => {
+      calls++;
+      assert.equal(path, `/sessions/${id}/archive`);
+      assert.deepEqual(JSON.parse(request.body), {
+        archived: true,
+        requestId: 'archive-request',
+      });
+      return Response.json({
+        requestId: 'archive-request',
+        outcome: 'acknowledged',
+        data: { archived: verdict },
+      });
+    },
+  });
+  await api.setArchived(id, true);
+  verdict = false;
+  await assert.rejects(api.setArchived(id, true), (error) => error.outcome === 'unknown');
+  assert.equal(calls, 2);
+});
+
+test('archive events invalidate inventories even when no session is selected', (t) => {
+  const socket = { readyState: 1, close() {}, onmessage: null, onclose: null, onerror: null };
+  const invalidations = [];
+  const live = new LiveSession(
+    {
+      openSocket: () => socket,
+      inspect: async () => {
+        throw new Error('Not expected');
+      },
+    },
+    (...args) => invalidations.push(args),
+  );
+  t.after(() => live.disconnect());
+  live.connect();
+  socket.onmessage({ data: JSON.stringify({ type: 'connected', epoch: 'one', cursor: 0 }) });
+  invalidations.length = 0;
+  socket.onmessage({
+    data: JSON.stringify({
+      epoch: 'one',
+      cursor: 1,
+      sessionId: id,
+      generation: 3,
+      type: 'archive-state',
+      data: { archived: true },
+    }),
+  });
+  assert.deepEqual(invalidations, [[false, id]]);
+  assert.equal(live.getState().status, 'ready');
+});
+
 test('shared transport forwards cancellation without AbortSignal composition helpers', async () => {
   const controller = new AbortController();
   const api = new RelayApi({

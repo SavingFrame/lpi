@@ -1,19 +1,35 @@
 @layer components {
   .shell {
     display: grid;
-    grid-template-columns: 296px minmax(0, 1fr);
+    position: relative;
+    grid-template-columns: min(var(--sidebar-width, 360px), 45vw) minmax(0, 1fr);
     height: 100dvh;
     overflow: hidden;
   }
   .sidebar {
     background: #141416;
     border-right: 1px solid var(--border);
-    padding: 24px 14px;
+    padding: 20px 14px;
     min-height: 0;
     overflow-y: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
     scrollbar-color: var(--input) transparent;
+  }
+  .sidebar-resize {
+    position: absolute;
+    left: min(var(--sidebar-width, 360px), 45vw);
+    top: 0;
+    bottom: 0;
+    width: 6px;
+    transform: translateX(-3px);
+    z-index: 10;
+    cursor: col-resize;
+    touch-action: none;
+  }
+  .sidebar-resize:hover,
+  .sidebar-resize:focus-visible {
+    background: var(--input);
   }
   .brand {
     padding: 0 10px;
@@ -47,7 +63,7 @@
     display: flex;
     align-items: center;
     gap: 7px;
-    margin: 20px 10px 6px;
+    margin: 16px 10px 6px;
     color: var(--muted-foreground);
     font-size: 12px;
     text-transform: capitalize;
@@ -72,11 +88,76 @@
     padding: 0 10px;
   }
   .sidebar nav {
-    margin-top: 28px;
+    margin-top: 18px;
   }
   :where(.sidebar nav) h2 {
     padding: 0 10px;
     margin-bottom: 12px;
+  }
+  .session-search {
+    display: block;
+    margin-bottom: 10px;
+  }
+  .session-search input {
+    width: 100%;
+    border: 1px solid var(--input);
+    border-radius: 7px;
+    background: var(--background);
+    padding: 9px 10px;
+    font-size: 12px;
+  }
+  .session-search input:focus {
+    outline: 1px solid var(--ring);
+  }
+  .session-visibility {
+    display: flex;
+    gap: 4px;
+    padding: 0;
+    margin: 0 0 12px;
+    border: 0;
+  }
+  .session-visibility button {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    padding: 6px 4px;
+    border-radius: 5px;
+    font-size: 12px;
+    color: var(--muted-foreground);
+  }
+  .session-visibility button[aria-pressed="true"] {
+    background: var(--secondary);
+    color: var(--foreground);
+  }
+  .session-visibility span {
+    font-size: 10px;
+    opacity: 0.6;
+  }
+  .archive-control {
+    flex-shrink: 0;
+    width: 30px;
+    padding-top: 5px;
+  }
+  .archive-control > button,
+  .archive-control > div > button {
+    width: 30px;
+    height: 30px;
+  }
+  :where(.archive-control) fieldset,
+  .session-action-notice {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    z-index: 2;
+    width: min(300px, 100%);
+    padding: 8px;
+    border: 1px solid var(--border);
+    background: var(--secondary);
+    font-size: 12px;
+    border-radius: 7px;
+    box-shadow: 0 8px 24px #0008;
   }
   .project-group {
     margin-bottom: 16px;
@@ -164,8 +245,16 @@
     font-size: 11px;
   }
   .session-row {
+    position: relative;
     display: flex;
-    align-items: stretch;
+    align-items: flex-start;
+    padding: 2px 6px 2px 0;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    margin-bottom: 4px;
+  }
+  .session-row:hover {
+    background: #202023;
   }
   :where(.session-row) .session-link {
     flex: 1;
@@ -224,21 +313,11 @@
     display: flex;
     align-items: flex-start;
     gap: 9px;
-    padding: 10px;
-    margin-bottom: 3px;
-    border: 1px solid transparent;
-    border-radius: var(--radius);
+    padding: 8px;
+    min-height: 56px;
     color: #d4d4d8;
     font-size: 13px;
     transition: background 150ms;
-  }
-  .session-link:hover {
-    background: #202023;
-  }
-  .session-link.selected {
-    background: var(--secondary);
-    border-color: var(--border);
-    color: var(--foreground);
   }
   .session-summary {
     flex: 1;
@@ -247,7 +326,8 @@
   .session-title {
     overflow: hidden;
     display: -webkit-box;
-    -webkit-line-clamp: 2;
+    -webkit-line-clamp: 3;
+    line-height: 1.45;
     -webkit-box-orient: vertical;
     overflow-wrap: anywhere;
     font-weight: 500;
@@ -269,22 +349,21 @@
   .activity-idle.unread .session-status-icon {
     color: #6ee7b7;
   }
-  .session-link.activity-running {
+  :where(.session-item.activity-idle.unread, .session-item.activity-unknown.unread) > .session-row {
+    box-shadow: inset 3px 0 #34d399;
+  }
+  .session-item.activity-running > .session-row {
     box-shadow: inset 3px 0 #60a5fa;
   }
-  .session-link.activity-blocked {
+  .session-item.activity-blocked > .session-row {
     box-shadow: inset 3px 0 #fbbf24;
     background: #fbbf2409;
-  }
-  .session-link.activity-idle.unread,
-  .session-link.activity-unknown.unread {
-    box-shadow: inset 3px 0 #34d399;
   }
   .session-link.unread .session-title {
     color: #ecfdf5;
     font-weight: 650;
   }
-  .session-link.selected {
+  .session-item.selected > .session-row {
     outline: 1px solid #71717a;
     outline-offset: -1px;
     background: #303034;

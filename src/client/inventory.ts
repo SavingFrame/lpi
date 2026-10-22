@@ -1,13 +1,47 @@
 import { hasUnreadCompletion } from '../shared/session-read-state.ts';
 import type { InventorySession, Project } from '../shared/sessions.ts';
 
-export function groupSessions(projects: Project[], sessions: InventorySession[], online: boolean) {
+export type SessionFilter = 'all' | 'live' | 'saved' | 'archived';
+
+export function filterSessions(
+  sessions: InventorySession[],
+  projects: Project[],
+  filter: SessionFilter,
+  query: string,
+  online: boolean,
+): InventorySession[] {
+  const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const byProject = new Map(projects.map((project) => [project.id, project]));
+  return sessions.filter((session) => {
+    if (session.archived !== (filter === 'archived')) {
+      return false;
+    }
+    if (filter === 'live' && (!online || session.connection !== 'connected')) {
+      return false;
+    }
+    if (filter === 'saved' && session.connection !== 'disconnected') {
+      return false;
+    }
+    const project = byProject.get(session.projectId);
+    const searchable = [session.title, session.id, project?.name, project?.directory]
+      .join(' ')
+      .toLocaleLowerCase();
+    return terms.every((term) => searchable.includes(term));
+  });
+}
+
+export function groupSessions(
+  projects: Project[],
+  sessions: InventorySession[],
+  online: boolean,
+  archived = false,
+) {
   const groups = new Map(
     projects.map((project) => [project.id, { project, sessions: [] as InventorySession[] }]),
   );
   for (const session of sessions) {
     const group = groups.get(session.projectId);
-    if (group) {
+    if (group && session.archived === archived) {
       group.sessions.push({
         ...session,
         activity: online && session.connection === 'connected' ? session.activity : 'unknown',

@@ -6,12 +6,24 @@ import { boundary, id } from './live-fixture.mjs';
 
 test('session inventory validates activity values', async (t) => {
   let activity = 'running';
+  let archived = false;
   t.mock.method(globalThis, 'fetch', async () =>
     Response.json({
-      sessions: [{ ...boundary().session, activity, readState: boundary().readState }],
+      sessions: [
+        {
+          ...boundary().session,
+          activity,
+          archived,
+          managedRuntime: true,
+          readState: boundary().readState,
+        },
+      ],
     }),
   );
   assert.equal((await sessions())[0].activity, 'running');
+  archived = 'invalid';
+  await assert.rejects(sessions(), /Invalid session archive state/);
+  archived = false;
   activity = 'invalid';
   await assert.rejects(sessions(), /Invalid session activity/);
 });

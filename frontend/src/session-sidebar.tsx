@@ -11,10 +11,17 @@ import {
   MessageCircleQuestion,
 } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { activityCounts, groupSessions, visibleSessions } from '../../src/client/inventory';
+import {
+  activityCounts,
+  filterSessions,
+  groupSessions,
+  type SessionFilter,
+  visibleSessions,
+} from '../../src/client/inventory';
 import type { SessionActivity } from '../../src/shared/session-activity';
 import { hasUnreadCompletion } from '../../src/shared/session-read-state';
 import type { InventorySession, Project } from '../../src/shared/sessions';
+import { ArchiveSession } from './archive-session';
 import { Button } from './components/ui/button';
 import { LaunchSession } from './launch-session';
 import { SessionBranches, SessionBranchToggle } from './session-branches';
@@ -40,28 +47,40 @@ export function SessionSidebar({
   sessions,
   selectedId,
   online,
+  filter,
+  search,
 }: {
   projects: Project[];
   sessions: InventorySession[];
   selectedId?: string;
   online: boolean;
+  filter: SessionFilter;
+  search: string;
 }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [branches, setBranches] = useState<Set<string>>(() => new Set());
   const [now, setNow] = useState(Date.now);
-  const groups = groupSessions(projects, sessions, online);
+  const filtered = filterSessions(sessions, projects, filter, search, online);
+  const groups = groupSessions(projects, filtered, online, filter === 'archived');
+  const searching = search.trim().length > 0;
   const byFile = new Map(sessions.map((session) => [session.file, session]));
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(timer);
   }, []);
+  if (filtered.length === 0 && (searching || filter !== 'all')) {
+    return <p className="project-empty">No matching sessions</p>;
+  }
   return groups.map(({ project, sessions: items }) => {
     const counts = activityCounts(items);
     const unread = items.filter((session) => hasUnreadCompletion(session.readState)).length;
-    const closed = collapsed.has(project.id);
+    if (items.length === 0 && (searching || filter !== 'all')) {
+      return null;
+    }
+    const closed = !searching && collapsed.has(project.id);
     const all = expanded.has(project.id);
-    const visible = visibleSessions(items, selectedId, all);
+    const visible = visibleSessions(items, selectedId, all || searching || filter !== 'all');
     return (
       <section className="project-group" key={project.id}>
         <div className="project-header">
@@ -115,7 +134,7 @@ export function SessionSidebar({
           )}
         </div>
         <div id={`project-${project.id}`} hidden={closed}>
-          {items.length === 0 && <p className="project-empty">No sessions yet</p>}
+          {items.length === 0 && <p className="project-empty">{'No sessions yet'}</p>}
           {visible.map((session) => {
             const status = statuses[session.activity];
             const isUnread = hasUnreadCompletion(session.readState);
@@ -131,7 +150,10 @@ export function SessionSidebar({
             const parent = session.parentSession ? byFile.get(session.parentSession) : undefined;
             const open = branches.has(session.id);
             return (
-              <div key={session.id} className="session-item">
+              <div
+                key={session.id}
+                className={`session-item ${selectedId === session.id ? 'selected' : ''} activity-${session.activity} ${isUnread ? 'unread' : ''}`}
+              >
                 <div className="session-row">
                   <SessionBranchToggle
                     session={session}
@@ -194,6 +216,7 @@ export function SessionSidebar({
                       )}
                     </div>
                   </Link>
+                  <ArchiveSession session={session} online={online} />
                 </div>
                 {open && (
                   <SessionBranches
@@ -205,7 +228,7 @@ export function SessionSidebar({
               </div>
             );
           })}
-          {(all || visible.length < items.length) && (
+          {!searching && filter === 'all' && (all || visible.length < items.length) && (
             <Button
               type="button"
               variant="ghost"

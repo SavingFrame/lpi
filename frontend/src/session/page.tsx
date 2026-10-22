@@ -206,10 +206,10 @@ function SessionPane({
                 key={session.generation}
                 variant="outline"
                 size="sm"
-                disabled={!commands.active}
+                disabled={!commands.canStop(session.generation)}
                 confirmLabel="Stop"
                 destructive
-                onConfirm={() => void commands.submit({ type: 'stop_runtime' })}
+                onConfirm={() => void commands.stopRuntime(session.generation)}
               >
                 <Power aria-hidden="true" />
                 Stop runtime

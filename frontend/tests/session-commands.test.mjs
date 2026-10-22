@@ -259,6 +259,70 @@ test('a valid acknowledgment without disposition does not show a generic status'
   assert.equal(lane.getState().outcome, null);
 });
 
+test('sidebar stop shares the command lane, requires the confirmed generation, and never archives', async () => {
+  const { lane, environment, connection, requests, acknowledge } = await setup();
+  connection.snapshot = null;
+  const runtime = {
+    id,
+    projectId: 'project',
+    connection: 'connected',
+    generation: 3,
+    managedRuntime: true,
+  };
+  environment.runtime = () => runtime;
+  assert.equal(lane.available(), false, 'off-selection cannot send prompts');
+  assert.equal(lane.canStop(3), true);
+  assert.equal(await lane.stopRuntime(2), false);
+  const stopping = lane.stopRuntime(3);
+  assert.equal(await lane.stopRuntime(3), false);
+  await setImmediate();
+  assert.deepEqual(requests[0].command, { type: 'stop_runtime' });
+  acknowledge();
+  assert.equal(await stopping, true);
+  assert.equal(lane.getState().shutdownGeneration, 3);
+  assert.equal(lane.canStop(3), false, 'acknowledged shutdown is not resent while awaiting exit');
+  runtime.generation = 4;
+  assert.equal(lane.canStop(3), false);
+  assert.equal(lane.canStop(4), true);
+  runtime.managedRuntime = false;
+  assert.equal(lane.canStop(4), false);
+  assert.equal(requests.length, 1);
+});
+
+test('sidebar stop rechecks runtime generation after persistence and retains unknown outcomes without replay', async () => {
+  const { lane, environment, connection, requests, values } = await setup();
+  connection.snapshot = null;
+  const runtime = {
+    id,
+    projectId: 'project',
+    connection: 'connected',
+    generation: 3,
+    managedRuntime: true,
+  };
+  environment.runtime = () => runtime;
+  const gate = Promise.withResolvers();
+  const save = environment.storage.setItem;
+  environment.storage.setItem = async (...args) => {
+    await gate.promise;
+    save(...args);
+  };
+  const stale = lane.stopRuntime(3);
+  runtime.generation = 4;
+  gate.resolve();
+  assert.equal(await stale, false);
+  assert.equal(requests.length, 0);
+  const stopping = lane.stopRuntime(4);
+  await setImmediate();
+  requests[0].reject(new ApiError('Response lost', 'unknown'));
+  assert.equal(await stopping, false);
+  assert.equal(lane.getState().uncertain, true);
+  assert.equal(values.get(key), 'true');
+  assert.equal(await lane.stopRuntime(4), false);
+  await lane.review();
+  assert.equal(lane.canStop(4), true);
+  assert.equal(requests.length, 1);
+});
+
 test('command state snapshots are stable between updates and subscriptions clean up', async () => {
   const { lane, acknowledge } = await setup();
   const initial = lane.getState();
