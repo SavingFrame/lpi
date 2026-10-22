@@ -167,7 +167,15 @@ commands, and known Device Hub/input issues.
   composer command lane and require the native extension verdict; unknown outcomes block
   new commands without replay. Read acknowledgments pause while the sheet is open.
   Resume and questionnaire controls have isolated transport tests, but native interaction
-  and real-Pi integration remain unverified. Model/thinking controls remain deferred.
+  and real-Pi integration remain unverified.
+- One pill inside the composer, beside the attachment button and below the text input,
+  shows the current model and a color-coded thinking level with text. It opens a bottom
+  sheet containing supported thinking levels and searchable model selection, with Pi scoped
+  models first and search across provider, ID, and name. The sheet stays open across changes
+  so both settings can be edited. Changes share the durable command lane and require
+  synchronized, connected, idle Pi with no queued messages or dialogs. Read acknowledgments
+  pause while a settings sheet is open. Native interaction and real-Pi integration remain
+  unverified.
 
 ## Connection and runtime
 

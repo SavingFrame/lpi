@@ -22,11 +22,13 @@ export function AttachmentPicker({
   draft,
   disabled,
   onBusy,
+  input,
   children,
 }: {
   draft: DraftController;
   disabled: boolean;
   onBusy: (busy: boolean) => void;
+  input: ReactNode;
   children: ReactNode;
 }) {
   const state = useSyncExternalStore(draft.subscribe, draft.getState);
@@ -112,21 +114,28 @@ export function AttachmentPicker({
           ))}
         </ScrollView>
       )}
-      <View style={styles.inputRow}>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Attach images"
-          accessibilityHint="Choose up to four images. Unsent images are kept only until the app restarts."
-          disabled={disabled || busy || state.draft.images.length >= MAX_IMAGES}
-          onPress={() => void pick()}
-          style={[
-            styles.add,
-            (disabled || busy || state.draft.images.length >= MAX_IMAGES) && styles.disabled,
-          ]}
-        >
-          {busy ? <ActivityIndicator color={colors.accent} /> : <Text style={styles.plus}>+</Text>}
-        </Pressable>
-        {children}
+      <View style={styles.composer}>
+        {input}
+        <View style={styles.inputRow}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Attach images"
+            accessibilityHint="Choose up to four images. Unsent images are kept only until the app restarts."
+            disabled={disabled || busy || state.draft.images.length >= MAX_IMAGES}
+            onPress={() => void pick()}
+            style={[
+              styles.add,
+              (disabled || busy || state.draft.images.length >= MAX_IMAGES) && styles.disabled,
+            ]}
+          >
+            {busy ? (
+              <ActivityIndicator color={colors.accent} />
+            ) : (
+              <Text style={styles.plus}>+</Text>
+            )}
+          </Pressable>
+          {children}
+        </View>
       </View>
     </View>
   );
@@ -134,14 +143,9 @@ export function AttachmentPicker({
 
 const styles = StyleSheet.create({
   container: { gap: 8 },
-  inputRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-end',
-    backgroundColor: colors.panel,
-    borderRadius: 16,
-    padding: 4,
-    gap: 4,
-  },
+  composer: { backgroundColor: colors.panel, borderRadius: 24, padding: 4 },
+  inputRow: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+
   add: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center' },
   plus: { color: colors.accent, fontSize: 30, lineHeight: 34 },
   disabled: { opacity: 0.35 },

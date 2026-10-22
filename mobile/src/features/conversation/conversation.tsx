@@ -9,6 +9,7 @@ import { ResumeSession } from '../sessions/resume';
 import { StopSession } from '../sessions/stop';
 import { MessageComposer } from './composer';
 import { ConversationPreview } from './preview';
+import { MobileSessionControls } from './session-controls';
 
 export function Conversation({
   client,
@@ -27,6 +28,7 @@ export function Conversation({
   const [picking, setPicking] = useState(false);
   const [answering, setAnswering] = useState(false);
   const [confirmingRuntime, setConfirmingRuntime] = useState(false);
+  const [choosingSettings, setChoosingSettings] = useState(false);
   const read = useSyncExternalStore(client.reads.subscribe, client.reads.getState);
   const id = session?.id;
   const onFollowing = useCallback((value: boolean) => setFollowing(value), []);
@@ -37,10 +39,25 @@ export function Conversation({
     client.setReading(
       id,
       following,
-      visible && !picking && !answering && !confirmingRuntime && connection.status === 'ready',
+      visible &&
+        !picking &&
+        !answering &&
+        !confirmingRuntime &&
+        !choosingSettings &&
+        connection.status === 'ready',
     );
     return () => client.setReading(id, false, false);
-  }, [client, id, following, visible, picking, answering, confirmingRuntime, connection]);
+  }, [
+    client,
+    id,
+    following,
+    visible,
+    picking,
+    answering,
+    confirmingRuntime,
+    choosingSettings,
+    connection,
+  ]);
   return (
     <>
       {session &&
@@ -91,6 +108,29 @@ export function Conversation({
       )}
       {session && (
         <MessageComposer
+          settings={
+            connection.snapshot?.session.id === session.id ? (
+              <MobileSessionControls
+                key={`settings:${session.id}:${connection.snapshot.session.generation}`}
+                controls={connection.snapshot.controls}
+                messages={client.messages(session.id, session.projectId)}
+                enabled={
+                  visible &&
+                  !picking &&
+                  !answering &&
+                  !confirmingRuntime &&
+                  connection.status === 'ready' &&
+                  connection.snapshot.session.connection === 'connected' &&
+                  !connection.snapshot.view.running &&
+                  !connection.snapshot.view.compacting &&
+                  connection.snapshot.state.isStreaming !== true &&
+                  connection.snapshot.state.hasPendingMessages !== true &&
+                  connection.snapshot.state.pendingDialog == null
+                }
+                onOpen={setChoosingSettings}
+              />
+            ) : null
+          }
           messages={client.messages(session.id, session.projectId)}
           running={connection.snapshot?.view.running === true}
           picking={picking}

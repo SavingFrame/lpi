@@ -68,7 +68,12 @@ external-writer confirmation, and uncertain-outcome handling.
 Background push notifications, Android validation, full browser feature parity, and
 advanced tree/branch navigation are deferred. These are mobile scope boundaries, not
 permission to remove existing browser features. Photo-library picking is implemented;
-image capture, model/thinking controls, and other parity features remain deferred.
+image capture and other parity features remain deferred. Searchable model selection and
+supported thinking-level controls are implemented as one composer pill opening a combined
+bottom sheet, with the current model and color-coded level visible on the pill. Changes use
+the shared command lane, with idle/queue/dialog gating and read acknowledgments paused
+while selecting. Native interaction
+and real-Pi integration remain unverified.
 
 ## Shared behavior, separate presentation
 

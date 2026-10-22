@@ -62,7 +62,7 @@ patch or fork is installed. Pim pins Pi dependencies to 1.4.0; the global `pi` u
 is installed separately. Full native TUI navigation and dialog integration remain unverified.
 
 An iOS-first mobile app is also in development, with live/saved conversations, message and
-image sending, abort, session creation/resume, and Ask User Question controls. See [mobile status](mobile/README.md) for
+image sending, abort, session creation/resume, model/thinking selection, and Ask User Question controls. See [mobile status](mobile/README.md) for
 validation limits and remaining features.
 
 ## How it works

@@ -1,4 +1,4 @@
-import { useEffect, useSyncExternalStore } from 'react';
+import { type ReactNode, useEffect, useSyncExternalStore } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -17,11 +17,13 @@ export function MessageComposer({
   running,
   picking,
   onPicking,
+  settings,
 }: {
   messages: MobileMessages;
   running: boolean;
   picking: boolean;
   onPicking: (busy: boolean) => void;
+  settings: ReactNode;
 }) {
   const command = useSyncExternalStore(messages.commands.subscribe, messages.commands.getState);
   const draft = useSyncExternalStore(messages.draft.subscribe, messages.draft.getState);
@@ -71,17 +73,20 @@ export function MessageComposer({
         draft={messages.draft}
         disabled={draft.loading || command.pending || command.uncertain}
         onBusy={onPicking}
+        input={
+          <TextInput
+            accessibilityLabel="Message"
+            multiline
+            editable={!draft.loading}
+            placeholder="What should Pi work on?"
+            placeholderTextColor={colors.muted}
+            value={draft.draft.text}
+            onChangeText={(text) => messages.draft.update((current) => ({ ...current, text }))}
+            style={styles.input}
+          />
+        }
       >
-        <TextInput
-          accessibilityLabel="Message"
-          multiline
-          editable={!draft.loading}
-          placeholder="What should Pi work on?"
-          placeholderTextColor={colors.muted}
-          value={draft.draft.text}
-          onChangeText={(text) => messages.draft.update((current) => ({ ...current, text }))}
-          style={styles.input}
-        />
+        <View style={styles.settings}>{settings}</View>
         {draft.error && (
           <Pressable
             accessibilityRole="button"
@@ -133,8 +138,8 @@ const styles = StyleSheet.create({
     borderTopWidth: StyleSheet.hairlineWidth,
     borderColor: colors.border,
   },
+  settings: { flex: 1, minWidth: 0, alignItems: 'flex-start' },
   input: {
-    flex: 1,
     color: colors.text,
     padding: 12,
     minHeight: 48,
