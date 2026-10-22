@@ -22,7 +22,7 @@ There is no RPC runtime, writable managed catalog, ownership coordinator, parkin
 
 - Configured project discovery and read-only saved-session inventory.
 - Bounded JSONL inspection through Pi's pure parsing/context helpers, without opening a runtime.
-- Opt-in native extension with token-free WebSocket transport on a trusted LAN/Tailscale network. Pi loads `src/bridge/index.ts` from a symlinked source folder through Jiti, including the native adapter's host `AgentSession` import. No extension build, separate loader shim, or host-class injection is needed. The bridge wires separate native session-state, command-dispatch, transport, and image-entry rendering modules; session state survives transport disconnects.
+- Opt-in native extension with token-free WebSocket transport on a trusted LAN/Tailscale network. Pi loads `extensions/pim/index.ts` from a symlinked source folder through Jiti, including the native adapter's host `AgentSession` import. No extension build, separate loader shim, or host-class injection is needed. The bridge wires separate native session-state, command-dispatch, transport, and image-entry rendering modules; session state survives transport disconnects.
 - Full current-branch transcript snapshots, assistant partials, tool activity, model/thinking/context metadata, and queued-message presence. Live snapshots, saved sessions, and branch previews preserve original messages across compaction and context edits, with compaction summaries in chronological order rather than replacing history.
 - Searchable browser model picker with Pi scoped-model grouping and a colored, supported-level thinking slider through public Pi APIs, gated on idle state with no queued messages or dialogs. Model availability comes from the native registry; thinking options come from `pi-ai` model capabilities, including model-specific mappings and `max`. Pi applies and clamps changes.
 - Browser queue inspection and clear-all cancellation through an isolated, unsupported `AgentSession` hook. Queue snapshots carry revisions so stale clear requests reject; copied text appends to the existing draft and resending is explicit. Attachments are cleared but not copied; Pi's separate TUI compaction-input queue is excluded. Queue access can remain unavailable until native prompting/queue rendering captures the matching session. Isolated real-Pi JSON-mode queue behavior was verified with a fake provider for local bundled/unbundled launchers and a separate global installation, through a symlinked source folder with no compiled-extension imports; full TUI/bridge integration remains unverified.
@@ -39,6 +39,16 @@ There is no RPC runtime, writable managed catalog, ownership coordinator, parkin
 - Deterministic tests using temporary files, fake public Pi contexts, local transports, and mocked browser transport. Relay and browser suites are separated by behavior with shared fixtures. A separate opt-in Chromium check verifies scroll-controller behavior with real layout in an isolated page, not the complete React application or native Pi. No model calls.
 
 Real native Pi with the installed extension set remains unverified.
+
+## Automatic session naming
+
+An independent opt-in `extensions/session-name/index.ts` extension generates native session names with
+`openai-codex/gpt-6-luna`, thinking off. Model/thinking constants are configured in the source.
+It runs in the background from the first text-bearing user message, preserves existing/manual
+names, cancels on shutdown or renaming, and records one durable attempt per session. Failures
+retain the fallback. Pim observes native name changes without coupling naming to its transport.
+Focused fake-native tests cover naming and relay updates; real-Pi integration and model calls
+remain unverified. Existing terminal-title behavior is unchanged.
 
 ## Core constraints
 

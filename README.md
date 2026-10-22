@@ -81,21 +81,60 @@ Pi + extension ─┘                  └─ iOS app
 
 The agent always runs in Pi, not in the server or clients. Closing a client or the server does not stop your agents.
 
-## Pi extension entry
+## Pi extensions
 
-With Pim's dependencies installed, symlink the source folder into Pi's extension directory:
+Both independently loadable extensions live under `extensions/`:
+
+```text
+extensions/
+  pim/            Relay connection and native Pi controls
+  session-name/   Automatic native session naming
+```
+
+With Pim's dependencies installed, symlink the bridge source folder into Pi's extension directory:
 
 ```sh
 mkdir -p ~/.pi/agent/extensions
-ln -s /absolute/path/to/pim/src/bridge ~/.pi/agent/extensions/pim
+ln -s /absolute/path/to/pim/extensions/pim ~/.pi/agent/extensions/pim
 ```
 
-Pi discovers `src/bridge/index.ts` and loads TypeScript through Jiti. No extension build or
+Pi discovers `extensions/pim/index.ts` and loads TypeScript through Jiti. No extension build or
 separate loader shim is required. The relay server and frontend still use their normal builds.
 Use only one Pim entry; replace older `pim.js` or `pim.ts` entries instead of keeping both.
+If an existing `pim` symlink points to the old source location, retarget it:
+
+```sh
+ln -sfn /absolute/path/to/pim/extensions/pim ~/.pi/agent/extensions/pim
+```
+
 Reload or restart Pi after changing the entry; restarting the Pim server alone does not reload
 extensions inside Pi. For copying later, preserve the source tree and installed dependencies:
-`src/bridge` also imports shared and extension-support modules from elsewhere under `src/`.
+`extensions/pim` imports shared and extension-support modules under `src/`.
+`npm run build:server` type-checks and compiles both trees for tests, emitting `dist/src/` and
+`dist/extensions/`. `npm start` runs `dist/src/main.js`. Native Pi still loads source, not build output.
+
+## Automatic session names
+
+The independent `extensions/session-name/index.ts` extension generates native Pi session names from the
+first user message. It does not depend on Pim or tmux. Load it separately:
+
+```sh
+pi --extension /absolute/path/to/pim/extensions/session-name/index.ts
+```
+
+For persistent loading, symlink `extensions/session-name` into `~/.pi/agent/extensions/session-name`
+and reload Pi. Keep the source tree and installed dependencies available, as with the bridge.
+The existing terminal-title extension can remain installed; it serves a separate purpose.
+
+`TITLE_MODEL` and `TITLE_THINKING` at the top select `openai-codex/gpt-6-luna` with thinking off.
+The host Pi model registry must include that model and have working credentials. Naming runs
+in the background with a 30-second timeout, at most 4,000 input characters and 128 output tokens.
+Manual names are preserved, including names assigned during generation. Unnamed resumed sessions
+use their original first user message on the next user run. Image-only messages wait for text.
+A durable attempt marker prevents repeated calls after reload/resume, even if generation fails.
+Missing models, failed requests, and invalid titles leave the normal fallback unchanged.
+The bridge forwards native name changes to connected clients immediately.
+Focused fake-native tests pass; no paid model calls or real-Pi naming integration have been run.
 
 ## Self-hosted
 

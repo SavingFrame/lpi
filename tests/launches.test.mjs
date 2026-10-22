@@ -2,12 +2,12 @@ import assert from 'node:assert/strict';
 import { appendFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { NativeBridges } from '../dist/bridge/server.js';
-import { Events } from '../dist/events.js';
-import { Launches } from '../dist/launches.js';
-import { Sessions } from '../dist/sessions.js';
-import { SessionDiscovery } from '../dist/storage/discovery.js';
-import { SessionReadStore } from '../dist/storage/read-state.js';
+import { NativeBridges } from '../dist/src/bridge/server.js';
+import { Events } from '../dist/src/events.js';
+import { Launches } from '../dist/src/launches.js';
+import { Sessions } from '../dist/src/sessions.js';
+import { SessionDiscovery } from '../dist/src/storage/discovery.js';
+import { SessionReadStore } from '../dist/src/storage/read-state.js';
 import { fixture } from './helpers.mjs';
 
 const id = '11111111-1111-1111-1111-111111111111';
@@ -92,7 +92,7 @@ test('new session launches global Pi without npm-local binaries and with correla
   assert.ok(command.includes('PATH=/usr/local/bin:/usr/bin'));
   assert.deepEqual(command.slice(-3), ['pi', '--session-id', name.slice(4)]);
   assert.ok(!command.includes('--extension'));
-  assert.ok(!command.some((arg) => arg.endsWith('/dist/bridge/extension.js')));
+  assert.ok(!command.some((arg) => arg.endsWith('/dist/extensions/pim/index.js')));
   assert.ok(!command.includes('--mode'));
 });
 

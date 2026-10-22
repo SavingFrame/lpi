@@ -3,10 +3,10 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { piInventoryId } from '../dist/storage/session-id.js';
+import { piInventoryId } from '../dist/src/storage/session-id.js';
 import { fixture } from './helpers.mjs';
 
-const binding = new URL('../dist/tmux-binding.js', import.meta.url).href;
+const binding = new URL('../dist/src/tmux-binding.js', import.meta.url).href;
 
 test('managed file reservations target the exact tmux session and accumulate', (t) => {
   const available = spawnSync('tmux', ['-V']);

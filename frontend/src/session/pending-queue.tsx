@@ -24,8 +24,8 @@ export function PendingMessages({
     return snapshot.state.hasPendingMessages === true ? (
       <p className="banner" role="status">
         Native Pi has queued messages, but queue access is unavailable. Check that Pi loads the
-        src/bridge source folder. Sending more messages may not fix this. No messages can be cleared
-        here yet.
+        extensions/pim source folder. Sending more messages may not fix this. No messages can be
+        cleared here yet.
       </p>
     ) : null;
   }

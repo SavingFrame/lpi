@@ -10,6 +10,7 @@ const config: ExpoConfig = {
   platforms: ['ios', 'android'],
   plugins: [
     'expo-router',
+    './plugins/with-ios-scene-lifecycle.cjs',
     [
       'expo-image-picker',
       {

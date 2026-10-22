@@ -1,5 +1,5 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { record } from '../../shared/client-state.js';
+import { record } from '../../../src/shared/client-state.js';
 
 export function registerImageEntry(pi: ExtensionAPI): void {
   pi.registerEntryRenderer('pim-image-attachments', (entry, _options, theme) => {

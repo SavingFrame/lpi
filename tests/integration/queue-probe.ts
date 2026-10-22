@@ -3,8 +3,8 @@ import { writeFileSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createAssistantMessageEventStream } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { NativeCommands } from '../../src/bridge/native/commands.ts';
-import { NativeState } from '../../src/bridge/native/state.ts';
+import { NativeCommands } from '../../extensions/pim/native/commands.ts';
+import { NativeState } from '../../extensions/pim/native/state.ts';
 
 /** Explicitly loaded only by the isolated, opt-in native-queue integration test. */
 export default function queueProbe(pi: ExtensionAPI): void {

@@ -1,10 +1,10 @@
 import { getSupportedThinkingLevels } from '@earendil-works/pi-ai';
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
-import { nativeExtensionSupport } from '../../extension-support/native.js';
-import { historyMessages } from '../../pi-history.js';
-import { emptyView, reduceEvent, type View } from '../../shared/client-state.js';
-import type { NativeIdentity } from '../../shared/commands.js';
-import type { NativeStatus } from '../../shared/snapshots.js';
+import { nativeExtensionSupport } from '../../../src/extension-support/native.js';
+import { historyMessages } from '../../../src/pi-history.js';
+import { emptyView, reduceEvent, type View } from '../../../src/shared/client-state.js';
+import type { NativeIdentity } from '../../../src/shared/commands.js';
+import type { NativeStatus } from '../../../src/shared/snapshots.js';
 import { nativeComposerCommands } from './composer-commands.js';
 import { NativeQueue } from './queue.js';
 

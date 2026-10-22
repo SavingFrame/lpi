@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { buildSessionContext } from '@earendil-works/pi-coding-agent';
-import { bridgeCommand } from '../dist/shared/commands.js';
+import { bridgeCommand } from '../dist/src/shared/commands.js';
 import { fakePi, nativePi, setup, waitFor } from './bridge-fixture.mjs';
 
 test('browser images reach native Pi as structured user content, including image-only messages', async (t) => {

@@ -6,15 +6,15 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { clampThinkingLevel } from '@earendil-works/pi-ai/models';
 import { createEventBus } from '@earendil-works/pi-coding-agent';
 import { WebSocket } from 'ws';
-import { createApi } from '../dist/api/http.js';
-import { attachWebSockets } from '../dist/api/websocket.js';
-import extension from '../dist/bridge/index.js';
-import { NativeBridges } from '../dist/bridge/server.js';
-import { Events } from '../dist/events.js';
-import { Sessions } from '../dist/sessions.js';
-import { emptyView } from '../dist/shared/client-state.js';
-import { SessionDiscovery } from '../dist/storage/discovery.js';
-import { SessionReadStore } from '../dist/storage/read-state.js';
+import extension from '../dist/extensions/pim/index.js';
+import { createApi } from '../dist/src/api/http.js';
+import { attachWebSockets } from '../dist/src/api/websocket.js';
+import { NativeBridges } from '../dist/src/bridge/server.js';
+import { Events } from '../dist/src/events.js';
+import { Sessions } from '../dist/src/sessions.js';
+import { emptyView } from '../dist/src/shared/client-state.js';
+import { SessionDiscovery } from '../dist/src/storage/discovery.js';
+import { SessionReadStore } from '../dist/src/storage/read-state.js';
 import { fixture } from './helpers.mjs';
 
 export async function waitFor(check) {
@@ -176,6 +176,7 @@ export function fakePi(header, file, entry) {
       appended.push(custom);
       state.entries.push(custom);
     },
+    getCommands: () => [],
     getThinkingLevel: () => state.thinkingLevel,
     setThinkingLevel: (level) => {
       state.thinkingLevel = clampThinkingLevel(ctx.model, level);

@@ -4,16 +4,16 @@ import { dirname, join, resolve } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
-import { emptyView, view } from '../dist/shared/client-state.js';
-import { bridgeCommand } from '../dist/shared/commands.js';
-import { inventorySession, project, promptTitle, session } from '../dist/shared/sessions.js';
+import { emptyView, view } from '../dist/src/shared/client-state.js';
+import { bridgeCommand } from '../dist/src/shared/commands.js';
+import { inventorySession, project, promptTitle, session } from '../dist/src/shared/sessions.js';
 import {
   bridgeSnapshot,
   bridgeStatus,
   projectEvent,
   projectStatus,
   snapshot,
-} from '../dist/shared/snapshots.js';
+} from '../dist/src/shared/snapshots.js';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const shared = join(root, 'src/shared');

@@ -46,6 +46,22 @@ use `xcrun simctl list devices` to find its UDID, then open
 `devices://device/open?id=<simulator-udid>` with macOS `open`. Android configuration exists,
 but Android validation remains deferred. There is no mobile web target.
 
+## Native iOS builds
+
+The SDK 57 bundled native template still starts React Native in `AppDelegate`. Pim's
+`plugins/with-ios-scene-lifecycle.cjs` prebuild plugin adopts Expo's scene lifecycle for
+Xcode 27 / iOS 27: the app delegate provides the React Native factory, and Expo's scene
+delegate creates the window and forwards lifecycle and deep-link events. The plugin also
+registers the scene configuration in Info.plist. It fails if an upstream template changes
+incompatibly, so review it when upgrading Expo. Native build and device validation are
+separate from the template regression test.
+
+On the Mac, run `npx expo prebuild --platform ios` from `mobile/`, then open
+`ios/Pim.xcworkspace`. Configure your signing team in Xcode and select your phone. Use the
+Release run configuration to bundle JavaScript without Metro. A free Personal Team needs
+signing renewal every seven days and cannot enable remote push notifications. Avoid
+`prebuild --clean` on a configured project unless you intend to recreate native settings.
+
 ## Prepared SSH Mac
 
 From the repository root:

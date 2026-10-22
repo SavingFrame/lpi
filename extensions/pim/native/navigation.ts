@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { ExtensionAPI, ExtensionCommandContext } from '@earendil-works/pi-coding-agent';
-import { AppError } from '../../shared/errors.js';
+import { AppError } from '../../../src/shared/errors.js';
 
 interface Navigation {
   token: string;

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { bridgeCommand } from '../dist/shared/commands.js';
+import { bridgeCommand } from '../dist/src/shared/commands.js';
 import { fakePi, nativePi, setup, waitFor } from './bridge-fixture.mjs';
 
 test('browser tree navigation waits for native completion and synchronizes its in-memory leaf', async (t) => {

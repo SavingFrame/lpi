@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdirSync, symlinkSync, unlinkSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import test from 'node:test';
-import { searchProjectFiles } from '../dist/project-files.js';
+import { searchProjectFiles } from '../dist/src/project-files.js';
 import { fixture } from './helpers.mjs';
 
 function setup(t) {

@@ -1,6 +1,10 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent';
-import { type BridgeCommand, bridgeCommand, type NativeIdentity } from '../../shared/commands.js';
-import { AppError, text } from '../../shared/errors.js';
+import {
+  type BridgeCommand,
+  bridgeCommand,
+  type NativeIdentity,
+} from '../../../src/shared/commands.js';
+import { AppError, text } from '../../../src/shared/errors.js';
 import { nativeComposerCommands } from './composer-commands.js';
 import { NativeNavigation } from './navigation.js';
 import type { NativeState } from './state.js';

@@ -7,8 +7,8 @@ import {
   ASK_ANSWER_RESULT,
   ASK_BLOCKED,
   ASK_PROMPT,
-} from '../../../../dist/extension-support/ask-user-question/contract.js';
-import { askUserQuestionSupport } from '../../../../dist/extension-support/ask-user-question/native.js';
+} from '../../../../dist/src/extension-support/ask-user-question/contract.js';
+import { askUserQuestionSupport } from '../../../../dist/src/extension-support/ask-user-question/native.js';
 import { answer, prompt } from './fixtures.mjs';
 
 function setup(t, timeout = 1000) {

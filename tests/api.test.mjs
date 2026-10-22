@@ -5,13 +5,13 @@ import { get } from 'node:http';
 import { join } from 'node:path';
 import test from 'node:test';
 import { WebSocket } from 'ws';
-import { createApi } from '../dist/api/http.js';
-import { attachWebSockets } from '../dist/api/websocket.js';
-import { NativeBridges } from '../dist/bridge/server.js';
-import { Events } from '../dist/events.js';
-import { Sessions } from '../dist/sessions.js';
-import { SessionDiscovery } from '../dist/storage/discovery.js';
-import { SessionReadStore } from '../dist/storage/read-state.js';
+import { createApi } from '../dist/src/api/http.js';
+import { attachWebSockets } from '../dist/src/api/websocket.js';
+import { NativeBridges } from '../dist/src/bridge/server.js';
+import { Events } from '../dist/src/events.js';
+import { Sessions } from '../dist/src/sessions.js';
+import { SessionDiscovery } from '../dist/src/storage/discovery.js';
+import { SessionReadStore } from '../dist/src/storage/read-state.js';
 import { fixture } from './helpers.mjs';
 
 test('relay REST, host/origin checks, WebSocket events and removed runtime endpoints', async (t) => {

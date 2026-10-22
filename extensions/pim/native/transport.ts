@@ -1,8 +1,8 @@
 import { WebSocket } from 'ws';
-import { record } from '../../shared/client-state.js';
-import { BRIDGE_LIMIT } from '../../shared/commands.js';
-import { reserveManagedFile } from '../../tmux-binding.js';
-import { BridgeWriter } from '../wire.js';
+import { BridgeWriter } from '../../../src/bridge/wire.js';
+import { record } from '../../../src/shared/client-state.js';
+import { BRIDGE_LIMIT } from '../../../src/shared/commands.js';
+import { reserveManagedFile } from '../../../src/tmux-binding.js';
 import type { NativeCommands } from './commands.js';
 import type { NativeState } from './state.js';
 

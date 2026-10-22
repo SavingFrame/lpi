@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { loadConfig } from '../dist/config.js';
+import { loadConfig } from '../dist/src/config.js';
 import { fixture } from './helpers.mjs';
 
 function setup(t) {

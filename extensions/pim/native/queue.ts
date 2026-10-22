@@ -1,7 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import { AgentSession, type ExtensionContext } from '@earendil-works/pi-coding-agent';
-import { AppError } from '../../shared/errors.js';
-import type { PendingQueue } from '../../shared/queue.js';
+import { AppError } from '../../../src/shared/errors.js';
+import type { PendingQueue } from '../../../src/shared/queue.js';
 
 /** Unsupported Pi 1.4.0 adapter. Never creates a runtime or replaces its queues. */
 export class NativeQueue {

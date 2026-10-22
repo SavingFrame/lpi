@@ -7,7 +7,7 @@ import {
   ASK_ANSWER_RESULT,
   ASK_BLOCKED,
   ASK_PROMPT,
-} from '../dist/extension-support/ask-user-question/contract.js';
+} from '../dist/src/extension-support/ask-user-question/contract.js';
 import {
   answer as askAnswer,
   prompt as askPrompt,

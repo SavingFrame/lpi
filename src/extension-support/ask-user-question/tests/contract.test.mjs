@@ -7,11 +7,11 @@ import {
   askState,
   validateAskAnswer,
   withAskPreviews,
-} from '../../../../dist/extension-support/ask-user-question/contract.js';
+} from '../../../../dist/src/extension-support/ask-user-question/contract.js';
 import {
   extensionCommand,
   extensionSnapshots,
-} from '../../../../dist/extension-support/registry.js';
+} from '../../../../dist/src/extension-support/registry.js';
 import { answer, prompt } from './fixtures.mjs';
 
 test('Ask contracts keep module-specific state and strip untrusted extra fields', () => {

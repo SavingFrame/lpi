@@ -1,5 +1,8 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { availableComposerCommands, type ComposerCommand } from '../../shared/composer-commands.js';
+import {
+  availableComposerCommands,
+  type ComposerCommand,
+} from '../../../src/shared/composer-commands.js';
 
 export function nativeComposerCommands(pi: ExtensionAPI): ComposerCommand[] {
   return availableComposerCommands(

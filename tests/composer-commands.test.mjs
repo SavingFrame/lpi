@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { NativeCommands } from '../dist/bridge/native/commands.js';
-import { nativeComposerCommands } from '../dist/bridge/native/composer-commands.js';
-import { bridgeCommand } from '../dist/shared/commands.js';
+import { NativeCommands } from '../dist/extensions/pim/native/commands.js';
+import { nativeComposerCommands } from '../dist/extensions/pim/native/composer-commands.js';
+import { bridgeCommand } from '../dist/src/shared/commands.js';
 
 function setup() {
   const sent = [];

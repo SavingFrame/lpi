@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { NativeCodemodeEdits } from '../dist/bridge/native/codemode-edits.js';
+import { NativeCodemodeEdits } from '../dist/extensions/pim/native/codemode-edits.js';
 import { fakePi } from './bridge-fixture.mjs';
 
 const patch = '--- a.ts\n+++ a.ts\n@@ -1 +1 @@\n-old\n+new\n';

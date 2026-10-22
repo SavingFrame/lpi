@@ -3,7 +3,7 @@ import { once } from 'node:events';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { WebSocket } from 'ws';
-import { BRIDGE_LIMIT } from '../dist/shared/commands.js';
+import { BRIDGE_LIMIT } from '../dist/src/shared/commands.js';
 import { nativePi, setup, waitFor } from './bridge-fixture.mjs';
 
 test('native extension streams history, partial responses, tools and routes commands into the same runtime', async (t) => {
@@ -20,6 +20,10 @@ test('native extension streams history, partial responses, tools and routes comm
   assert.equal(initial.view.messages[0].content, 'Original native history');
   assert.equal(initial.session.connection, 'connected');
   assert.equal(initial.epoch, events.epoch);
+  fake.ctx.sessionManager.getSessionName = () => 'Fix mobile reconnect';
+  await fake.emit('session_info_changed', { name: 'Fix mobile reconnect' });
+  await waitFor(() => bridges.snapshot(session.id).state.sessionName === 'Fix mobile reconnect');
+  assert.equal(bridges.list()[0].title, 'Fix mobile reconnect');
   const response = await fetch(`http://127.0.0.1:${config.port}/sessions/${session.id}/commands`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

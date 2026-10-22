@@ -20,7 +20,7 @@ for (const entry of [
     const agentDir = join(home, 'agent');
     const extensionDir = join(agentDir, 'extensions', 'pim');
     mkdirSync(join(agentDir, 'extensions'), { recursive: true });
-    symlinkSync(fileURLToPath(new URL('../../src/bridge', import.meta.url)), extensionDir);
+    symlinkSync(fileURLToPath(new URL('../../extensions/pim', import.meta.url)), extensionDir);
     const execution = promisify(execFile)(
       process.execPath,
       [

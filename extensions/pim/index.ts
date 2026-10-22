@@ -86,6 +86,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
     forward({ ...event }, context);
   });
   pi.on('session_tree', (_event, context) => sync(context));
+  pi.on('session_info_changed', (_event, context) => sync(context));
   pi.on('session_before_compact', (_event, context) => {
     forward({ type: 'compaction_start' }, context);
   });

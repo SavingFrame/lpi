@@ -14,13 +14,13 @@ No token or secret file is needed. The Pi working directory must match a discove
 Pi loads the extension directly from its TypeScript source folder. No extension build is needed:
 
 ```sh
-pi --extension /absolute/path/to/pim/src/bridge --resume
+pi --extension /absolute/path/to/pim/extensions/pim --resume
 ```
 
 For global discovery and browser launching, symlink that folder:
 
 ```sh
-ln -s /absolute/path/to/pim/src/bridge ~/.pi/agent/extensions/pim
+ln -s /absolute/path/to/pim/extensions/pim ~/.pi/agent/extensions/pim
 ```
 
 Pi discovers `index.ts` and transpiles the source graph with Jiti. Loading compiled extension
@@ -86,8 +86,8 @@ For example, `Invalid controls.availableThinkingLevels: expected an array` indic
 
 ## Implementation layout
 
-The loadable source-folder entry is `src/bridge/index.ts`. Its native implementation lives
-in `src/bridge/native/`:
+The loadable source-folder entry is `extensions/pim/index.ts`. Its native implementation lives
+in `extensions/pim/native/`:
 
 - `state.ts`: Pi context, branch snapshots, transient activity, and support-module lifecycle.
 - `commands.ts`: generation/identity preflight, consumed IDs, and public Pi API dispatch.

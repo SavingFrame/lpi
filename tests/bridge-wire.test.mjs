@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { BridgeReader, BridgeWriter } from '../dist/bridge/wire.js';
-import { BRIDGE_LIMIT } from '../dist/shared/commands.js';
+import { BridgeReader, BridgeWriter } from '../dist/src/bridge/wire.js';
+import { BRIDGE_LIMIT } from '../dist/src/shared/commands.js';
 
 function socket() {
   const sent = [];

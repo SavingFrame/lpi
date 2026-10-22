@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { AgentSession } from '@earendil-works/pi-coding-agent';
-import { NativeCommands } from '../dist/bridge/native/commands.js';
-import { NativeQueue } from '../dist/bridge/native/queue.js';
-import { bridgeCommand } from '../dist/shared/commands.js';
-import { pendingQueue } from '../dist/shared/queue.js';
+import { NativeCommands } from '../dist/extensions/pim/native/commands.js';
+import { NativeQueue } from '../dist/extensions/pim/native/queue.js';
+import { bridgeCommand } from '../dist/src/shared/commands.js';
+import { pendingQueue } from '../dist/src/shared/queue.js';
 
 function setup(t) {
   const listeners = new Set();
