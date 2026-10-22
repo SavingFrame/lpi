@@ -97,6 +97,25 @@ Pi + extension ─┘                  └─ iOS app
 
 The agent always runs in Pi, not in the server or clients. Closing a client or the server does not stop your agents.
 
+## Repository map
+
+- `src/main.ts`: relay server entry point.
+- `extensions/pim/index.ts`: native Pi bridge entry point.
+- `extensions/session-name/index.ts`: independent session-naming extension.
+- `src/shared/`: browser-safe contracts and validators.
+- `src/client/`: shared browser/mobile transport, synchronization, and controllers.
+- `src/extension-support/`: explicit extension contracts and native/browser adapters.
+- `frontend/src/`: browser UI and platform adapters.
+- `mobile/src/`: Expo app, native UI, and platform adapters. See [mobile setup](mobile/README.md).
+- `tests/`, `frontend/tests/`, `mobile/tests/`: isolated tests for each surface.
+- `AGENTS.md`: development rules and runtime-safety constraints.
+
+Pim reads Pi history without opening another runtime. Its separate SQLite database stores
+completion/read and archive metadata, not conversations. Disconnects never authorize a
+second writer, and reconnects never replay mutations automatically. Managed resume checks
+tmux reservations; external writers cannot be reliably detected and require explicit
+offline confirmation. Real native-Pi integration remains unverified.
+
 ## Pi extensions
 
 Both independently loadable extensions live under `extensions/`:

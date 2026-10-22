@@ -4,11 +4,13 @@ Adapted from https://github.com/earendil-works/pi/blob/main/AGENTS.md for this r
 
 ## Project
 
-- Read `PLAN.md` before architectural changes. Native Pi is the only agent runtime and session-file writer.
+- Native Pi is the only agent runtime and session-file writer. Pim stores relay metadata separately, never conversation history.
 - Pim is a single relay server. Extensions connect to it; do not run a web server per Pi instance.
 - Use public Pi extension APIs and normal JSONL persistence. Do not introduce RPC, runtime handoff, Pi Durable, or experimental server/client packages without discussion.
 - A lost connection never authorizes launching another writer. Saved-session discovery is read-only.
 - Browser create/resume launches native Pi through the dedicated Pim tmux socket. Keep real-Pi integration status and external-writer detection limits explicit.
+- Share browser/mobile behavior in `src/client/` through platform adapters. Keep it independent of UI frameworks, DOM, filesystem, database, and Pi runtime dependencies. Contracts live in `src/shared/`; extension-specific support lives in `src/extension-support/`.
+- See the repository map in `README.md` for entry points. Keep platform presentation in `frontend/` and `mobile/`.
 
 ## Communication
 
@@ -72,6 +74,7 @@ Adapted from https://github.com/earendil-works/pi/blob/main/AGENTS.md for this r
 
 ## Documentation
 
-- Keep `README.md` and `PLAN.md` consistent with what is actually implemented.
-- Distinguish verified relay behavior from planned launching and remote-interaction capabilities.
+- Keep `AGENTS.md` focused on durable development rules and READMEs on essential setup, architecture, important paths, and user-facing behavior.
+- Update documentation only when those facts change. Do not maintain permanent task plans, implementation diaries, or per-task test histories.
+- Distinguish verified behavior from unverified integration where it affects safe use.
 - When using external reference instructions, adapt only relevant rules. Do not copy pi-monorepo paths or workflows that do not exist here.

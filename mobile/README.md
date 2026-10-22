@@ -16,7 +16,7 @@ paired arguments/output, and vertical transcript scrolling against the configure
 The user reports physical-device validation complete and confirms the initial message controls
 work on their phone. The simplified inline Send/Stop button still needs device interaction
 validation. Read acknowledgments have isolated controller coverage. Custom native builds and real-Pi integration remain
-unverified. See [the implementation plan](PLAN.md).
+unverified.
 
 ## Run
 

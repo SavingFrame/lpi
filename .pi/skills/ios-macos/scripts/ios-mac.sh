@@ -30,7 +30,7 @@ sync_source() {
     --exclude='expo-env.d.ts' --exclude='.env' --exclude='.env.*' \
     --include='/package.json' --include='/package-lock.json' \
     --include='/mobile/***' --include='/src/***' \
-    --include='/README.md' --include='/PLAN.md' --exclude='*' \
+    --include='/README.md' --exclude='*' \
     "$ROOT/" "$MAC:$WORK/"
   printf '%s\n' 'Source synced without deletion. Update remote dependencies explicitly if manifests changed.'
 }

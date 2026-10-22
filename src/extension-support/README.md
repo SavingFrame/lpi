@@ -60,8 +60,9 @@ Pi from loading React or CSS. Shared contracts must remain browser-safe.
 8. Test malformed data, stale/closed requests, concurrent interactions, replies from
    the terminal, reconnects, and lost verdicts. Use fake public contexts and isolated
    local transports, without user settings, real sessions, or model calls.
-9. Update the support list below, `README.md`, and `PLAN.md`. State native integration
-   verification separately from mocked transport coverage.
+9. Update the support list below and document essential entry points and usage in the
+   module README. Update the root README only when user-facing support changes. State
+   native integration limits separately from mocked transport coverage.
 
 Support is intentionally implemented one extension at a time, not through a universal
 UI schema or automatic plugin discovery. Pending interactions use the three explicit
