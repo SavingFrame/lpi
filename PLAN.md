@@ -27,6 +27,7 @@ There is no RPC runtime, writable managed catalog, ownership coordinator, parkin
 - Searchable browser model picker with Pi scoped-model grouping and a colored, supported-level thinking slider through public Pi APIs, gated on idle state with no queued messages or dialogs. Model availability comes from the native registry; thinking options come from `pi-ai` model capabilities, including model-specific mappings and `max`. Pi applies and clamps changes.
 - Browser queue inspection and clear-all cancellation through an isolated, unsupported `AgentSession` hook. Queue snapshots carry revisions so stale clear requests reject; copied text appends to the existing draft and resending is explicit. Attachments are cleared but not copied; Pi's separate TUI compaction-input queue is excluded. Queue access can remain unavailable until native prompting/queue rendering captures the matching session. Isolated real-Pi JSON-mode queue behavior was verified with a fake provider for local bundled/unbundled launchers and a separate global installation, through a symlinked source folder with no compiled-extension imports; full TUI/bridge integration remains unverified.
 - Browser messages automatically use prompt while Pi is idle and steer while running, with no mode selector. Messages and abort route into the connected native Pi runtime, including image attachments from file selection, paste, or drag-and-drop. The relay also supports explicit follow-up commands.
+- Browser composer compact, single-line `/` suggestions (five visible rows, selection-following menu scrolling, row tooltips for descriptions/terminal warnings) for Pim `/compact [instructions]`, `/new`, and public native extension/skill discovery. Native dispatch revalidates the current catalog and idle/queue/dialog state; internal Pim commands and prompt templates are excluded. Acceptance confirms dispatch, not extension completion; terminal dialogs remain terminal-only. Public compaction callbacks and lifecycle events expose progress/failures without another runtime. `/new` reuses guarded tmux launching. Project-wide `@path` completion uses Pi-style ranked substring search, optional recursive directory scopes, filename/path labels, and 20-result menus. Debounced requests cancel superseded searches. A names-only HTTP endpoint enumerates tracked and non-ignored untracked Git paths, preserving nested/global ignore rules and tracked-file exceptions; non-repositories use a bounded recursive walk. Searches omit `.git`, symlinks, and stale entries, cap scans at 100,000 entries and Git output/execution at 8 MiB/five seconds, and never read file contents. There is no Pim `/files` command or file-preview UI. Focused fake-native/HTTP and isolated Chromium keyboard/focus coverage passes; real-Pi integration remains unverified.
 - One React/Vite browser client with snapshot/event reconnect synchronization. Live status metadata and lifecycle events update locally; HTTP snapshots remain for initial load, reconnects, generation changes, and explicit branch syncs. Tab-wide launch guards use a separate tested controller; composer acceptance and read eligibility have pure state helpers. Ordered feature styles retain the existing cascade, and one `react-markdown` wrapper enforces the transcript/extension Markdown policy.
 - Project-grouped, collapsible sidebar with per-project session creation, stable folder colors, relative timestamps, project activity counts, and distinct running/input/completion accents. Selection is visually separate from activity. Live activity is running, blocked on a native dialog, idle, or unavailable when disconnected (shown as a saved/read-only session). Turn-ended notifications are separate from runtime activity and do not imply task success.
 - Session-detail tree loading and a searchable right-side tree panel (conversation entries by default, optional tools/metadata, nested branch groups with equal sibling indentation and collapse controls, fully visible linear conversations, distinct user/assistant row colors, projected conversation-tip branch counts, wider-panel toggle, active-path navigation), with expandable sidebar branches derived passively from the same browser cache (no per-session sidebar tree requests), native labels/prompt previews, explicit active-position markers only for connected runtimes, and parent-session origin hints on separate fork/clone/derived session rows. Explicit tree/sidebar/per-message clicks switch the existing synchronized, idle native runtime directly, without a confirmation step, through public command-context navigation with generation/identity/expected-leaf checks and completion/cancellation acknowledgments. Busy/disconnected clicks and plain preview URLs stay read-only, without deferred switching or automatic replay. User-message navigation fills only an empty composer, preserving unsent drafts. Entry provenance survives compaction/context edits. Preview mode blocks sending and read acknowledgment; no file rollback, model-generated summary, browser fork creation, or parallel runtime launch is implied. Fake-native and read-only HTTP coverage passes; real native-Pi integration remains unverified.
@@ -48,7 +49,7 @@ Real native Pi with the installed extension set remains unverified.
 - Reject simultaneous bridge registrations for the same canonical session path. This detects connected duplicates, not arbitrary Pi processes outside the bridge.
 - Do not automatically reopen an existing file after a connection loss.
 - JSONL preserves history, not checkpointed recovery of unfinished tools.
-- Remote commands use public extension APIs except the explicitly accepted queue adapter: it captures the existing `AgentSession` through prototype hooks to read/clear its actual queue. This unsupported exception was tested against Pi 1.3.0 in isolated JSON mode with a fake provider. It needs upgrade regression coverage; no runtime creation, dependency patch, TUI replacement, unrestricted shell, or terminal-input proxy is introduced.
+- Remote commands use public extension APIs except the explicitly accepted queue adapter: it captures the existing `AgentSession` through prototype hooks to read/clear its actual queue. This unsupported exception was tested against Pi 1.4.0 in isolated JSON mode with a fake provider, using local bundled/unbundled launchers and the separate global installation. It needs upgrade regression coverage; no runtime creation, dependency patch, TUI replacement, unrestricted shell, or terminal-input proxy is introduced.
 - LAN/Tailscale clients are trusted. No application authentication or bridge token. Network access control belongs to deployment; Host/Origin checks remain enforced.
 
 ## Native Pi launching in tmux
@@ -71,7 +72,9 @@ Implemented, with real-Pi integration still unverified:
 An iOS-first React Native + Expo + Tamagui client is being developed over the trusted
 LAN/Tailscale network. Its detailed scope, navigation, shared-client architecture, delivery stages, and
 validation requirements live in [mobile/PLAN.md](mobile/PLAN.md); see also the
-[mobile overview](mobile/README.md). The mobile npm workspace now contains a read-only scaffold.
+[mobile overview](mobile/README.md). The mobile npm workspace now contains a read-only scaffold
+on Expo SDK 57 to match the user’s installed Expo Go. Earlier SDK 58 simulator checks are
+historical; the user reports physical-device validation complete.
 
 The work includes extracting shared browser/mobile behavior with platform adapters and
 migrating browser consumers. Backend/API changes are allowed when they simplify both
@@ -84,12 +87,25 @@ async draft persistence/settlement, inventory grouping/visibility, and read elig
 acknowledgment controllers are shared and consumed by the browser. Questionnaire draft
 helpers are framework-independent under extension support. Native fetch/WebSocket and
 AsyncStorage adapters now power connection setup, the project/session drawer, selection
-restoration, foreground resynchronization, and plain-text conversation previews. Mobile
-mutation controls, read acknowledgments, rich rendering, and explicit extension
-registration remain pending. Typechecking, mocked transport/lifecycle tests, and iOS
+restoration, foreground resynchronization, and native conversation rendering with Markdown,
+scrollable code/tables, and visible compact tool groups with collapsible per-call details.
+Thinking is hidden. The mobile header is compact;
+flat drawer rows show dates and activity. Mobile now exposes persistent drafts, prompt/steer
+sending, abort, and read acknowledgments through shared controllers. Photo-library image
+attachments now support previews/removal, image-only sending, and inline embedded images,
+using existing attachment limits. Unsent images are memory-only. Picker interactions and
+image delivery still need device validation. Coverage includes isolated attachment, command,
+lifecycle, draft, and read-eligibility tests. Native control/keyboard and resume/questionnaire
+interaction validation remain pending. Mobile saved-session
+resume now requires explicit offline confirmation through shared durable guards. Ask User
+Question has an explicit mobile registration, native selections/custom text/notes/previews,
+and answer/cancel dispatch through the shared command lane. Per-project mobile fresh-session
+creation is implemented through shared durable launch guards, with automatic selection after
+acknowledgment and explicit uncertain-outcome review without replay. Native creation UI and
+real-Pi launching remain unverified. Typechecking, mocked transport/lifecycle tests, and iOS
 JavaScript bundle export pass. Expo Go connection-screen startup is verified on an
-iPhone 15 simulator (iOS 17, Xcode 27.1). No custom native build, device/network verification,
-or real-Pi integration has been completed. Upstream toolchain audit issues and Metro export warnings
+iPhone 15 simulator (iOS 17, Xcode 27.1). The user reports physical-device validation complete. No custom native build or real-Pi
+integration has been completed. Upstream toolchain audit issues and Metro export warnings
 are recorded in the mobile README.
 
 ## Later

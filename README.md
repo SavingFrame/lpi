@@ -10,10 +10,36 @@ Pi runs the agent and keeps its normal session files. Pim connects to that same 
 - Follow streaming responses, tool activity, and code diffs.
 - Send prompts, steer running agents, and attach images.
 - Inspect queued steering/follow-up text and clear the native session queue.
+- Use `/compact`, `/new`, discovered extension commands, and `/skill:name` from the composer.
+- Search project files recursively and complete `@path` references.
 - Switch models and thinking levels.
 - Explore conversation branches and continue from earlier messages.
 - Create, resume, and stop Pim-managed sessions.
 - Track running agents, input requests, and unread completions across browsers.
+
+Type `/` for compact, single-line command suggestions (five visible rows). Arrow keys select and
+scroll the menu, Enter or Tab completes, and Escape closes suggestions without aborting Pi.
+Full descriptions and terminal-interaction warnings are available in row tooltips. Send with
+Alt+Enter or the Send button. `/compact` accepts optional summary instructions and requires idle Pi
+with no queued messages or dialogs. `/new` creates a fresh native session in the current project
+using the existing guarded launcher.
+
+Type `@composer` to search across the project, without navigating folders first. Like Pi's `@`
+completion, results rank exact filenames, filename prefixes, filename substrings, then path
+substrings, with directory bonuses and shallower/shorter paths breaking ties. An existing directory
+prefix scopes the recursive search, for example `@frontend/composer`. The menu shows the best 20
+results with filenames and full paths. Requests are debounced and cancelled when superseded.
+Git supplies tracked and non-ignored untracked paths, honoring nested rules and global excludes.
+`.git`, symlinks, and stale index entries are omitted. Git must be available on the server; folders
+outside a repository use a bounded recursive walk without Git ignore filtering. Search reads names
+only, with no file-preview endpoint, and inserts textual references rather than contents or attachments.
+Scans are capped at 100,000 entries, Git output at 8 MiB, and Git execution at five seconds.
+
+Extension commands and skills come from the connected runtime's public command catalog. Internal
+Pim commands and prompt templates are excluded. Dispatch requires idle Pi and confirms submission,
+not command completion. Terminal-only dialogs still require the terminal. Compaction progress and
+failures appear in the browser. Reload the Pi extension to enable the new native actions and catalog.
+Focused fake-native, HTTP, and isolated Chromium checks pass; real-Pi integration remains unverified.
 
 The browser renders saved edit patches for standalone tools and successful edits inside codemode.
 The bridge captures nested patches through public Pi events and saves them in the parent result's
@@ -23,17 +49,21 @@ older sessions keep argument previews. Each script retains at most 256 patches a
 text, with a notice when patches are omitted. Full nested tool results are not saved.
 Fake-native capture and isolated Chromium rendering are tested; real-Pi integration is unverified.
 
-Queue access uses an unsupported, isolated `AgentSession` prototype hook, verified with Pi 1.3.0.
+Queue access uses an unsupported, isolated `AgentSession` prototype hook, verified with Pi 1.4.0.
 It does not replace the TUI editor or start another runtime. Access initializes on native prompting
 or queue rendering; unavailable access disables clearing. Clear removes all session-queued
 messages, including attachments and queued extension messages, but never messages already
 delivered. Copy text to the draft before clearing to revise and explicitly send again. Images
 are not copied. Pi's separate TUI compaction-input queue is not exposed. Pi loads the extension
 and its dependencies directly from TypeScript, so the hook imports the host Pi class rather than
-a separate compiled SDK class. Bundled and unbundled Pi 1.3.0 source loading and queue access are
-verified in isolated JSON-mode tests. No dependency patch or fork is installed.
+a separate compiled SDK class. Bundled and unbundled Pi 1.4.0 source loading and queue access are
+verified in isolated JSON-mode tests, including the separate global installation. No dependency
+patch or fork is installed. Pim pins Pi dependencies to 1.4.0; the global `pi` used for launching
+is installed separately. Full native TUI navigation and dialog integration remain unverified.
 
-An iOS-first mobile app is also in development, currently with read-only session previews.
+An iOS-first mobile app is also in development, with live/saved conversations, message and
+image sending, abort, session creation/resume, and Ask User Question controls. See [mobile status](mobile/README.md) for
+validation limits and remaining features.
 
 ## How it works
 
@@ -41,7 +71,7 @@ Pim has three parts:
 
 - **Server:** runs on your machine and connects your Pi sessions to your clients.
 - **Pi extension:** runs inside each native Pi session, sends updates to the server, and receives commands from it.
-- **Clients:** the web frontend and iOS app connect to the same server. You can follow the same sessions from multiple devices. The iOS app is currently read-only.
+- **Clients:** the web frontend and iOS app connect to the same server. You can follow the same sessions from multiple devices. The iOS app supports core message controls and fresh-session creation.
 
 ```text
 Pi + extension ─┐                  ┌─ Web browser
