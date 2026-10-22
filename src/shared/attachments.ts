@@ -1,4 +1,5 @@
 import type { ImageContent } from '@earendil-works/pi-ai';
+import { toByteArray } from 'base64-js';
 
 export class AttachmentError extends Error {
   readonly status: number;
@@ -43,16 +44,19 @@ export function imageAttachments(value: unknown): ImageAttachment[] {
     ) {
       throw new AttachmentError('Invalid image. Use PNG, JPEG, GIF, or WebP');
     }
-    const bytes = atob(raw.data);
+    const bytes = toByteArray(raw.data);
+    const header = String.fromCharCode(...bytes.subarray(0, 12));
     total += bytes.length;
     if (total > MAX_IMAGE_BYTES) {
       throw new AttachmentError('Images must total at most 4 MiB', 413);
     }
     const valid =
-      (raw.mimeType === 'image/png' && bytes.startsWith('\x89PNG\r\n\x1a\n')) ||
-      (raw.mimeType === 'image/jpeg' && bytes.startsWith('\xff\xd8\xff')) ||
-      (raw.mimeType === 'image/gif' && /^(GIF87a|GIF89a)/.test(bytes)) ||
-      (raw.mimeType === 'image/webp' && bytes.startsWith('RIFF') && bytes.slice(8, 12) === 'WEBP');
+      (raw.mimeType === 'image/png' && header.startsWith('\x89PNG\r\n\x1a\n')) ||
+      (raw.mimeType === 'image/jpeg' && header.startsWith('\xff\xd8\xff')) ||
+      (raw.mimeType === 'image/gif' && /^(GIF87a|GIF89a)/.test(header)) ||
+      (raw.mimeType === 'image/webp' &&
+        header.startsWith('RIFF') &&
+        header.slice(8, 12) === 'WEBP');
     if (!valid) {
       throw new AttachmentError('Image contents do not match the image type');
     }

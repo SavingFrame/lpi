@@ -40,8 +40,13 @@ never answers, declines, or restarts a tool.
 
 `draft.ts` owns framework-independent selection, custom-answer, note, and answer-validation
 helpers for browser and mobile. It imports only the shared extension contract, not React,
-browser components, CSS, or native Pi. Mobile rendering and explicit mobile registration
-remain unimplemented; reusing these helpers does not establish device support.
+browser components, CSS, or native Pi. Mobile rendering is registered explicitly in
+`mobile/src/extensions/index.tsx`, with the native questionnaire sheet in
+`mobile/src/extensions/ask-user-question.tsx`. It supports selections, custom text, notes,
+Markdown previews, submit/cancel, and command uncertainty through the shared composer lane.
+Closing the sheet preserves its mounted draft without declining; navigation or a new bridge
+generation discards it. Mobile history keeps the normal tool display. Isolated mobile
+transport tests pass; native interaction and real-Pi integration remain unverified.
 
 ## Browser entry points
 

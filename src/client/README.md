@@ -64,7 +64,8 @@ conditional completion IDs remain authoritative for stale-acknowledgment protect
 
 Questionnaire selection/custom-answer/note behavior remains extension-specific in
 `src/extension-support/ask-user-question/draft.ts`, with no browser UI dependencies.
-Native mobile rendering and explicit extension registration are still pending.
+Native mobile rendering is registered explicitly under `mobile/src/extensions/`, using
+these helpers and the shared command lane. Native interaction validation remains pending.
 
 Shared behavior is covered with injected storage and transport in `frontend/tests/`.
 These checks do not verify native storage, iOS builds/networking, device lifecycle, or

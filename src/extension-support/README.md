@@ -27,6 +27,9 @@ src/extension-support/
 ```
 
 There are separate registrations for shared validation, native code, and browser code.
+Mobile registration lives in `mobile/src/extensions/index.tsx`, with native mobile Ask
+rendering beside it. Mobile components import shared contracts/drafts, never browser CSS
+or native Pi.
 This prevents a browser component from importing the agent runtime and prevents native
 Pi from loading React or CSS. Shared contracts must remain browser-safe.
 

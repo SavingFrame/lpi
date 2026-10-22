@@ -8,7 +8,17 @@ const config: ExpoConfig = {
   orientation: 'portrait',
   userInterfaceStyle: 'dark',
   platforms: ['ios', 'android'],
-  plugins: ['expo-router'],
+  plugins: [
+    'expo-router',
+    [
+      'expo-image-picker',
+      {
+        photosPermission: 'Choose screenshots and photos to attach to Pi messages.',
+        cameraPermission: false,
+        microphonePermission: false,
+      },
+    ],
+  ],
   ios: {
     bundleIdentifier: 'dev.pim.mobile',
     supportsTablet: false,

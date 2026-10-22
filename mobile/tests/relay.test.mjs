@@ -21,7 +21,7 @@ const session = {
   readState: { completionId: null, viewedCompletionId: null },
 };
 
-function setup(t, origin = 'http://relay-one:3141', values = new Map()) {
+function setup(t, origin = 'http://relay-one:3141', values = new Map(), mutations = false) {
   const sockets = [];
   const requests = [];
   const storage = {
@@ -36,12 +36,15 @@ function setup(t, origin = 'http://relay-one:3141', values = new Map()) {
   const client = new MobileRelay(origin, {
     storage,
     requestId: () => {
-      throw new Error('Read-only scaffold must never issue mutations');
+      assert.ok(mutations, 'Read-only lifecycle must never issue mutations');
+      return '22222222-2222-2222-2222-222222222222';
     },
     fetch: (url, request) =>
-      new Promise((resolve) => {
-        assert.equal(request.method, 'GET');
-        requests.push({ url, request, resolve });
+      new Promise((resolve, reject) => {
+        if (!mutations) {
+          assert.equal(request.method, 'GET');
+        }
+        requests.push({ url, request, resolve, reject });
       }),
     openSocket: (url) => {
       const socket = {
@@ -81,6 +84,123 @@ function setup(t, origin = 'http://relay-one:3141', values = new Map()) {
   };
   return { client, sockets, requests, storage, values, connected, inventory };
 }
+
+test('mobile new-session launch shares a durable lane and selects the acknowledged session', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  await fixture.client.start();
+  fixture.connected();
+  await fixture.inventory([]);
+  assert.equal(await fixture.client.createSession(project.id), false, 'wait for guard hydration');
+  await fixture.client.launches.initialize();
+  const creating = fixture.client.createSession(project.id);
+  assert.equal(await fixture.client.createSession(project.id), false, 'no duplicate launch');
+  await setImmediate();
+  const request = fixture.requests.find((item) => item.request.method === 'POST');
+  assert.equal(request.url, `${fixture.client.origin}/sessions`);
+  assert.deepEqual(JSON.parse(request.request.body), {
+    projectId: project.id,
+    confirmedOffline: false,
+    requestId: '22222222-2222-2222-2222-222222222222',
+  });
+  assert.equal(
+    fixture.values.get(clientStorageKey(fixture.client.origin, 'launch', 'new')),
+    'true',
+  );
+  request.resolve(
+    Response.json({
+      requestId: JSON.parse(request.request.body).requestId,
+      outcome: 'acknowledged',
+      data: { session },
+    }),
+  );
+  assert.equal(await creating, true);
+  assert.equal(fixture.client.getState().selectedId, id);
+  assert.ok(fixture.requests.some((item) => item.url.endsWith('/snapshot')));
+  assert.equal(
+    fixture.values.get(clientStorageKey(fixture.client.origin, 'selection', 'session')),
+    id,
+  );
+});
+
+test('mobile launch rejection is retryable and late acknowledgment cannot change an inactive client', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  await fixture.client.start();
+  fixture.connected();
+  await fixture.inventory([]);
+  await fixture.client.launches.initialize();
+  const rejected = fixture.client.createSession(project.id);
+  await setImmediate();
+  fixture.requests
+    .findLast((item) => item.request.method === 'POST')
+    .resolve(Response.json({ error: 'Launch rejected', outcome: 'rejected' }, { status: 409 }));
+  assert.equal(await rejected, false);
+  assert.equal(fixture.client.launches.getState().status, 'ready');
+  assert.match(fixture.client.launches.getState().error.message, /Launch rejected/);
+  const creating = fixture.client.createSession(project.id);
+  await setImmediate();
+  fixture.client.stop();
+  const request = fixture.requests.findLast((item) => item.request.method === 'POST');
+  request.resolve(
+    Response.json({
+      requestId: JSON.parse(request.request.body).requestId,
+      outcome: 'acknowledged',
+      data: { session },
+    }),
+  );
+  assert.equal(await creating, false);
+  assert.equal(fixture.client.getState().selectedId, null);
+  assert.equal(
+    fixture.requests.some((item) => item.url.endsWith('/snapshot')),
+    false,
+  );
+});
+
+test('mobile uncertain launches survive restart and review never replays', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  await fixture.client.start();
+  fixture.connected();
+  await fixture.inventory([]);
+  await fixture.client.launches.initialize();
+  const creating = fixture.client.createSession(project.id);
+  await setImmediate();
+  fixture.requests
+    .find((item) => item.request.method === 'POST')
+    .reject(new Error('lost response'));
+  assert.equal(await creating, false);
+  assert.equal(fixture.client.launches.getState().status, 'uncertain');
+  fixture.client.stop();
+  const restored = setup(t, undefined, fixture.values, true);
+  await restored.client.start();
+  restored.connected();
+  await restored.inventory();
+  await restored.client.launches.initialize();
+  assert.equal(restored.client.launches.getState().status, 'uncertain');
+  assert.equal(await restored.client.createSession(project.id), false);
+  await restored.client.launches.review();
+  assert.equal(restored.client.launches.getState().status, 'ready');
+  assert.equal(restored.requests.filter((item) => item.request.method === 'POST').length, 0);
+});
+
+test('mobile suspension during launch persistence prevents dispatch', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  await fixture.client.start();
+  fixture.connected();
+  await fixture.inventory([]);
+  await fixture.client.launches.initialize();
+  const gate = Promise.withResolvers();
+  const save = fixture.storage.setItem;
+  fixture.storage.setItem = async (key, value) => {
+    await gate.promise;
+    await save(key, value);
+  };
+  const creating = fixture.client.createSession(project.id);
+  await setImmediate();
+  fixture.client.stop();
+  gate.resolve();
+  assert.equal(await creating, false);
+  assert.equal(fixture.client.launches.getState().status, 'ready');
+  assert.equal(fixture.requests.filter((item) => item.request.method === 'POST').length, 0);
+});
 
 test('relay settings normalize origins and reject credentials, paths, and unsupported protocols', () => {
   assert.equal(relayOrigin(' HTTP://Relay-One:3141/ '), 'http://relay-one:3141');
@@ -175,6 +295,404 @@ test('background HTTP results cannot replace state and foreground reconnects wit
   assert.equal(sockets.length, 2);
   assert.equal(client.getState().sessions[0].id, id);
   assert.equal(client.getState().selectedId, null);
+});
+
+async function loadConversation(
+  fixture,
+  { running = false, completionId = null, saved = false, extensions = {}, managed = false } = {},
+) {
+  await fixture.client.start();
+  fixture.connected();
+  await fixture.inventory();
+  await fixture.client.select(id);
+  fixture.requests
+    .findLast((request) => request.url.endsWith('/snapshot'))
+    .resolve(
+      Response.json({
+        epoch: 'relay-epoch',
+        cursor: 0,
+        session: saved ? { ...session, connection: 'disconnected' } : session,
+        readState: { completionId, viewedCompletionId: null },
+        state: { isStreaming: running, hasPendingMessages: false, managedRuntime: managed },
+        view: { ...emptyView(), running, extensions },
+        controls: {
+          availableModels: [],
+          scopedModels: [],
+          model: null,
+          thinkingLevel: null,
+          availableThinkingLevels: [],
+          contextUsage: null,
+        },
+      }),
+    );
+  await setImmediate();
+}
+
+function acknowledge(request) {
+  request.resolve(
+    Response.json({
+      requestId: JSON.parse(request.request.body).requestId,
+      outcome: 'acknowledged',
+    }),
+  );
+}
+
+test('mobile resumes only an explicitly selected saved snapshot and refreshes the same session', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  await loadConversation(fixture);
+  await fixture.client.launches.initialize(id);
+  assert.equal(await fixture.client.resumeSession(id), false, 'connected session cannot resume');
+  await loadConversation(fixture, { saved: true });
+  const resuming = fixture.client.resumeSession(id);
+  await setImmediate();
+  assert.equal(await fixture.client.resumeSession(id), false, 'one resume in flight');
+  const request = fixture.requests.findLast((item) => item.request.method === 'POST');
+  assert.ok(request.url.endsWith(`/sessions/${id}/resume`));
+  assert.equal(JSON.parse(request.request.body).confirmedOffline, true);
+  const snapshots = fixture.requests.filter((item) => item.url.endsWith('/snapshot')).length;
+  request.resolve(
+    Response.json({
+      requestId: JSON.parse(request.request.body).requestId,
+      outcome: 'acknowledged',
+      data: { session },
+    }),
+  );
+  assert.equal(await resuming, true);
+  assert.equal(fixture.client.getState().selectedId, id);
+  assert.equal(
+    fixture.requests.filter((item) => item.url.endsWith('/snapshot')).length,
+    snapshots + 1,
+  );
+});
+
+test('mobile resume rechecks saved state after asynchronous persistence', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  await loadConversation(fixture, { saved: true });
+  await fixture.client.launches.initialize(id);
+  const gate = Promise.withResolvers();
+  const save = fixture.storage.setItem;
+  fixture.storage.setItem = async (key, value) => {
+    if (key === clientStorageKey(fixture.client.origin, 'launch', id)) {
+      await gate.promise;
+    }
+    await save(key, value);
+  };
+  const resuming = fixture.client.resumeSession(id);
+  await setImmediate();
+  fixture.client.live.refresh();
+  const snapshot = fixture.client.live.getState().snapshot;
+  fixture.requests
+    .findLast((item) => item.url.endsWith('/snapshot'))
+    .resolve(Response.json({ ...snapshot, session }));
+  await setImmediate();
+  gate.resolve();
+  assert.equal(await resuming, false);
+  assert.equal(fixture.client.launches.getState(id).status, 'ready');
+  assert.equal(fixture.requests.filter((item) => item.request.method === 'POST').length, 0);
+});
+
+test('mobile resume markers survive restart without automatic replay', async (t) => {
+  const values = new Map([[clientStorageKey('http://relay-one:3141', 'launch', id), 'true']]);
+  const fixture = setup(t, undefined, values, true);
+  await loadConversation(fixture, { saved: true });
+  await fixture.client.launches.initialize(id);
+  assert.equal(fixture.client.launches.getState(id).status, 'uncertain');
+  assert.equal(await fixture.client.resumeSession(id), false);
+  await fixture.client.launches.review(id);
+  assert.equal(fixture.client.launches.getState(id).status, 'ready');
+  assert.equal(fixture.requests.filter((item) => item.request.method === 'POST').length, 0);
+});
+
+const questionPrompt = {
+  toolCallId: 'ask-1',
+  questions: [
+    {
+      question: 'Which approach?',
+      header: 'Approach',
+      multiSelect: true,
+      options: [
+        { label: 'First', description: 'One', hasPreview: false },
+        {
+          label: 'Second',
+          description: 'Two',
+          hasPreview: true,
+          preview: '```ts\nconst value = 2;\n```',
+        },
+      ],
+    },
+  ],
+};
+
+test('mobile questionnaires validate answers and share the command lane with sending and cancellation', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  await loadConversation(fixture, { extensions: { 'ask-user-question': [questionPrompt] } });
+  const messages = fixture.client.messages(id, project.id);
+  await messages.initialize();
+  await assert.rejects(messages.answer({ toolCallId: 'closed', cancel: true }), /no longer open/);
+  await assert.rejects(
+    messages.answer({ toolCallId: 'ask-1', answers: [{ questionIndex: 0, optionIndexes: [3] }] }),
+    /out of range/,
+  );
+  assert.equal(fixture.requests.filter((item) => item.request.method === 'POST').length, 0);
+  const action = {
+    toolCallId: 'ask-1',
+    answers: [
+      { questionIndex: 0, optionIndexes: [0, 1], text: 'Also this', notes: 'Question note' },
+    ],
+    globalNote: 'Global note',
+  };
+  const answering = messages.answer(action);
+  await setImmediate();
+  assert.equal(await messages.commands.submit({ type: 'abort' }), false);
+  const request = fixture.requests.findLast((item) => item.url.endsWith('/commands'));
+  assert.deepEqual(JSON.parse(request.request.body).command, {
+    type: 'extension',
+    extension: 'ask-user-question',
+    action,
+  });
+  request.resolve(
+    Response.json({ error: 'Answer rejected', outcome: 'rejected' }, { status: 409 }),
+  );
+  assert.equal(await answering, false);
+  fixture.requests
+    .findLast((item) => item.url.endsWith('/snapshot'))
+    .resolve(Response.json(fixture.client.live.getState().snapshot));
+  await setImmediate();
+  const cancelling = messages.answer({ toolCallId: 'ask-1', cancel: true });
+  await setImmediate();
+  const cancellation = fixture.requests.findLast((item) => item.url.endsWith('/commands'));
+  assert.equal(JSON.parse(cancellation.request.body).command.action.cancel, true);
+  acknowledge(cancellation);
+  assert.equal(await cancelling, true);
+});
+
+test('mobile lost questionnaire verdict blocks new answers across restart', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  const extensions = { 'ask-user-question': [questionPrompt] };
+  await loadConversation(fixture, { extensions });
+  const messages = fixture.client.messages(id, project.id);
+  await messages.initialize();
+  const answering = messages.answer({ toolCallId: 'ask-1', cancel: true });
+  await setImmediate();
+  fixture.requests
+    .findLast((item) => item.url.endsWith('/commands'))
+    .reject(new Error('lost verdict'));
+  assert.equal(await answering, false);
+  const restored = setup(t, undefined, fixture.values, true);
+  await loadConversation(restored, { extensions });
+  const next = restored.client.messages(id, project.id);
+  await next.initialize();
+  assert.equal(await next.answer({ toolCallId: 'ask-1', cancel: true }), false);
+  assert.equal(next.commands.getState().uncertain, true);
+  assert.equal(restored.requests.filter((item) => item.request.method === 'POST').length, 0);
+});
+
+test('mobile sends protected prompts/steers, preserves newer draft edits, and shares the abort lane', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  await loadConversation(fixture);
+  const messages = fixture.client.messages(id, project.id);
+  assert.equal(messages, fixture.client.messages(id, project.id));
+  await messages.initialize();
+  messages.draft.update(() => ({ text: 'First message', images: [] }));
+  const sending = messages.send();
+  await setImmediate();
+  const request = fixture.requests.findLast((request) => request.url.endsWith('/commands'));
+  assert.equal(JSON.parse(request.request.body).command.type, 'prompt');
+  assert.equal(fixture.values.get(clientStorageKey(fixture.client.origin, 'command', id)), 'true');
+  assert.equal(await messages.commands.submit({ type: 'abort' }), false);
+  messages.draft.update(() => ({ text: 'Newer edits', images: [] }));
+  acknowledge(request);
+  assert.equal(await sending, true);
+  assert.equal(messages.draft.getState().draft.text, 'Newer edits');
+  await messages.draft.flush();
+  assert.equal(
+    JSON.parse(fixture.values.get(clientStorageKey(fixture.client.origin, 'draft', id))).text,
+    'Newer edits',
+  );
+
+  // Refresh after an acknowledgment must synchronize before another command.
+  fixture.requests
+    .findLast((request) => request.url.endsWith('/snapshot'))
+    .resolve(
+      Response.json({
+        ...fixture.client.live.getState().snapshot,
+        view: { ...emptyView(), running: true },
+      }),
+    );
+  await setImmediate();
+  const steering = messages.send();
+  await setImmediate();
+  const steer = fixture.requests.findLast((request) => request.url.endsWith('/commands'));
+  assert.equal(JSON.parse(steer.request.body).command.type, 'steer');
+  acknowledge(steer);
+  assert.equal(await steering, true);
+  assert.equal(messages.draft.getState().draft.text, '');
+});
+
+test('mobile image-only sends use the protected lane and acceptance preserves newer attachments', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  await loadConversation(fixture);
+  const messages = fixture.client.messages(id, project.id);
+  await messages.initialize();
+  const image = { type: 'image', mimeType: 'image/png', data: 'iVBORw0KGgo=' };
+  messages.draft.update(() => ({ text: '', images: [image] }));
+  const sending = messages.send();
+  await setImmediate();
+  const request = fixture.requests.findLast((request) => request.url.endsWith('/commands'));
+  assert.deepEqual(JSON.parse(request.request.body).command, {
+    type: 'prompt',
+    message: '',
+    images: [image],
+  });
+  // Native image drafts are memory-only; text and safety markers remain durable.
+  assert.deepEqual(
+    JSON.parse(fixture.values.get(clientStorageKey(fixture.client.origin, 'draft', id))).images,
+    [],
+  );
+  const newer = { ...image };
+  messages.draft.update(() => ({ text: '', images: [newer] }));
+  acknowledge(request);
+  assert.equal(await sending, true);
+  assert.deepEqual(messages.draft.getState().draft.images, [newer]);
+});
+
+test('mobile runtime stop requires the confirmed managed generation and shares the command lane', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  await loadConversation(fixture);
+  const messages = fixture.client.messages(id, project.id);
+  await messages.initialize();
+  assert.equal(await messages.stopRuntime(1), false, 'unmanaged runtimes cannot be stopped');
+  await loadConversation(fixture, { managed: true, running: true });
+  assert.equal(
+    await messages.stopRuntime(0),
+    false,
+    'stale confirmation cannot stop a new runtime',
+  );
+  assert.equal(fixture.requests.filter((item) => item.request.method === 'POST').length, 0);
+  messages.draft.update(() => ({ text: 'Keep this draft', images: [] }));
+  const stopping = messages.stopRuntime(1);
+  await setImmediate();
+  assert.equal(await messages.commands.submit({ type: 'abort' }), false);
+  const request = fixture.requests.findLast((item) => item.url.endsWith('/commands'));
+  const body = JSON.parse(request.request.body);
+  assert.deepEqual(body.command, { type: 'stop_runtime' });
+  assert.equal(body.generation, 1);
+  acknowledge(request);
+  assert.equal(await stopping, true);
+  assert.match(messages.commands.getState().outcome, /exit is not yet confirmed/);
+  assert.equal(messages.draft.getState().draft.text, 'Keep this draft');
+  assert.equal(fixture.client.live.getState().snapshot.session.connection, 'connected');
+});
+
+test('mobile abort dispatches through the protected lane and rejected sends retain drafts', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  await loadConversation(fixture, { running: true });
+  const messages = fixture.client.messages(id, project.id);
+  await messages.initialize();
+  const aborting = messages.commands.submit({ type: 'abort' });
+  await setImmediate();
+  const abort = fixture.requests.findLast((request) => request.url.endsWith('/commands'));
+  assert.deepEqual(JSON.parse(abort.request.body).command, { type: 'abort' });
+  acknowledge(abort);
+  assert.equal(await aborting, true);
+  fixture.requests
+    .findLast((request) => request.url.endsWith('/snapshot'))
+    .resolve(Response.json(fixture.client.live.getState().snapshot));
+  await setImmediate();
+  const image = { type: 'image', mimeType: 'image/png', data: 'iVBORw0KGgo=' };
+  messages.draft.update(() => ({ text: 'Rejected draft', images: [image] }));
+  const sending = messages.send();
+  await setImmediate();
+  fixture.requests
+    .findLast((request) => request.url.endsWith('/commands'))
+    .resolve(
+      Response.json({ error: 'Native command rejected', outcome: 'rejected' }, { status: 409 }),
+    );
+  assert.equal(await sending, false);
+  assert.equal(messages.draft.getState().draft.text, 'Rejected draft');
+  assert.deepEqual(messages.draft.getState().draft.images, [image]);
+  assert.equal(messages.commands.getState().uncertain, false);
+  assert.match(messages.commands.getState().error.message, /rejected/);
+});
+
+test('mobile unknown outcomes survive restart without replay; explicit review never resends', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  await loadConversation(fixture);
+  const messages = fixture.client.messages(id, project.id);
+  await messages.initialize();
+  messages.draft.update(() => ({ text: 'Keep me', images: [] }));
+  const sending = messages.send();
+  await setImmediate();
+  fixture.requests
+    .findLast((request) => request.url.endsWith('/commands'))
+    .reject(new Error('lost response'));
+  assert.equal(await sending, false);
+  assert.equal(messages.commands.getState().uncertain, true);
+  assert.equal(messages.draft.getState().draft.text, 'Keep me');
+  const restored = setup(t, undefined, fixture.values, true);
+  await loadConversation(restored);
+  const next = restored.client.messages(id, project.id);
+  await next.initialize();
+  assert.equal(next.commands.getState().uncertain, true);
+  assert.equal(next.draft.getState().draft.text, 'Keep me');
+  assert.equal(await next.send(), false);
+  await next.commands.review();
+  assert.equal(next.commands.available(), true);
+  assert.equal(restored.requests.filter((request) => request.request.method === 'POST').length, 0);
+});
+
+test('mobile suspension during marker persistence prevents dispatch and preserves the draft', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  await loadConversation(fixture);
+  const messages = fixture.client.messages(id, project.id);
+  await messages.initialize();
+  messages.draft.update(() => ({ text: 'Not sent', images: [] }));
+  await messages.draft.flush();
+  const gate = Promise.withResolvers();
+  const save = fixture.storage.setItem;
+  fixture.storage.setItem = async (key, value) => {
+    if (key === clientStorageKey(fixture.client.origin, 'command', id)) {
+      await gate.promise;
+    }
+    await save(key, value);
+  };
+  const sending = messages.send();
+  await setImmediate();
+  fixture.client.stop();
+  gate.resolve();
+  assert.equal(await sending, false);
+  assert.equal(messages.draft.getState().draft.text, 'Not sent');
+  assert.equal(fixture.requests.filter((request) => request.request.method === 'POST').length, 0);
+});
+
+test('mobile read acknowledgment requires the loaded, visible, foreground conversation at the bottom', async (t) => {
+  const fixture = setup(t, undefined, undefined, true);
+  const completionId = '33333333-3333-3333-3333-333333333333';
+  await loadConversation(fixture, { completionId });
+  const posts = () => fixture.requests.filter((request) => request.request.method === 'POST');
+  fixture.client.setReading(id, true, false);
+  fixture.client.setReading(id, false, true);
+  assert.equal(posts().length, 0);
+  fixture.client.stop();
+  fixture.client.setReading(id, true, true);
+  assert.equal(posts().length, 0);
+  fixture.client.setReading(id, false, false);
+  await loadConversation(fixture, { completionId });
+  fixture.client.setReading(id, true, true);
+  assert.equal(posts().length, 1);
+  const request = posts()[0];
+  assert.ok(request.url.endsWith('/viewed'));
+  assert.equal(JSON.parse(request.request.body).completionId, completionId);
+  request.resolve(
+    Response.json({
+      requestId: JSON.parse(request.request.body).requestId,
+      outcome: 'acknowledged',
+      data: { readState: { completionId, viewedCompletionId: completionId } },
+    }),
+  );
+  await setImmediate();
+  fixture.client.setReading(id, true, true);
+  assert.equal(posts().length, 1);
 });
 
 test('server switching isolates selection and outstanding requests', async (t) => {

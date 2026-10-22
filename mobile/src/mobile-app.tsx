@@ -97,7 +97,12 @@ export function MobileApp() {
         </Text>
       )}
       {client ? (
-        <SessionShell key={client.origin} client={client} onSettings={() => setSettings(true)} />
+        <SessionShell
+          key={client.origin}
+          client={client}
+          visible={!settings}
+          onSettings={() => setSettings(true)}
+        />
       ) : (
         <ConnectionForm initialValue="" onConnect={connect} />
       )}

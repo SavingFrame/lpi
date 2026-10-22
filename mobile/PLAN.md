@@ -8,12 +8,35 @@ inventory grouping/visibility, and read eligibility/acknowledgment are now share
 Questionnaire draft helpers are framework-independent under extension support. Mobile
 native transport/storage adapters and a read-only Expo/Tamagui scaffold are now implemented.
 The app has connection settings, a grouped drawer, session restoration, foreground
-reconnect, and plain-text conversation previews. Dependencies are installed and pinned;
+reconnect, and native conversation rendering with Markdown/code, horizontally scrolling
+tables, and visible compact tool groups with collapsible per-call arguments/output.
+Thinking content is hidden. The transcript now uses an inverted native list, visible-position
+anchoring, and gesture-driven follow state with a small trailing gap. Focused controller
+regressions pass; native anchoring and keyboard/long-transcript interactions remain unverified.
+The compact header and flat drawer rows
+replace the initial default-button presentation. Dependencies are installed and pinned;
 typechecks, isolated transport/lifecycle tests, and iOS JavaScript export pass. Expo Go
 connection-screen startup is verified on an iPhone 15 simulator (iOS 17, Xcode 27.1).
-Custom native build/device/network verification, rich rendering, read acknowledgments, mutation controls,
-and explicit mobile extension registration remain pending. Current relay/browser implementation status is documented in the
+The user reports physical-device validation complete. Persistent drafts, prompt/steer,
+abort, and shared read acknowledgments are now implemented using the shared controllers.
+Photo-library image attachments, previews/removal, image-only sending, and inline embedded
+conversation images are implemented. The existing four-image/4 MiB limits apply; unsent
+images are memory-only. Native picker interaction and image delivery need device validation.
+Isolated tests cover command dispatch, draft settlement, uncertain outcomes, suspension,
+and read eligibility. New control/keyboard interactions still require simulator/device
+validation. Per-project fresh-session creation now uses the shared durable launch guard, selects the
+acknowledged session, and exposes explicit uncertain-outcome review without replay.
+Isolated mobile launch tests cover dispatch, restart uncertainty, and suspension during
+persistence; native UI and real-Pi launch validation remain pending.
+Explicit saved-session resume and mobile Ask User Question rendering are now implemented.
+Resume requires offline confirmation and uses the shared durable resume lane. Questionnaires
+use an explicit mobile registration, native modal controls, shared drafts/validation, and
+the composer command guard for answers/cancellation. Isolated transport coverage passes;
+native interaction and real-Pi integration remain unverified. Custom native builds remain pending. Current relay/browser implementation status is documented in the
 [root plan](../PLAN.md). Real native-Pi integration remains unverified.
+
+The mobile workspace targets Expo SDK 57 for the user’s installed Expo Go. SDK 58
+simulator checks above are historical; the user reports physical-device validation complete.
 
 Paths in this document are relative to the repository root unless stated otherwise.
 See the [mobile overview](README.md) for scope and navigation.
@@ -44,8 +67,8 @@ external-writer confirmation, and uncertain-outcome handling.
 
 Background push notifications, Android validation, full browser feature parity, and
 advanced tree/branch navigation are deferred. These are mobile scope boundaries, not
-permission to remove existing browser features. Model/thinking controls, image capture or
-picking, and other parity features can be scheduled after the core flow works end to end.
+permission to remove existing browser features. Photo-library picking is implemented;
+image capture, model/thinking controls, and other parity features remain deferred.
 
 ## Shared behavior, separate presentation
 
@@ -143,9 +166,11 @@ storage/rendering packages only after reviewing their compatibility and actual n
 3. **Read-only end-to-end flow.** Connect to the relay, populate the grouped drawer, select
    live/saved sessions, render snapshots and streaming tools/messages, and synchronize
    foreground/reconnect transitions and shared read state.
-4. **Core controls.** Add protected drafts, prompt/steer sending, abort, create/resume, and
-   mobile Ask User Question rendering through the shared mutation guards. Surface explicit
-   rejected/unknown outcomes; no automatic command or launch retry.
+4. **Core controls (implemented, native validation pending).** Protected drafts, prompt/steer,
+   abort, read acknowledgments, create/resume, and mobile Ask User Question controls use
+   shared controllers and mutation guards. Validate keyboard/control interactions, resume
+   confirmation, questionnaire scrolling/previews, and cancellation on device. Explicit
+   rejected/unknown outcomes never trigger automatic command or launch retry.
 5. **Device validation.** Check real iPhone drawer gestures, keyboard/composer layout,
    long-transcript scrolling, code selection/scrolling, background/foreground recovery,
    LAN/Tailscale connectivity, and read-state synchronization with the browser.

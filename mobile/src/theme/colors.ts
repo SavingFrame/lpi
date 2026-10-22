@@ -7,6 +7,7 @@ export const colors = {
   accent: '#a5b4fc',
   selected: '#29324a',
   error: '#fca5a5',
+  success: '#4ade80',
   running: '#93c5fd',
   blocked: '#fcd34d',
   unread: '#bef264',

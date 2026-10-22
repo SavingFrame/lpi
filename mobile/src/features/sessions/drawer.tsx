@@ -1,7 +1,15 @@
-import { useState } from 'react';
-import { ScrollView } from 'react-native';
-import { Button, Text, XStack, YStack } from 'tamagui';
+import { useEffect, useState, useSyncExternalStore } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { activityCounts, groupSessions, visibleSessions } from '../../../../src/client/inventory';
+import type { LaunchController } from '../../../../src/client/launches';
 import { hasUnreadCompletion } from '../../../../src/shared/session-read-state';
 import type { InventoryState } from '../../lib/relay';
 import { colors } from '../../theme/colors';
@@ -12,13 +20,23 @@ export function ProjectDrawer({
   onSelect,
   onClose,
   onSettings,
+  onRefresh,
+  launches,
+  onCreate,
 }: {
   inventory: InventoryState;
   online: boolean;
   onSelect: (id: string) => void;
   onClose: () => void;
   onSettings: () => void;
+  onRefresh: () => void;
+  launches: LaunchController;
+  onCreate: (projectId: string) => void;
 }) {
+  const launch = useSyncExternalStore(launches.subscribe, launches.getState);
+  useEffect(() => {
+    void launches.initialize();
+  }, [launches]);
   const [collapsed, setCollapsed] = useState(new Set<string>());
   const [expanded, setExpanded] = useState(new Set<string>());
   const groups = groupSessions(inventory.projects, inventory.sessions, online);
@@ -32,18 +50,50 @@ export function ProjectDrawer({
     return next;
   }
   return (
-    <YStack flex={1} backgroundColor={colors.panel} paddingTop={12}>
-      <XStack padding={16} justifyContent="space-between" alignItems="center">
-        <Text fontSize={20} fontWeight="700" color={colors.text}>
-          Projects
+    <View style={styles.container}>
+      <View style={styles.header}>
+        <Text style={styles.heading}>Projects</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Close projects"
+          onPress={onClose}
+          style={styles.close}
+        >
+          <Text style={styles.closeText}>×</Text>
+        </Pressable>
+      </View>
+      {launch.status === 'pending' && <Text style={styles.notice}>Waiting for Pi…</Text>}
+      {launch.error && (
+        <Text accessibilityRole="alert" style={styles.error}>
+          {launch.error.message}
         </Text>
-        <Button height={44} onPress={onClose} accessibilityLabel="Close projects">
-          Close
-        </Button>
-      </XStack>
-      <ScrollView>
+      )}
+      {launch.status === 'uncertain' && (
+        <View style={styles.launchNotice}>
+          <Text style={styles.notice}>
+            Launch outcome unknown. Inspect recent sessions and tmux -L pim list-sessions on the
+            relay host before creating another session.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            disabled={!online}
+            style={styles.footerButton}
+            onPress={() =>
+              Alert.alert('Clear launch warning?', 'This does not stop Pi or retry the launch.', [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'I inspected the runtimes', onPress: () => void launches.review() },
+              ])
+            }
+          >
+            <Text style={[styles.footerText, !online && styles.disabled]}>
+              I inspected the runtimes
+            </Text>
+          </Pressable>
+        </View>
+      )}
+      <ScrollView contentContainerStyle={styles.list}>
         {groups.length === 0 && (
-          <Text color={colors.muted} padding={16}>
+          <Text style={styles.empty}>
             {inventory.loading ? 'Loading projects…' : 'No configured projects.'}
           </Text>
         )}
@@ -52,71 +102,218 @@ export function ProjectDrawer({
           const all = expanded.has(project.id);
           const visible = visibleSessions(sessions, inventory.selectedId ?? undefined, all);
           const counts = activityCounts(sessions);
-          const unread = sessions.filter((session) =>
+          const unreadCount = sessions.filter((session) =>
             hasUnreadCompletion(session.readState),
           ).length;
           return (
-            <YStack key={project.id} padding={12} gap={8}>
-              <Button
-                justifyContent="flex-start"
-                height={48}
-                onPress={() => setCollapsed((current) => toggle(project.id, current))}
-                accessibilityState={{ expanded: !closed }}
-              >
-                {closed ? '▸' : '▾'} {project.name} ({sessions.length})
-              </Button>
-              <Text color={colors.muted} fontSize={12}>
-                {counts.running} running · {counts.blocked} need input · {unread} unread
-              </Text>
+            <View key={project.id} style={styles.group}>
+              <View style={styles.projectHeader}>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ expanded: !closed }}
+                  onPress={() => setCollapsed((current) => toggle(project.id, current))}
+                  style={styles.project}
+                >
+                  <Text style={styles.chevron}>{closed ? '▸' : '▾'}</Text>
+                  <Text style={styles.projectName} numberOfLines={1}>
+                    {project.name}
+                  </Text>
+                  <Text style={styles.count}>{sessions.length}</Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={`New session in ${project.name}`}
+                  accessibilityState={{ disabled: !online || launch.status !== 'ready' }}
+                  disabled={!online || launch.status !== 'ready'}
+                  style={styles.close}
+                  onPress={() => onCreate(project.id)}
+                >
+                  {launch.status === 'pending' ? (
+                    <ActivityIndicator size="small" color={colors.muted} />
+                  ) : (
+                    <Text
+                      style={[
+                        styles.closeText,
+                        (!online || launch.status !== 'ready') && styles.disabled,
+                      ]}
+                    >
+                      +
+                    </Text>
+                  )}
+                </Pressable>
+              </View>
+              {(counts.running > 0 || counts.blocked > 0 || unreadCount > 0) && (
+                <View style={styles.counts}>
+                  {counts.running > 0 && (
+                    <Text style={styles.running}>{counts.running} running</Text>
+                  )}
+                  {counts.blocked > 0 && (
+                    <Text style={styles.blocked}>{counts.blocked} need input</Text>
+                  )}
+                  {unreadCount > 0 && <Text style={styles.unread}>{unreadCount} unread</Text>}
+                </View>
+              )}
               {!closed &&
-                visible.map((session) => (
-                  <Button
-                    key={session.id}
-                    height="auto"
-                    minHeight={64}
-                    padding={12}
-                    backgroundColor={
-                      inventory.selectedId === session.id ? colors.selected : colors.background
-                    }
-                    onPress={() => onSelect(session.id)}
-                    accessibilityState={{ selected: inventory.selectedId === session.id }}
-                  >
-                    <YStack flex={1} gap={6}>
-                      <Text color={colors.text} numberOfLines={2}>
-                        {session.title || 'Untitled session'}
-                      </Text>
-                      <Text
-                        color={
-                          hasUnreadCompletion(session.readState) ? colors.unread : colors.muted
-                        }
-                        fontSize={12}
-                      >
-                        {session.activity === 'unknown'
-                          ? 'Saved / activity unavailable'
-                          : session.activity}
-                        {hasUnreadCompletion(session.readState) ? ' · Unviewed turn' : ''}
-                      </Text>
-                    </YStack>
-                  </Button>
-                ))}
+                visible.map((session) => {
+                  const selected = inventory.selectedId === session.id;
+                  const unread = hasUnreadCompletion(session.readState);
+                  const status =
+                    session.activity === 'running'
+                      ? 'Running'
+                      : session.activity === 'blocked'
+                        ? 'Needs input'
+                        : session.activity === 'idle'
+                          ? 'Idle'
+                          : 'Saved';
+                  const date = new Date(session.updatedAt ?? session.createdAt);
+                  const dateLabel = Number.isNaN(date.getTime())
+                    ? ''
+                    : date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                  return (
+                    <Pressable
+                      key={session.id}
+                      accessibilityRole="button"
+                      accessibilityState={{ selected }}
+                      accessibilityLabel={`${session.title || 'Untitled session'}, ${status}${unread ? ', unread' : ''}`}
+                      onPress={() => onSelect(session.id)}
+                      style={[styles.session, selected && styles.selected]}
+                    >
+                      <View
+                        style={[
+                          styles.marker,
+                          {
+                            backgroundColor:
+                              session.activity === 'running'
+                                ? colors.running
+                                : session.activity === 'blocked'
+                                  ? colors.blocked
+                                  : unread
+                                    ? colors.unread
+                                    : 'transparent',
+                          },
+                        ]}
+                      />
+                      <View style={styles.sessionBody}>
+                        <Text
+                          style={[styles.sessionTitle, unread && styles.unreadTitle]}
+                          numberOfLines={2}
+                        >
+                          {session.title || 'Untitled session'}
+                        </Text>
+                        <View style={styles.meta}>
+                          <Text
+                            style={
+                              session.activity === 'running'
+                                ? styles.running
+                                : session.activity === 'blocked'
+                                  ? styles.blocked
+                                  : styles.metadata
+                            }
+                          >
+                            {status}
+                            {unread ? ' · Unread' : ''}
+                          </Text>
+                          <Text style={styles.metadata}>{dateLabel}</Text>
+                        </View>
+                      </View>
+                    </Pressable>
+                  );
+                })}
               {!closed && sessions.length === 0 && (
-                <Text color={colors.muted}>No sessions yet.</Text>
+                <Text style={styles.empty}>No sessions yet.</Text>
               )}
               {!closed && (all || visible.length < sessions.length) && (
-                <Button
-                  height={44}
+                <Pressable
+                  accessibilityRole="button"
+                  style={styles.older}
                   onPress={() => setExpanded((current) => toggle(project.id, current))}
                 >
-                  {all ? 'Show less' : 'Show older sessions'}
-                </Button>
+                  <Text style={styles.metadata}>{all ? 'Show less' : 'Show older sessions'}</Text>
+                </Pressable>
               )}
-            </YStack>
+            </View>
           );
         })}
       </ScrollView>
-      <Button margin={16} height={48} onPress={onSettings}>
-        Server settings
-      </Button>
-    </YStack>
+      <View style={styles.footer}>
+        <Pressable accessibilityRole="button" style={styles.footerButton} onPress={onSettings}>
+          <Text style={styles.footerText}>Server settings</Text>
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Refresh sessions"
+          disabled={!online}
+          style={styles.footerButton}
+          onPress={onRefresh}
+        >
+          <Text style={[styles.footerText, !online && styles.disabled]}>Refresh</Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: colors.panel },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingLeft: 20,
+    paddingRight: 8,
+    paddingVertical: 8,
+  },
+  heading: { color: colors.text, fontSize: 22, fontWeight: '700' },
+  close: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
+  closeText: { color: colors.muted, fontSize: 28 },
+  list: { paddingHorizontal: 10, paddingBottom: 20 },
+  group: { marginBottom: 12 },
+  projectHeader: { flexDirection: 'row', alignItems: 'center' },
+  launchNotice: { paddingHorizontal: 12 },
+  notice: { color: colors.muted, fontSize: 12, lineHeight: 18, padding: 12 },
+  error: { color: colors.error, fontSize: 12, padding: 12 },
+  project: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    minHeight: 44,
+    paddingHorizontal: 10,
+  },
+  chevron: { color: colors.muted, fontSize: 14 },
+  projectName: { flex: 1, color: colors.text, fontSize: 14, fontWeight: '600' },
+  count: { color: colors.muted, fontSize: 12 },
+  counts: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingLeft: 28, paddingBottom: 10 },
+  running: { color: colors.running, fontSize: 11 },
+  blocked: { color: colors.blocked, fontSize: 11 },
+  unread: { color: colors.unread, fontSize: 11 },
+  session: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: colors.border,
+    borderRadius: 8,
+  },
+  selected: { backgroundColor: colors.selected, borderBottomColor: 'transparent' },
+  marker: { height: 6, width: 6, borderRadius: 3, marginTop: 7 },
+  sessionBody: { flex: 1, gap: 7 },
+  sessionTitle: { color: colors.text, fontSize: 14, lineHeight: 20 },
+  unreadTitle: { fontWeight: '600' },
+  meta: { flexDirection: 'row', justifyContent: 'space-between', gap: 8 },
+  metadata: { color: colors.muted, fontSize: 11 },
+  older: { minHeight: 44, justifyContent: 'center', paddingLeft: 26 },
+  empty: { color: colors.muted, fontSize: 13, padding: 16 },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.border,
+  },
+  footerButton: { minHeight: 52, paddingHorizontal: 8, justifyContent: 'center' },
+  footerText: { color: colors.muted, fontSize: 13 },
+  disabled: { opacity: 0.4 },
+});
