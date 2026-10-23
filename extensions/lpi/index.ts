@@ -43,8 +43,8 @@ export default function nativeBridge(pi: ExtensionAPI): void {
     transport.stop();
     state.dispose();
   });
-  pi.registerCommand('pim-connect', {
-    description: 'Connect this native session to Pim. Optional argument: bridge WebSocket URL.',
+  pi.registerCommand('lpi-connect', {
+    description: 'Connect this native session to lpi. Optional argument: bridge WebSocket URL.',
     handler: async (args, context) => {
       if (context.mode !== 'tui') {
         return;
@@ -52,7 +52,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
       transport.url = args.trim() || transport.url;
       if (
         await context.ui.confirm(
-          'Connect to Pim?',
+          'Connect to lpi?',
           `Share this transcript and allow remote prompts, compaction, extension commands and skills (including terminal dialogs), branch navigation, model/thinking changes, supported extension answers, queue inspection/clearing, and abort requests through ${transport.url}?`,
         )
       ) {
@@ -61,8 +61,8 @@ export default function nativeBridge(pi: ExtensionAPI): void {
       }
     },
   });
-  pi.registerCommand('pim-disconnect', {
-    description: 'Disconnect Pim without stopping the native agent.',
+  pi.registerCommand('lpi-disconnect', {
+    description: 'Disconnect lpi without stopping the native agent.',
     handler: async () => transport.stop(),
   });
   pi.on('agent_start', (event, context) => forward({ ...event }, context));

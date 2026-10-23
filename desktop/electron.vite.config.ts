@@ -4,10 +4,10 @@ import { frontendConfig } from '../frontend/vite.config.ts';
 import { desktopRelayOrigin } from '../src/shared/desktop.ts';
 
 export default defineConfig(({ command }) => {
-  const relay = desktopRelayOrigin(process.env.PIM_DESKTOP_SERVER);
-  const port = Number(process.env.PIM_DESKTOP_DEV_PORT ?? 5173);
+  const relay = desktopRelayOrigin(process.env.LPI_DESKTOP_SERVER);
+  const port = Number(process.env.LPI_DESKTOP_DEV_PORT ?? 5173);
   if (!Number.isInteger(port) || port < 1 || port > 65535) {
-    throw new Error('PIM_DESKTOP_DEV_PORT must be a port between 1 and 65535.');
+    throw new Error('LPI_DESKTOP_DEV_PORT must be a port between 1 and 65535.');
   }
   const frontend = frontendConfig(relay);
   return {
@@ -38,7 +38,7 @@ export default defineConfig(({ command }) => {
       plugins: [
         frontend.plugins,
         {
-          name: 'pim-desktop-ui',
+          name: 'lpi-desktop-ui',
           enforce: 'post',
           // The custom protocol uses root-relative assets, including on deep-link reloads.
           config: () => ({ base: '/' }),
@@ -48,7 +48,7 @@ export default defineConfig(({ command }) => {
               ? [
                   {
                     tag: 'meta',
-                    attrs: { name: 'pim-relay-origin', content: relay },
+                    attrs: { name: 'lpi-relay-origin', content: relay },
                     injectTo: 'head',
                   },
                 ]

@@ -50,5 +50,5 @@ against a fake provider, without credentials or a network provider. It uses temp
 settings, working directories, and sessions. No source-extension build is needed; compiled
 native unit tests still require `npm run build:server`.
 
-Set `PIM_TEST_PI_CLI` to an absolute CLI entry path to check a separate/global Pi installation.
+Set `LPI_TEST_PI_CLI` to an absolute CLI entry path to check a separate/global Pi installation.
 This does not verify native TUI/relay integration, reload, navigation, compaction, or dialogs.

@@ -15,7 +15,7 @@ export type Tmux = (args: string[]) => Promise<string>;
 
 async function tmux(args: string[]): Promise<string> {
   try {
-    const result = await execute('tmux', ['-L', 'pim', '-f', '/dev/null', ...args], {
+    const result = await execute('tmux', ['-L', 'lpi', '-f', '/dev/null', ...args], {
       timeout: 5000,
       maxBuffer: 1024 * 1024,
     });
@@ -60,13 +60,13 @@ export class Launches {
   private async checkReservations(names: string[], id: string): Promise<void> {
     for (const name of names) {
       const options = await this.run(['show-options', '-t', `=${name}:`]);
-      if (options.includes(`@pim_file_${id} `)) {
+      if (options.includes(`@lpi_file_${id} `)) {
         throw new AppError(
-          `Pi may still be running in tmux session ${name}. Wait for exit or inspect with tmux -L pim attach -t ${name}`,
+          `Pi may still be running in tmux session ${name}. Wait for exit or inspect with tmux -L lpi attach -t ${name}`,
           409,
         );
       }
-      if (!options.includes('@pim_file_')) {
+      if (!options.includes('@lpi_file_')) {
         throw new AppError(
           `Tmux session ${name} has not registered its file yet. Inspect it before resuming`,
           409,
@@ -103,7 +103,7 @@ export class Launches {
       if (saved) {
         await this.checkReservations(names, saved.id);
         if (!confirmedOffline) {
-          throw new AppError('Confirm that no Pi process outside Pim is using this file', 409);
+          throw new AppError('Confirm that no Pi process outside lpi is using this file', 409);
         }
         // Revalidate bounded history and identity immediately before opening a writer.
         this.sessions.validateResume(saved.id);
@@ -112,7 +112,7 @@ export class Launches {
         }
       }
       const launchId = randomUUID();
-      const name = `pim-${launchId}`;
+      const name = `lpi-${launchId}`;
       const host = this.config.host === '::' ? '[::1]' : '127.0.0.1';
       const endpointHost =
         this.config.host === '0.0.0.0' || this.config.host === '::'
@@ -137,11 +137,11 @@ export class Launches {
         '-y',
         '40',
         '-e',
-        `PIM_BRIDGE_URL=ws://${endpointHost}:${this.config.port}/bridge`,
+        `LPI_BRIDGE_URL=ws://${endpointHost}:${this.config.port}/bridge`,
         '-e',
-        `PIM_LAUNCH_ID=${launchId}`,
+        `LPI_LAUNCH_ID=${launchId}`,
         '-e',
-        `PIM_TMUX_SESSION=${name}`,
+        `LPI_TMUX_SESSION=${name}`,
         '-e',
         `PATH=${path}`,
         'pi',
@@ -174,7 +174,7 @@ export class Launches {
         await delay(100);
       }
       throw new AppError(
-        `Startup outcome unknown. Inspect tmux -L pim attach -t ${name}. Do not launch again automatically`,
+        `Startup outcome unknown. Inspect tmux -L lpi attach -t ${name}. Do not launch again automatically`,
         503,
         'unknown',
       );
@@ -184,8 +184,8 @@ export class Launches {
       }
       throw new AppError(
         dispatched
-          ? 'Tmux launch outcome unknown. Inspect tmux -L pim list-sessions before trying again'
-          : 'Cannot inspect tmux. Install tmux and check access to its dedicated pim socket',
+          ? 'Tmux launch outcome unknown. Inspect tmux -L lpi list-sessions before trying again'
+          : 'Cannot inspect tmux. Install tmux and check access to its dedicated lpi socket',
         503,
         dispatched ? 'unknown' : 'rejected',
       );

@@ -234,7 +234,7 @@ export const SessionSidebar = memo(function SessionSidebar({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [branches, setBranches] = useState<Set<string>>(() => new Set());
   const [allProjects, setAllProjects] = useState(false);
-  const pinKey = `pim:sidebar:${relayServer ?? window.location.origin}:pins`;
+  const pinKey = `lpi:sidebar:${relayServer ?? window.location.origin}:pins`;
   const [pinned, setPinned] = useState<Set<string>>(() => {
     try {
       const value: unknown = JSON.parse(localStorage.getItem(pinKey) ?? '[]');

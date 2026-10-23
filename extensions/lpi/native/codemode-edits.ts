@@ -71,8 +71,8 @@ export class NativeCodemodeEdits {
     return {
       details: {
         ...record(event.details),
-        pimEditPatches: parent.patches,
-        pimEditPatchesOmitted: parent.omitted,
+        lpiEditPatches: parent.patches,
+        lpiEditPatchesOmitted: parent.omitted,
       },
     };
   }

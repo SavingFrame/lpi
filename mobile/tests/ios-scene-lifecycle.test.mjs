@@ -12,7 +12,7 @@ test('SDK 57 prebuild adopts Expo scene startup without losing app configuration
     ['-xOf', require.resolve('expo/template.tgz'), 'package/ios/HelloWorld/AppDelegate.swift'],
     { encoding: 'utf8' },
   );
-  const config = withIosSceneLifecycle({ name: 'Pim', slug: 'pim-mobile' });
+  const config = withIosSceneLifecycle({ name: 'lpi', slug: 'lpi-mobile' });
   const applyAppDelegate = (contents) =>
     config.mods.ios.appDelegate({
       modRequest: {},
@@ -27,9 +27,9 @@ test('SDK 57 prebuild adopts Expo scene startup without losing app configuration
   assert.equal((await applyAppDelegate(migrated)).modResults.contents, migrated);
 
   const plist = {
-    CFBundleIdentifier: 'dev.pim.mobile',
+    CFBundleIdentifier: 'dev.lpi.mobile',
     NSAppTransportSecurity: { NSAllowsLocalNetworking: true },
-    CFBundleURLTypes: [{ CFBundleURLSchemes: ['pim'] }],
+    CFBundleURLTypes: [{ CFBundleURLSchemes: ['lpi'] }],
   };
   const result = await config.mods.ios.infoPlist({ modRequest: {}, modResults: { ...plist } });
   const { UIApplicationSceneManifest: manifest, ...preserved } = result.modResults;

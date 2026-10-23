@@ -1,6 +1,6 @@
 # Relay server API
 
-Pim discovers saved sessions and routes browser commands into connected native Pi extensions. It does not launch RPC, write conversation files, or transfer runtime ownership.
+lpi discovers saved sessions and routes browser commands into connected native Pi extensions. It does not launch RPC, write conversation files, or transfer runtime ownership.
 
 ## Configuration
 
@@ -8,11 +8,11 @@ Pim discovers saved sessions and routes browser commands into connected native P
 - `piSessionRoots`: saved JSONL roots, default `["~/.pi/agent/sessions"]`. Custom storage requires explicit roots. Missing directories are ignored. Set `[]` to disable saved-file discovery.
 - `host`: IPv4 or IPv6 bind address, default `0.0.0.0` (all IPv4 interfaces). Use `127.0.0.1` for loopback-only access.
 - `port`: defaults to 3141.
-- `origins`: exact allowed HTTP(S) browser origins, including every LAN/Tailscale URL you use, plus the exact `pim-app://app` origin for the bundled desktop UI. Only HTTP(S) authorities contribute to the Host allowlist, alongside localhost and IPv4/IPv6 loopback with the configured port. Custom origins do not grant HTTP hosts; opaque `null` origins are rejected. The default empty list denies Origin-bearing requests.
+- `origins`: exact allowed HTTP(S) browser origins, including every LAN/Tailscale URL you use, plus the exact `lpi-app://app` origin for the bundled desktop UI. Only HTTP(S) authorities contribute to the Host allowlist, alongside localhost and IPv4/IPv6 loopback with the configured port. Custom origins do not grant HTTP hosts; opaque `null` origins are rejected. The default empty list denies Origin-bearing requests.
 
 Roots are not a filesystem sandbox. Project trust and agent configuration belong to native Pi.
 
-`PIM_STATE_DIR` selects the relay data directory, default `~/.local/state/pim`. The relay creates `pim.sqlite` there using Node's built-in `node:sqlite` (experimental on Node 22). SQLite currently stores session completion/read markers. It is reserved for relay-owned data, never Pi messages or runtime ownership. Read markers are shared across all trusted clients; there are no per-user accounts.
+`LPI_STATE_DIR` selects the relay data directory, default `~/.local/state/lpi`. The relay creates `lpi.sqlite` there using Node's built-in `node:sqlite` (experimental on Node 22). SQLite currently stores session completion/read markers. It is reserved for relay-owned data, never Pi messages or runtime ownership. Read markers are shared across all trusted clients; there are no per-user accounts.
 
 ## REST
 
@@ -31,9 +31,9 @@ Roots are not a filesystem sandbox. Project trust and agent configuration belong
 
 Create accepts `{ requestId, projectId }`. Resume accepts `{ requestId, confirmedOffline: true }`; the project comes from the saved record. Both return `{ requestId, outcome: "acknowledged", data: { session } }` after correlated bridge registration. They do not use connection generations. Launch checks are serialized, bounded to 32 managed tmux sessions, and wait up to 20 seconds for registration. Timeouts and lost subprocess results are unknown outcomes, never automatically replayed.
 
-The dedicated `tmux -L pim` socket hosts one session per runtime, using the pinned Pi CLI and the bridge enabled through existing global Pi extension configuration. The launcher does not pass `--extension`. Managed extensions reserve file IDs in tmux before registration. Resume rejects reserved files and unregistered runtimes, and requires confirmation that external writers have stopped. Reservations survive relay restarts and conservatively accumulate across TUI session switches. No generic terminal-input proxy is exposed. Stop uses the existing generation-checked command endpoint, not a tmux kill endpoint.
+The dedicated `tmux -L lpi` socket hosts one session per runtime, using the pinned Pi CLI and the bridge enabled through existing global Pi extension configuration. The launcher does not pass `--extension`. Managed extensions reserve file IDs in tmux before registration. Resume rejects reserved files and unregistered runtimes, and requires confirmation that external writers have stopped. Reservations survive relay restarts and conservatively accumulate across TUI session switches. No generic terminal-input proxy is exposed. Stop uses the existing generation-checked command endpoint, not a tmux kill endpoint.
 
-Session records contain `id`, `projectId`, `directory`, `file`, `createdAt`, `piSessionId`, `connection`, and `generation`. Pim IDs derive from canonical file paths, so copied files with identical Pi IDs remain distinct. Connection is `connected` or `disconnected`, not a statement about process liveness or ownership. Optional `parentSession` preserves Pi's source-session path for forks, clones, and explicitly parented sessions; it does not identify which operation created the session.
+Session records contain `id`, `projectId`, `directory`, `file`, `createdAt`, `piSessionId`, `connection`, and `generation`. lpi IDs derive from canonical file paths, so copied files with identical Pi IDs remain distinct. Connection is `connected` or `disconnected`, not a statement about process liveness or ownership. Optional `parentSession` preserves Pi's source-session path for forks, clones, and explicitly parented sessions; it does not identify which operation created the session.
 
 Inventory records also include `activity` (`idle`, `running`, `blocked`, or `unknown`) and `readState: { completionId, viewedCompletionId }`, with nullable opaque IDs. A non-null completion different from the viewed ID is unread, independently of activity or connectivity. Each observed `agent_settled` creates a new UUID persisted in SQLite. Existing saved history has null markers; settlements missed while disconnected are not reconstructed. Notifications are session-level, not branch-specific or proof of task success.
 
@@ -49,7 +49,7 @@ Command POST bodies require JSON content type, a unique request ID, and the curr
 }
 ```
 
-Supported commands: `prompt`, `steer`, `follow_up`, `abort`, `set_model`, `set_thinking_level`, `navigate_tree`, `stop_runtime`, and explicit `extension` actions. Model changes accept `{ type: "set_model", provider, modelId }`; thinking changes accept `{ type: "set_thinking_level", level }` with `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. Both require idle Pi with no queued messages or dialogs. Pi validates model availability/authentication and clamps thinking to model capabilities. These changes affect the session, not defaults for new sessions. Stop is limited to connected Pim-managed runtimes advertising `state.managedRuntime: true`. It requests abort and graceful shutdown without deleting history. Acknowledgment means acceptance, not confirmed process exit; existing tmux reservation checks still apply before resume. Prompt optionally accepts `streamingBehavior: "steer" | "followUp"`. Messages optionally include `images: [{ type: "image", mimeType: "image/png", data: "<base64>" }]`. PNG, JPEG, GIF, and WebP are supported (four images, 4 MiB total decoded bytes). An empty `message` is accepted when images are present. Slash commands, queue editing, and unsupported dialog answers are not exposed.
+Supported commands: `prompt`, `steer`, `follow_up`, `abort`, `set_model`, `set_thinking_level`, `navigate_tree`, `stop_runtime`, and explicit `extension` actions. Model changes accept `{ type: "set_model", provider, modelId }`; thinking changes accept `{ type: "set_thinking_level", level }` with `off`, `minimal`, `low`, `medium`, `high`, `xhigh`, or `max`. Both require idle Pi with no queued messages or dialogs. Pi validates model availability/authentication and clamps thinking to model capabilities. These changes affect the session, not defaults for new sessions. Stop is limited to connected lpi-managed runtimes advertising `state.managedRuntime: true`. It requests abort and graceful shutdown without deleting history. Acknowledgment means acceptance, not confirmed process exit; existing tmux reservation checks still apply before resume. Prompt optionally accepts `streamingBehavior: "steer" | "followUp"`. Messages optionally include `images: [{ type: "image", mimeType: "image/png", data: "<base64>" }]`. PNG, JPEG, GIF, and WebP are supported (four images, 4 MiB total decoded bytes). An empty `message` is accepted when images are present. Slash commands, queue editing, and unsupported dialog answers are not exposed.
 
 Tree navigation accepts `{ type: "navigate_tree", targetId, expectedLeafId }`, with a nullable expected leaf for the position before all messages. Native Pi revalidates connection, session identity, current leaf, target existence, idle state, queues, and dialogs immediately before navigation. Acknowledgment waits for public `navigateTree()` completion; explicit cancellation rejects. Browser selection of a user message follows native semantics: navigation lands before it. No model-generated summary is requested. Other exceptions/timeouts are unknown outcomes, never replayed. This switches one shared runtime, not an independent parallel branch.
 
@@ -84,14 +84,14 @@ Browser clients connect to `/events`. REST remains the command channel. The hand
 Subsequent events contain `epoch`, `cursor`, `sessionId`, `generation`, `type`, and `data`. Types are:
 
 - `connection`: bridge attachment/disconnection metadata.
-- `pi-event`: supported native agent/message/tool events and Pim `extension_support` notifications. A support notification carries `{ extensions, notice }`, replaces validated module state, and updates the waiting notice without reloading history.
+- `pi-event`: supported native agent/message/tool events and lpi `extension_support` notifications. A support notification carries `{ extensions, notice }`, replaces validated module state, and updates the waiting notice without reloading history.
 - `bridge-sync`: refreshed branch/activity snapshot.
 - `bridge-status`: changed runtime metadata.
 - `read-state`: shared completion/read metadata after a viewed acknowledgment. Refresh inventory and apply it to the selected snapshot without replacing history. Settlement events refresh inventory; native final branch sync refreshes the selected snapshot and its latest completion ID.
 
 Subscribe first, buffer events while loading the snapshot, discard events at or before its cursor, then apply newer events. Cursors are global; epochs distinguish server restarts. Gaps, epoch mismatches, connection changes, synchronization events, and settlement require fresh inspection.
 
-All reachable LAN/Tailscale clients are trusted. Browser/API and bridge access have no application authentication. Host and Origin checks remain enforced, but are not authentication. Anyone who can reach the service can control connected agents. Network access control belongs to deployment; do not expose Pim publicly.
+All reachable LAN/Tailscale clients are trusted. Browser/API and bridge access have no application authentication. Host and Origin checks remain enforced, but are not authentication. Anyone who can reach the service can control connected agents. Network access control belongs to deployment; do not expose lpi publicly.
 
 ## Bounds and failures
 

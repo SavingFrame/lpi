@@ -16,7 +16,7 @@ import { fixture } from './helpers.mjs';
 
 test('SQLite completion and read state persist across restarts without importing old history', (t) => {
   const { root } = fixture(t);
-  const path = join(root, 'pim.sqlite');
+  const path = join(root, 'lpi.sqlite');
   let store = new SessionReadStore(path);
   assert.deepEqual(store.get('saved-session'), { completionId: null, viewedCompletionId: null });
   assert.equal(hasUnreadCompletion(store.get('saved-session')), false);
@@ -35,7 +35,7 @@ test('SQLite completion and read state persist across restarts without importing
 
 test('two SQLite clients cannot acknowledge a newer completion or regress viewed state', (t) => {
   const { root, defer } = fixture(t);
-  const path = join(root, 'pim.sqlite');
+  const path = join(root, 'lpi.sqlite');
   const desktop = new SessionReadStore(path);
   const mobile = new SessionReadStore(path);
   defer(() => desktop.close());
@@ -74,7 +74,7 @@ test('read API broadcasts shared metadata to both clients and never modifies Pi 
   const original = readFileSync(file);
   const events = new Events();
   const bridges = new NativeBridges(config, events);
-  const store = new SessionReadStore(join(root, 'pim.sqlite'));
+  const store = new SessionReadStore(join(root, 'lpi.sqlite'));
   const inventory = new Sessions(
     new SessionDiscovery([root], config.projects),
     bridges,

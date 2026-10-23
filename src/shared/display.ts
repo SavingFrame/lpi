@@ -37,7 +37,7 @@ export function displayContentHeight(value: unknown, id: string): number | undef
   }
   const raw = value as Record<string, unknown>;
   if (
-    raw.type === 'pim-display-size' &&
+    raw.type === 'lpi-display-size' &&
     raw.id === id &&
     typeof raw.height === 'number' &&
     Number.isFinite(raw.height) &&
@@ -66,8 +66,8 @@ export function displayArtifact(value: unknown): DisplayArtifact | undefined {
   if (message.role !== 'toolResult' || message.toolName !== 'show' || message.isError === true) {
     return;
   }
-  const details = message.details as { pimDisplay?: unknown } | undefined;
-  const valueArtifact = details?.pimDisplay;
+  const details = message.details as { lpiDisplay?: unknown } | undefined;
+  const valueArtifact = details?.lpiDisplay;
   if (!valueArtifact || typeof valueArtifact !== 'object' || Array.isArray(valueArtifact)) {
     return;
   }

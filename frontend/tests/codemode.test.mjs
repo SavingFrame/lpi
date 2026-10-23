@@ -156,13 +156,13 @@ test('saved patches match stable nested IDs, not preview text or completion orde
     call({ id: 'script/4', name: 'read' }),
   ]);
   output.isError = true;
-  output.details.pimEditPatches = [
+  output.details.lpiEditPatches = [
     { toolCallId: 'script/1', patch },
     { toolCallId: 'script/3', patch },
     { toolCallId: 'script/4', patch },
     { toolCallId: 'unrelated/1', patch },
   ];
-  output.details.pimEditPatchesOmitted = true;
+  output.details.lpiEditPatchesOmitted = true;
   const state = codemodeState({ result: JSON.parse(JSON.stringify(output)), status: 'Failed' });
   assert.equal(state.calls[0].editTool, undefined);
   assert.equal(editDiff(state.calls[1].editTool).name, 'a.ts');
@@ -170,12 +170,12 @@ test('saved patches match stable nested IDs, not preview text or completion orde
   assert.equal(state.calls[3].editTool, undefined);
   assert.equal(state.patchesOmitted, true);
   for (const patches of [undefined, null, {}, [null], [{ toolCallId: 'script/1', patch: 12 }]]) {
-    output.details.pimEditPatches = patches;
+    output.details.lpiEditPatches = patches;
     assert.equal(codemodeState({ result: output }).calls[1].editTool, undefined);
   }
-  output.details.pimEditPatches = [{ toolCallId: 'script/1', patch: 'invalid' }];
+  output.details.lpiEditPatches = [{ toolCallId: 'script/1', patch: 'invalid' }];
   assert.equal(editDiff(codemodeState({ result: output }).calls[1].editTool), undefined);
-  output.details.pimEditPatches = [
+  output.details.lpiEditPatches = [
     { toolCallId: 'script/1', patch },
     { toolCallId: 'script/1', patch },
   ];

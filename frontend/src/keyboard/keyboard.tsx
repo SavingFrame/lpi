@@ -18,7 +18,7 @@ import {
   shortcut,
 } from './shortcuts';
 
-const storageKey = 'pim:keyboard:v1';
+const storageKey = 'lpi:keyboard:v1';
 type Handler = () => void;
 interface KeyboardState {
   bindings: Bindings;

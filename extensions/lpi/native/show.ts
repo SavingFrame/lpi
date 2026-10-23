@@ -28,15 +28,15 @@ export function registerShow(pi: ExtensionAPI): void {
       promptSnippet: 'Show inline charts, diagrams, images and interactive visual replies',
       promptGuidelines: [
         'When presenting results, use show proactively when a chart, table, diagram, collage, or mockup explains them better than prose; do not wait for an explicit request for a visual. Default to a line chart for sampled values over time, such as CPU usage over 10 seconds, with labeled axes and units. Respect explicit text-only requests and keep single measurements or simple facts as text.',
-        'Measure or retrieve actual data before visualizing it; never invent samples or continue monitoring beyond the requested duration. Use established browser chart libraries from HTTP(S) CDNs when useful instead of drawing charts from scratch. Prefer version-pinned HTTPS browser-ready builds, use pim.color() for Canvas theme colors rather than CSS var() strings, and use show before the final reply. Add only interpretation not already present in the visual.',
+        'Measure or retrieve actual data before visualizing it; never invent samples or continue monitoring beyond the requested duration. Use established browser chart libraries from HTTP(S) CDNs when useful instead of drawing charts from scratch. Prefer version-pinned HTTPS browser-ready builds, use lpi.color() for Canvas theme colors rather than CSS var() strings, and use show before the final reply. Add only interpretation not already present in the visual.',
       ],
       description: [
-        'Show an inline visual reply in Pim: charts, diagrams, comparisons, image collages, or interactive explanations. Call directly, not through codemode.',
+        'Show an inline visual reply in lpi: charts, diagrams, comparisons, image collages, or interactive explanations. Call directly, not through codemode.',
         'For a new visual pass HTML directly in html, without writing a temporary file first. For an existing PNG/JPEG/GIF/WebP image (4 MiB) or HTML file (1 MiB), use path instead. Supply exactly one of html or path.',
         'The visual is part of your reply, not a separate website. Use fluid width, concise headings, and no outer card, border, banner title, page background, or outer horizontal padding. Align content with the reply text. Give individual charts sensible fixed pixel heights and let the full document grow with its content. Never use viewport-height units (vh, svh, lvh, dvh), root percentage heights, or layouts driven by window.innerHeight.',
-        'Pim supplies its current theme and font through CSS variables: --background, --foreground, --muted-foreground, --card, --border, --accent, --chart-1 through --chart-6, --font-sans, --font-mono, and --radius. Use these rather than hardcoded page colors or fonts. Inner panels may use var(--card) with padding and rounded corners. Default body margin is zero.',
-        'Canvas does not inherit CSS colors. Read resolved colors with pim.color("--chart-1"), never pass literal var(--...) strings to a chart library. Theme series, labels, axes, grids, legends and tooltips for both light and dark backgrounds. Apply colors initially and register pim.onThemeChange(applyTheme) to reapply them and update the existing chart without recreating it or resetting controls; registration returns an unsubscribe function.',
-        'Chart.js example after creating chart: const applyTheme = () => { Chart.defaults.color = pim.color("--muted-foreground"); Chart.defaults.borderColor = pim.color("--border"); chart.data.datasets[0].borderColor = pim.color("--chart-1"); chart.update("none"); }; applyTheme(); pim.onThemeChange(applyTheme); Apply any explicit per-axis, legend, tooltip and additional series colors inside applyTheme too.',
+        'lpi supplies its current theme and font through CSS variables: --background, --foreground, --muted-foreground, --card, --border, --accent, --chart-1 through --chart-6, --font-sans, --font-mono, and --radius. Use these rather than hardcoded page colors or fonts. Inner panels may use var(--card) with padding and rounded corners. Default body margin is zero.',
+        'Canvas does not inherit CSS colors. Read resolved colors with lpi.color("--chart-1"), never pass literal var(--...) strings to a chart library. Theme series, labels, axes, grids, legends and tooltips for both light and dark backgrounds. Apply colors initially and register lpi.onThemeChange(applyTheme) to reapply them and update the existing chart without recreating it or resetting controls; registration returns an unsubscribe function.',
+        'Chart.js example after creating chart: const applyTheme = () => { Chart.defaults.color = lpi.color("--muted-foreground"); Chart.defaults.borderColor = lpi.color("--border"); chart.data.datasets[0].borderColor = lpi.color("--chart-1"); chart.update("none"); }; applyTheme(); lpi.onThemeChange(applyTheme); Apply any explicit per-axis, legend, tooltip and additional series colors inside applyTheme too.',
         'Inline CSS, JavaScript, SVG, Canvas and embedded data images work. You may load external scripts, styles and fonts from any HTTP(S) CDN, without an allowlist or local bundle requirement. Use a suitable library such as Chart.js, Apache ECharts, D3 or uPlot instead of hand-writing chart primitives when helpful. Prefer version-pinned HTTPS browser builds that do not need eval or workers. External images, local file references, fetch/XHR/WebSocket API calls, nested remote pages and agent commands stay blocked. Collect data with tools and embed it in the HTML. Make controls and chart labels accessible and layouts usable at about 360px as well as desktop width.',
         'summary is an accessibility and terminal fallback, not a visible caption. Publish before your final text reply. The reader already sees the visual: do not announce it, describe where it was saved, or repeat its contents. Add only useful interpretation not already in the visual. The saved result is a snapshot; local control state is not persisted.',
       ].join('\n'),
@@ -149,10 +149,10 @@ export function registerShow(pi: ExtensionAPI): void {
           content: [
             {
               type: 'text',
-              text: `Saved inline visual for Pim: ${title}.\n${params.summary}\nThe reader sees the visual above your reply. Do not announce or repeat it; add only new interpretation.`,
+              text: `Saved inline visual for lpi: ${title}.\n${params.summary}\nThe reader sees the visual above your reply. Do not announce or repeat it; add only new interpretation.`,
             },
           ],
-          details: { pimDisplay: artifact },
+          details: { lpiDisplay: artifact },
         };
       },
     }),

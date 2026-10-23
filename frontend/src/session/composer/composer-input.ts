@@ -6,7 +6,7 @@ import {
 export interface InputSuggestion {
   name: string;
   description: string;
-  source: 'pim' | ComposerCommand['source'];
+  source: 'lpi' | ComposerCommand['source'];
 }
 
 export function slashSuggestions(text: string, commands: unknown): InputSuggestion[] {
@@ -18,9 +18,9 @@ export function slashSuggestions(text: string, commands: unknown): InputSuggesti
     {
       name: 'compact',
       description: 'Compact context. Optional instructions after the command.',
-      source: 'pim' as const,
+      source: 'lpi' as const,
     },
-    { name: 'new', description: 'Create a new session in this project.', source: 'pim' as const },
+    { name: 'new', description: 'Create a new session in this project.', source: 'lpi' as const },
     ...composerCommands(commands),
   ]
     .filter((item) => item.name.toLowerCase().includes(query))

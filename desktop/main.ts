@@ -1,14 +1,29 @@
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { app, type BrowserWindow, dialog, ipcMain, Menu, protocol, session } from 'electron';
-import { DESKTOP_ORIGIN, DESKTOP_SCHEME, desktopRelayOrigin } from '../src/shared/desktop.ts';
+import {
+  app,
+  type BrowserWindow,
+  dialog,
+  ipcMain,
+  Menu,
+  Notification,
+  protocol,
+  session,
+} from 'electron';
+import appIcon from '../assets/brand/lpi-icon.png?asset';
+import {
+  DESKTOP_ORIGIN,
+  DESKTOP_SCHEME,
+  desktopRelayOrigin,
+  isDesktopNotification,
+} from '../src/shared/desktop.ts';
 import { allowedNavigation, desktopDevelopmentOrigin } from './policy.ts';
 import { bundledResponse } from './protocol.js';
 import { createWindow, secureSession } from './window.js';
 import { steppedZoom, ZoomSettings } from './zoom.js';
 
-app.setName('Pim');
-app.setPath('userData', join(app.getPath('appData'), 'pim-desktop'));
+app.setName('lpi');
+app.setPath('userData', join(app.getPath('appData'), 'lpi-desktop'));
 
 const development = !app.isPackaged && Boolean(process.env.ELECTRON_RENDERER_URL);
 let origin: string;
@@ -17,7 +32,7 @@ try {
   origin = development
     ? desktopDevelopmentOrigin(process.env.ELECTRON_RENDERER_URL ?? '')
     : DESKTOP_ORIGIN;
-  relay = desktopRelayOrigin(process.env.PIM_DESKTOP_SERVER);
+  relay = desktopRelayOrigin(process.env.LPI_DESKTOP_SERVER);
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'Invalid desktop URL');
   app.exit(1);
@@ -39,12 +54,13 @@ if (!primary) {
 let quitting = false;
 let window: BrowserWindow | undefined;
 let zoom: ZoomSettings;
+const notifications = new Map<string, Notification>();
 
 function saveZoom(value: unknown): number {
   const factor = zoom.set(value);
   if (window && !window.isDestroyed()) {
     window.webContents.setZoomFactor(factor);
-    window.webContents.send('pim:zoom:changed', factor);
+    window.webContents.send('lpi:zoom:changed', factor);
   }
   return factor;
 }
@@ -72,7 +88,7 @@ app.on('second-instance', () => {
 });
 
 async function openWindow(): Promise<void> {
-  const current = createWindow(origin, session.fromPartition('persist:pim'), zoom.factor);
+  const current = createWindow(origin, session.fromPartition('persist:lpi'), zoom.factor);
   window = current;
   const contents = current.webContents;
   contents.setZoomMode('isolated');
@@ -89,6 +105,10 @@ async function openWindow(): Promise<void> {
     }
   });
   current.on('closed', () => {
+    for (const notification of notifications.values()) {
+      notification.close();
+    }
+    notifications.clear();
     if (window === current) {
       window = undefined;
     }
@@ -97,7 +117,7 @@ async function openWindow(): Promise<void> {
     if (!quitting && !current.isDestroyed()) {
       dialog.showMessageBoxSync(current, {
         type: 'error',
-        message: 'Pim’s renderer stopped.',
+        message: 'lpi’s renderer stopped.',
         detail: 'Use View > Reload to reconnect. Pi sessions continue independently.',
       });
     }
@@ -112,7 +132,7 @@ async function openWindow(): Promise<void> {
       }
       const { response } = await dialog.showMessageBox(current, {
         type: 'error',
-        message: 'Could not load Pim.',
+        message: 'Could not load lpi.',
         detail: development
           ? 'Check that Vite is running. The desktop app does not start the relay or Pi.'
           : 'Build the local UI with npm run build:desktop. The relay and Pi run independently.',
@@ -146,8 +166,9 @@ process.on('SIGTERM', () => app.quit());
 
 if (primary) {
   void app.whenReady().then(() => {
+    app.dock?.setIcon(appIcon);
     zoom = new ZoomSettings(join(app.getPath('userData'), 'desktop-settings.json'));
-    for (const channel of ['pim:zoom:get', 'pim:zoom:set']) {
+    for (const channel of ['lpi:zoom:get', 'lpi:zoom:set', 'lpi:notify']) {
       ipcMain.handle(channel, (event, value: unknown) => {
         const contents = window?.webContents;
         if (
@@ -157,9 +178,62 @@ if (primary) {
           event.senderFrame !== contents.mainFrame ||
           !allowedNavigation(event.senderFrame.url, origin, true)
         ) {
-          throw new Error('UI scale is restricted to the desktop main frame.');
+          throw new Error('Desktop controls are restricted to the desktop main frame.');
         }
-        if (channel === 'pim:zoom:get') {
+        if (channel === 'lpi:notify') {
+          if (!isDesktopNotification(value)) {
+            throw new Error('Invalid desktop notification.');
+          }
+          const current = window;
+          if (!current || current.isFocused() || !Notification.isSupported()) {
+            return;
+          }
+          const bodies = {
+            finished: 'Agent finished responding.',
+            input: 'Agent needs your input.',
+            error: 'Agent encountered an error.',
+          };
+          try {
+            notifications.get(value.sessionId)?.close();
+            notifications.delete(value.sessionId);
+            if (notifications.size >= 32) {
+              const oldest = notifications.keys().next().value;
+              if (oldest !== undefined) {
+                notifications.get(oldest)?.close();
+                notifications.delete(oldest);
+              }
+            }
+            const notification = new Notification({
+              title: value.title || 'lpi',
+              body: bodies[value.kind],
+              icon: appIcon,
+            });
+            const remove = () => {
+              if (notifications.get(value.sessionId) === notification) {
+                notifications.delete(value.sessionId);
+              }
+            };
+            notification.on('close', remove);
+            notification.on('failed', remove);
+            notification.on('click', () => {
+              if (current.isDestroyed() || current.webContents.isDestroyed()) {
+                return;
+              }
+              if (current.isMinimized()) {
+                current.restore();
+              }
+              current.show();
+              current.webContents.send('lpi:notification:clicked', value);
+              current.focus();
+            });
+            notifications.set(value.sessionId, notification);
+            notification.show();
+          } catch {
+            // OS notification availability must not affect the relay connection.
+          }
+          return;
+        }
+        if (channel === 'lpi:zoom:get') {
           return zoom.factor;
         }
         try {
@@ -169,7 +243,7 @@ if (primary) {
         }
       });
     }
-    const desktopSession = session.fromPartition('persist:pim');
+    const desktopSession = session.fromPartition('persist:lpi');
     secureSession(desktopSession);
     desktopSession.protocol.handle(DESKTOP_SCHEME, (request) =>
       bundledResponse(request, fileURLToPath(new URL('../renderer', import.meta.url)), relay),

@@ -1,6 +1,32 @@
-export const DESKTOP_SCHEME = 'pim-app';
-export const DESKTOP_ORIGIN = 'pim-app://app';
+export const DESKTOP_SCHEME = 'lpi-app';
+export const DESKTOP_ORIGIN = 'lpi-app://app';
+export interface DesktopNotification {
+  sessionId: string;
+  projectId: string;
+  title: string;
+  kind: 'finished' | 'input' | 'error';
+}
+
+export function isDesktopNotification(value: unknown): value is DesktopNotification {
+  if (typeof value !== 'object' || value === null) {
+    return false;
+  }
+  const item = value as Record<string, unknown>;
+  return (
+    typeof item.sessionId === 'string' &&
+    /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/.test(item.sessionId) &&
+    typeof item.projectId === 'string' &&
+    /^[a-f0-9]{64}$/.test(item.projectId) &&
+    typeof item.title === 'string' &&
+    item.title.length <= 160 &&
+    typeof item.kind === 'string' &&
+    ['finished', 'input', 'error'].includes(item.kind)
+  );
+}
+
 export interface DesktopPlatform {
+  notify(notification: DesktopNotification): Promise<void>;
+  onNotificationClicked(listener: (notification: DesktopNotification) => void): () => void;
   getZoom(): Promise<number>;
   setZoom(factor: number): Promise<number>;
   onZoomChanged(listener: (factor: number) => void): () => void;
@@ -19,7 +45,7 @@ export function desktopRelayOrigin(value = 'http://127.0.0.1:3141'): string {
     url.hash
   ) {
     throw new Error(
-      'PIM_DESKTOP_SERVER must be an HTTPS origin (or HTTP on loopback), without credentials',
+      'LPI_DESKTOP_SERVER must be an HTTPS origin (or HTTP on loopback), without credentials',
     );
   }
   return url.origin;

@@ -1,4 +1,5 @@
 import { type EventSocket, LiveSession as SharedLiveSession } from '../../../src/client/live.ts';
+import type { ServerEvent } from '../../../src/shared/events.ts';
 import { inspect } from './api.ts';
 import { relayServer } from './connection.ts';
 
@@ -6,10 +7,16 @@ export type { LiveState } from '../../../src/client/live.ts';
 
 /** Browser addressing and socket events stay outside the shared synchronization policy. */
 export class LiveSession extends SharedLiveSession {
-  constructor(invalidate: (refreshTrees?: boolean, sessionId?: string) => void) {
+  constructor(
+    invalidate: (refreshTrees?: boolean, sessionId?: string) => void,
+    onEvent?: (event: ServerEvent) => void,
+    onBoundary?: () => void,
+  ) {
     super(
       {
         inspect,
+        onEvent,
+        onBoundary,
         openSocket: () => {
           const url = new URL('/events', relayServer ?? window.location.href);
           url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';

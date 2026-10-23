@@ -6,7 +6,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { clampThinkingLevel } from '@earendil-works/pi-ai/models';
 import { createEventBus } from '@earendil-works/pi-coding-agent';
 import { WebSocket } from 'ws';
-import extension from '../dist/extensions/pim/index.js';
+import extension from '../dist/extensions/lpi/index.js';
 import { createApi } from '../dist/src/api/http.js';
 import { NativeBridges } from '../dist/src/bridge/server.js';
 import { Events } from '../dist/src/events.js';
@@ -194,8 +194,8 @@ export function fakePi(header, file, entry) {
       return true;
     },
     sendUserMessage: (message, options) => {
-      if (options?.expandPromptTemplates && message.startsWith('/pim-tree ')) {
-        void commands.get('pim-tree')(message.split(' ')[1], ctx);
+      if (options?.expandPromptTemplates && message.startsWith('/lpi-tree ')) {
+        void commands.get('lpi-tree')(message.split(' ')[1], ctx);
       } else {
         sent.push({ message, ...options });
       }
@@ -220,8 +220,8 @@ export function fakePi(header, file, entry) {
 
 // Own the extension transport and environment for one fake-native integration test.
 export function nativePi(base) {
-  const previous = process.env.PIM_BRIDGE_URL;
-  process.env.PIM_BRIDGE_URL = base.url;
+  const previous = process.env.LPI_BRIDGE_URL;
+  process.env.LPI_BRIDGE_URL = base.url;
   const fake = fakePi(base.header, base.file, base.entry);
   base.defer(async () => {
     try {
@@ -229,9 +229,9 @@ export function nativePi(base) {
     } finally {
       fake.bus.clear();
       if (previous === undefined) {
-        delete process.env.PIM_BRIDGE_URL;
+        delete process.env.LPI_BRIDGE_URL;
       } else {
-        process.env.PIM_BRIDGE_URL = previous;
+        process.env.LPI_BRIDGE_URL = previous;
       }
     }
   });

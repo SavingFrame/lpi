@@ -1,20 +1,30 @@
 import { contextBridge, type IpcRendererEvent, ipcRenderer } from 'electron';
-import type { DesktopPlatform } from '../src/shared/desktop.ts';
+import { type DesktopPlatform, isDesktopNotification } from '../src/shared/desktop.ts';
 
-// Expose only UI scale controls. Never expose IPC objects, events, or arbitrary channels.
+// Expose narrow desktop controls, never IPC objects, events, or arbitrary channels.
 if (window.top === window) {
   const platform: DesktopPlatform = {
-    getZoom: () => ipcRenderer.invoke('pim:zoom:get'),
-    setZoom: (value) => ipcRenderer.invoke('pim:zoom:set', value),
+    notify: (notification) => ipcRenderer.invoke('lpi:notify', notification),
+    onNotificationClicked: (listener) => {
+      const clicked = (_event: IpcRendererEvent, value: unknown) => {
+        if (isDesktopNotification(value)) {
+          listener(value);
+        }
+      };
+      ipcRenderer.on('lpi:notification:clicked', clicked);
+      return () => ipcRenderer.removeListener('lpi:notification:clicked', clicked);
+    },
+    getZoom: () => ipcRenderer.invoke('lpi:zoom:get'),
+    setZoom: (value) => ipcRenderer.invoke('lpi:zoom:set', value),
     onZoomChanged: (listener) => {
       const changed = (_event: IpcRendererEvent, value: unknown) => {
         if (typeof value === 'number' && Number.isFinite(value)) {
           listener(value);
         }
       };
-      ipcRenderer.on('pim:zoom:changed', changed);
-      return () => ipcRenderer.removeListener('pim:zoom:changed', changed);
+      ipcRenderer.on('lpi:zoom:changed', changed);
+      return () => ipcRenderer.removeListener('lpi:zoom:changed', changed);
     },
   };
-  contextBridge.exposeInMainWorld('pimDesktop', platform);
+  contextBridge.exposeInMainWorld('lpiDesktop', platform);
 }

@@ -8,7 +8,7 @@ import type { NativeState } from './state.js';
 
 /** Outbound relay lifecycle and bounded delivery. Never owns Pi session state. */
 export class NativeTransport {
-  url = process.env.PIM_BRIDGE_URL ?? 'ws://127.0.0.1:3141/bridge';
+  url = process.env.LPI_BRIDGE_URL ?? 'ws://127.0.0.1:3141/bridge';
   private readonly state: NativeState;
   private readonly commands: NativeCommands;
   private socket: WebSocket | undefined;
@@ -59,7 +59,7 @@ export class NativeTransport {
     this.socket = undefined;
     this.writer = undefined;
     previous?.terminate();
-    this.state.context?.ui.setStatus('pim-bridge', undefined);
+    this.state.context?.ui.setStatus('lpi-bridge', undefined);
   }
 
   terminate(): void {
@@ -133,7 +133,7 @@ export class NativeTransport {
         url.username ||
         url.password
       ) {
-        throw new Error('Pim endpoint must be a ws:// or wss:// URL ending in /bridge');
+        throw new Error('lpi endpoint must be a ws:// or wss:// URL ending in /bridge');
       }
       const session = this.state.identity();
       reserveManagedFile(session.file);
@@ -145,14 +145,14 @@ export class NativeTransport {
       this.socket = current;
       this.writer = new BridgeWriter(current);
       this.generation = undefined;
-      context.ui.setStatus('pim-bridge', 'Pim: connecting');
+      context.ui.setStatus('lpi-bridge', 'lpi: connecting');
       current.on('open', () => {
         if (this.socket !== current || !this.state.context) {
           return;
         }
         this.send({
           type: 'attach',
-          launchId: process.env.PIM_LAUNCH_ID,
+          launchId: process.env.LPI_LAUNCH_ID,
           session,
           snapshot: this.state.snapshot(),
         });
@@ -173,8 +173,8 @@ export class NativeTransport {
             this.generation = raw.generation;
             this.attempt = 0;
             this.state.context.ui.setStatus(
-              'pim-bridge',
-              'Pim: connected (remote controls enabled)',
+              'lpi-bridge',
+              'lpi: connected (remote controls enabled)',
             );
             // Reconcile events between attach and its acknowledgment before accepting commands.
             this.sync();
@@ -226,11 +226,11 @@ export class NativeTransport {
         this.socket = undefined;
         this.writer = undefined;
         this.generation = undefined;
-        this.state.context?.ui.setStatus('pim-bridge', 'Pim: disconnected');
+        this.state.context?.ui.setStatus('lpi-bridge', 'lpi: disconnected');
         if (code === 1008 || code === 1009) {
           this.enabled = false;
           this.state.context?.ui.notify(
-            'Pim rejected the bridge or its payload. Check project configuration and bridge conflicts, then /pim-connect again.',
+            'lpi rejected the bridge or its payload. Check project configuration and bridge conflicts, then /lpi-connect again.',
             'warning',
           );
         } else if (this.enabled) {
@@ -239,7 +239,7 @@ export class NativeTransport {
       });
     } catch (error) {
       this.enabled = false;
-      context.ui.notify(error instanceof Error ? error.message : 'Pim bridge failed', 'error');
+      context.ui.notify(error instanceof Error ? error.message : 'lpi bridge failed', 'error');
     }
   };
 }

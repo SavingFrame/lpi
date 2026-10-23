@@ -102,7 +102,7 @@ export function LaunchSession({
       )}
       {uncertain && !compact && (
         <div className="text-xs" role="status">
-          <p>Launch outcome unknown. Inspect recent sessions and tmux -L pim list-sessions.</p>
+          <p>Launch outcome unknown. Inspect recent sessions and tmux -L lpi list-sessions.</p>
           <Button type="button" variant="ghost" size="sm" onClick={() => launches.review(resumeId)}>
             I inspected the runtimes
           </Button>

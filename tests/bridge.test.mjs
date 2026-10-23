@@ -81,7 +81,7 @@ test('native extension streams history, partial responses, tools and routes comm
   await waitFor(() => !bridges.snapshot(session.id).view.running);
   assert.deepEqual(readFileSync(file), original);
   assert.equal(fake.appended.length, 0);
-  await fake.commands.get('pim-disconnect')('', fake.ctx);
+  await fake.commands.get('lpi-disconnect')('', fake.ctx);
   await waitFor(() => bridges.get(session.id).connection === 'disconnected');
   const offline = await inventory.snapshot(session.id);
   assert.equal(offline.state.bridgeConnected, false);
@@ -124,9 +124,9 @@ test('large native history attaches, grows, syncs and reconnects without a cumul
   await fake.emit('session_tree');
   await bridges.command(session.id, session.generation, { type: 'abort' });
   assert.equal(bridges.snapshot(session.id).view.messages.length, 2);
-  await fake.commands.get('pim-disconnect')('', fake.ctx);
+  await fake.commands.get('lpi-disconnect')('', fake.ctx);
   await waitFor(() => bridges.get(session.id).connection === 'disconnected');
-  await fake.commands.get('pim-connect')('', fake.ctx);
+  await fake.commands.get('lpi-connect')('', fake.ctx);
   await waitFor(() => bridges.get(session.id).connection === 'connected');
   assert.ok(bridges.get(session.id).generation > session.generation);
   assert.equal(bridges.snapshot(session.id).view.messages[0].content, entry.message.content);

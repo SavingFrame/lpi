@@ -5,7 +5,7 @@ const { withAppDelegate, withInfoPlist } = require('expo/config-plugins');
 module.exports = function withIosSceneLifecycle(config) {
   config = withAppDelegate(config, (mod) => {
     if (mod.modResults.language !== 'swift') {
-      throw new Error('Pim scene lifecycle requires the Expo Swift AppDelegate.');
+      throw new Error('lpi scene lifecycle requires the Expo Swift AppDelegate.');
     }
     let contents = mod.modResults.contents;
     const oldDeclaration = 'class AppDelegate: ExpoAppDelegate {';
@@ -21,7 +21,7 @@ module.exports = function withIosSceneLifecycle(config) {
     if (contents.includes(oldDeclaration) && contents.includes(startup)) {
       contents = contents.replace(oldDeclaration, declaration).replace(startup, '');
     } else if (!contents.includes(declaration) || contents.includes('factory.startReactNative(')) {
-      throw new Error('Expo AppDelegate template changed. Review the Pim scene lifecycle plugin.');
+      throw new Error('Expo AppDelegate template changed. Review the lpi scene lifecycle plugin.');
     }
     mod.modResults.contents = contents;
     return mod;

@@ -18,12 +18,12 @@ function record(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-/** Native call metadata is preview-only; Pim may also save authoritative edit patches. */
+/** Native call metadata is preview-only; lpi may also save authoritative edit patches. */
 export function codemodeState(tool: TranscriptTool) {
   const source = tool.result ?? record(tool.progress);
   const details = record(source?.details);
   const calls: CodemodeCall[] = [];
-  const patches = Array.isArray(details?.pimEditPatches) ? details.pimEditPatches.map(record) : [];
+  const patches = Array.isArray(details?.lpiEditPatches) ? details.lpiEditPatches.map(record) : [];
   if (Array.isArray(details?.calls)) {
     for (const [position, value] of details.calls.entries()) {
       const call = record(value);
@@ -98,7 +98,7 @@ export function codemodeState(tool: TranscriptTool) {
     wallTime,
     fullOutputPath:
       typeof details?.fullOutputPath === 'string' ? details.fullOutputPath : undefined,
-    patchesOmitted: details?.pimEditPatchesOmitted === true,
+    patchesOmitted: details?.lpiEditPatchesOmitted === true,
     errors: calls.filter((call) => call.status === 'error').length,
     cancelled: calls.filter((call) => call.status === 'cancelled').length,
   };

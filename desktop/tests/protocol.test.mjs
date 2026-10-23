@@ -9,20 +9,20 @@ test('bundled UI serves local assets, deep links and visuals without forwarding 
   const { root } = fixture(t);
   const directory = join(root, 'bundle');
   mkdirSync(join(directory, 'assets'), { recursive: true });
-  writeFileSync(join(directory, 'index.html'), '<html><head></head><body>Pim</body></html>');
+  writeFileSync(join(directory, 'index.html'), '<html><head></head><body>lpi</body></html>');
   writeFileSync(join(directory, 'assets', 'app.js'), 'window.bundleLoaded = true;');
   writeFileSync(join(root, 'secret'), 'must not be exposed');
   symlinkSync(join(root, 'secret'), join(directory, 'assets', 'escape.js'));
   const relay = 'http://127.0.0.1:3141';
   const request = (path, method = 'GET') =>
-    bundledResponse(new Request(`pim-app://app${path}`, { method }), directory, relay);
+    bundledResponse(new Request(`lpi-app://app${path}`, { method }), directory, relay);
 
   for (const path of ['/', '/app', '/app/projects/a/sessions/b?branch=c']) {
     const response = await request(path);
     assert.equal(response.status, 200);
     assert.match(
       await response.text(),
-      /name="pim-relay-origin" content="http:\/\/127.0.0.1:3141"/,
+      /name="lpi-relay-origin" content="http:\/\/127.0.0.1:3141"/,
     );
     const csp = response.headers.get('Content-Security-Policy');
     assert.match(csp, /connect-src 'self' http:\/\/127.0.0.1:3141 ws:\/\/127.0.0.1:3141;/);
@@ -50,10 +50,10 @@ test('bundled UI serves local assets, deep links and visuals without forwarding 
     assert.equal((await request(path)).status, 404, path);
   }
   for (const url of [
-    'pim-app://other/',
-    'pim-app://app:123/',
+    'lpi-app://other/',
+    'lpi-app://app:123/',
     'file://app/',
-    'pim-app://user@app/',
+    'lpi-app://user@app/',
   ]) {
     assert.equal(
       (await bundledResponse({ url, method: 'GET' }, directory, relay)).status,

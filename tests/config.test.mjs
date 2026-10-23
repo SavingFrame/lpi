@@ -20,7 +20,7 @@ function setup(t) {
 
 test('project roots expand home paths and discover immediate non-Git and hidden directories', (t) => {
   const { projects, load } = setup(t);
-  for (const name of ['pim', 'notes', '.hidden']) {
+  for (const name of ['lpi', 'notes', '.hidden']) {
     mkdirSync(join(projects, name));
   }
   mkdirSync(join(projects, 'notes', 'nested'));
@@ -29,7 +29,7 @@ test('project roots expand home paths and discover immediate non-Git and hidden 
   assert.deepEqual(config.projectRoots, [projects]);
   assert.deepEqual(
     config.projects.map((project) => project.name),
-    ['.hidden', 'notes', 'pim'],
+    ['.hidden', 'lpi', 'notes'],
   );
   for (const project of config.projects) {
     assert.match(project.id, /^[a-f0-9]{64}$/);
@@ -42,8 +42,8 @@ test('overlapping roots are containers and canonical symlink aliases are dedupli
   const work = join(projects, 'work');
   mkdirSync(work);
   mkdirSync(join(work, 'client'));
-  mkdirSync(join(projects, 'pim'));
-  symlinkSync(join(projects, 'pim'), join(projects, 'alias'));
+  mkdirSync(join(projects, 'lpi'));
+  symlinkSync(join(projects, 'lpi'), join(projects, 'alias'));
   symlinkSync(projects, join(root, 'root-alias'));
   symlinkSync(join(projects, 'missing'), join(projects, 'broken'));
   writeFileSync(join(projects, 'file'), 'file');
@@ -54,7 +54,7 @@ test('overlapping roots are containers and canonical symlink aliases are dedupli
   assert.equal(config.projects.length, 2);
   assert.deepEqual(
     new Set(config.projects.map((project) => project.name)),
-    new Set(['pim', 'client']),
+    new Set(['lpi', 'client']),
   );
   assert.deepEqual(load([...roots].reverse()).projects, config.projects);
 });
@@ -103,15 +103,15 @@ test('network binding defaults to all IPv4 interfaces and accepts explicit IP ad
 
 test('desktop origin is explicit and cannot authorize arbitrary custom schemes', (t) => {
   const { load } = setup(t);
-  const origins = ['http://127.0.0.1:3141', 'pim-app://app'];
+  const origins = ['http://127.0.0.1:3141', 'lpi-app://app'];
   assert.deepEqual(load(['~/Projects'], { origins }).origins, origins);
   for (const origin of [
     'null',
-    'pim-app://other',
-    'pim-app://app/',
-    'pim-app://app:123',
+    'lpi-app://other',
+    'lpi-app://app/',
+    'lpi-app://app:123',
     'file://app',
-    'pim-app://user@app',
+    'lpi-app://user@app',
   ]) {
     assert.throws(() => load(['~/Projects'], { origins: [origin] }));
   }

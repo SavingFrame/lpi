@@ -58,13 +58,13 @@ function setup(t, options = {}) {
       return '';
     }
     if (args[0] === 'show-options') {
-      assert.deepEqual(args, ['show-options', '-t', '=pim-existing:']);
-      return options.unbound ? '' : `@pim_file_${id} 1\n`;
+      assert.deepEqual(args, ['show-options', '-t', '=lpi-existing:']);
+      return options.unbound ? '' : `@lpi_file_${id} 1\n`;
     }
     if (started) {
       return options.exited ? '' : calls.find((call) => call[0] === 'new-session')[3];
     }
-    return options.existing ? 'pim-existing\n' : '';
+    return options.existing ? 'lpi-existing\n' : '';
   };
   const launches = new Launches(config, sessions, bridges, run, options.noAttach ? 5 : 1000);
   return { launches, calls, saved, validated: () => validated };
@@ -79,20 +79,20 @@ test('new session launches global Pi without npm-local binaries and with correla
       process.env.PATH = originalPath;
     }
   });
-  process.env.PATH = '/tmp/pim/node_modules/.bin:/tmp/node_modules/.bin/:/usr/local/bin:/usr/bin';
+  process.env.PATH = '/tmp/lpi/node_modules/.bin:/tmp/node_modules/.bin/:/usr/local/bin:/usr/bin';
   const { launches, calls } = setup(t);
   assert.equal((await launches.start('test')).connection, 'connected');
   const command = calls.find((args) => args[0] === 'new-session');
   const name = command[3];
-  assert.match(name, /^pim-[a-f0-9-]{36}$/);
-  assert.ok(command.includes(`PIM_LAUNCH_ID=${name.slice(4)}`));
-  assert.ok(command.includes(`PIM_TMUX_SESSION=${name}`));
-  assert.ok(command.includes('PIM_BRIDGE_URL=ws://127.0.0.1:3141/bridge'));
+  assert.match(name, /^lpi-[a-f0-9-]{36}$/);
+  assert.ok(command.includes(`LPI_LAUNCH_ID=${name.slice(4)}`));
+  assert.ok(command.includes(`LPI_TMUX_SESSION=${name}`));
+  assert.ok(command.includes('LPI_BRIDGE_URL=ws://127.0.0.1:3141/bridge'));
   assert.ok(command.includes('--session-id'));
   assert.ok(command.includes('PATH=/usr/local/bin:/usr/bin'));
   assert.deepEqual(command.slice(-3), ['pi', '--session-id', name.slice(4)]);
   assert.ok(!command.includes('--extension'));
-  assert.ok(!command.some((arg) => arg.endsWith('/dist/extensions/pim/index.js')));
+  assert.ok(!command.some((arg) => arg.endsWith('/dist/extensions/lpi/index.js')));
   assert.ok(!command.includes('--mode'));
 });
 

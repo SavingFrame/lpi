@@ -1,12 +1,12 @@
 #!/bin/bash
 set -euo pipefail
 
-MAC=${PIM_IOS_SSH:-user@192.168.100.209}
-WORK=${PIM_IOS_DIR:-/Users/user/Projects/pim-mobile-test.VdZTqa}
-HOST=${PIM_IOS_HOST:-192.168.100.209}
-DEVICE=${PIM_IOS_DEVICE:-}
-SOCKET=/tmp/claude-tmux-sockets/pim-mobile.sock
-SESSION=pim-mobile-metro
+MAC=${LPI_IOS_SSH:-user@192.168.100.209}
+WORK=${LPI_IOS_DIR:-/Users/user/Projects/pim-mobile-test.VdZTqa}
+HOST=${LPI_IOS_HOST:-192.168.100.209}
+DEVICE=${LPI_IOS_DEVICE:-}
+SOCKET=/tmp/claude-tmux-sockets/lpi-mobile.sock
+SESSION=lpi-mobile-metro
 
 fail() { printf '%s\n' "$*" >&2; exit 1; }
 
@@ -29,7 +29,7 @@ sync_source() {
     --exclude='node_modules/' --exclude='dist/' --exclude='.expo/' --exclude='.tools/' \
     --exclude='expo-env.d.ts' --exclude='.env' --exclude='.env.*' \
     --include='/package.json' --include='/package-lock.json' \
-    --include='/mobile/***' --include='/src/***' \
+    --include='/mobile/***' --include='/src/***' --include='/assets/***' \
     --include='/README.md' --exclude='*' \
     "$ROOT/" "$MAC:$WORK/"
   printf '%s\n' 'Source synced without deletion. Update remote dependencies explicitly if manifests changed.'
@@ -62,7 +62,7 @@ select_device() {
     const id = process.argv[1];
     const devices = Object.values(JSON.parse(fs.readFileSync(0, "utf8")).devices).flat()
       .filter(d => d.isAvailable && (id ? d.udid === id : d.state === "Booted"));
-    if (devices.length !== 1) throw Error("Select one booted simulator or set PIM_IOS_DEVICE");
+    if (devices.length !== 1) throw Error("Select one booted simulator or set LPI_IOS_DEVICE");
     const d = devices[0];
     console.log([d.udid, d.state, d.name].join("\t"));
   ' "$DEVICE") || fail 'Cannot select exactly one available simulator.'
@@ -72,7 +72,7 @@ select_device() {
 start_metro() {
   local launch
   if metro_ready; then
-    printf '%s\n' 'Reusing existing Pim Metro on port 8081.'
+    printf '%s\n' 'Reusing existing lpi Metro on port 8081.'
   else
     [[ -d node_modules && -f .tools/npm-user.conf && -f .tools/npm-global.conf ]] || \
       fail 'The prepared Node/npm setup is missing. No provisioning was attempted.'
@@ -80,10 +80,10 @@ start_metro() {
       fail 'Metro session exists but is not healthy. Inspect logs; no server was started.'
     fi
     mkdir -p "${SOCKET%/*}"
-    launch="exec env -u EXPO_TOKEN -u CI PATH=$PATH NPM_CONFIG_USERCONFIG=$WORK/.tools/npm-user.conf NPM_CONFIG_GLOBALCONFIG=$WORK/.tools/npm-global.conf __UNSAFE_EXPO_HOME_DIRECTORY=$WORK/.tools/expo-home EXPO_NO_TELEMETRY=1 EXPO_NO_DOTENV=1 npm run start --workspace @pim/mobile -- --go --host lan --port 8081"
+    launch="exec env -u EXPO_TOKEN -u CI PATH=$PATH NPM_CONFIG_USERCONFIG=$WORK/.tools/npm-user.conf NPM_CONFIG_GLOBALCONFIG=$WORK/.tools/npm-global.conf __UNSAFE_EXPO_HOME_DIRECTORY=$WORK/.tools/expo-home EXPO_NO_TELEMETRY=1 EXPO_NO_DOTENV=1 npm run start --workspace @lpi/mobile -- --go --host lan --port 8081"
     tmux -f /dev/null -S "$SOCKET" new-session -d -s "$SESSION" -c "$WORK" \
       "/bin/bash --noprofile --norc -c '$launch'"
-    printf '%s\n' 'Started Pim Metro.'
+    printf '%s\n' 'Started lpi Metro.'
   fi
   printf 'Monitor: ssh -t %s '\''tmux -S %s attach -t %s'\''\n' "$MAC" "$SOCKET" "$SESSION"
 }
@@ -125,7 +125,7 @@ remote_command() {
     status)
       node --version
       xcrun simctl list devices booted
-      if metro_ready; then printf '%s\n' 'Metro: expected Pim project on port 8081.'
+      if metro_ready; then printf '%s\n' 'Metro: expected lpi project on port 8081.'
       else printf '%s\n' 'Metro: stopped.'; fi ;;
     start) start_metro ;;
     open) open_app ;;
@@ -134,11 +134,11 @@ remote_command() {
       select_device
       [[ $STATE == Booted ]] || fail 'Selected simulator is not booted.'
       local directory
-      directory=$(mktemp -d /tmp/pim-ios.XXXXXX)
+      directory=$(mktemp -d /tmp/lpi-ios.XXXXXX)
       xcrun simctl io "$UDID" screenshot "$directory/capture.png"
       printf '%s\n' "$directory/capture.png" ;;
     cleanup)
-      [[ $2 =~ ^/tmp/pim-ios\.[a-zA-Z0-9]{6}/capture\.png$ ]] || fail 'Invalid temporary screenshot path.'
+      [[ $2 =~ ^/tmp/lpi-ios\.[a-zA-Z0-9]{6}/capture\.png$ ]] || fail 'Invalid temporary screenshot path.'
       rm "$2"
       rmdir "${2%/*}" ;;
     *) fail 'Unknown remote command.' ;;
@@ -157,7 +157,7 @@ main() {
   if [[ $command == --help ]]; then
     printf '%s\n' 'Usage: bash .pi/skills/ios-macos/scripts/ios-mac.sh <status|sync|start|open|run|screenshot|logs> [screenshot.png]' \
       'run = sync + start + open. Uses the prepared Mac, without provisioning.' \
-      'Overrides: PIM_IOS_SSH, PIM_IOS_DIR, PIM_IOS_HOST, PIM_IOS_DEVICE.'
+      'Overrides: LPI_IOS_SSH, LPI_IOS_DIR, LPI_IOS_HOST, LPI_IOS_DEVICE.'
     return
   fi
   case $command in status|sync|start|open|run|screenshot|logs) ;; *) fail 'Invalid command. Use --help.' ;; esac
@@ -170,8 +170,8 @@ main() {
     run) sync_source; remote start; remote open ;;
     screenshot)
       shot=$(remote screenshot)
-      [[ $shot =~ ^/tmp/pim-ios\.[a-zA-Z0-9]{6}/capture\.png$ ]] || fail 'Invalid remote screenshot path.'
-      if [[ -z $output ]]; then output=$(mktemp -d "${TMPDIR:-/tmp}/pim-ios.XXXXXX")/capture.png; fi
+      [[ $shot =~ ^/tmp/lpi-ios\.[a-zA-Z0-9]{6}/capture\.png$ ]] || fail 'Invalid remote screenshot path.'
+      if [[ -z $output ]]; then output=$(mktemp -d "${TMPDIR:-/tmp}/lpi-ios.XXXXXX")/capture.png; fi
       scp -q -o BatchMode=yes "$MAC:$shot" "$output" || result=$?
       remote cleanup "$shot" || result=$?
       [[ $result == 0 ]] || return "$result"

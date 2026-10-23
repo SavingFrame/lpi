@@ -14,6 +14,7 @@ const types: Record<string, string> = {
   '.woff2': 'font/woff2',
   '.png': 'image/png',
   '.webp': 'image/webp',
+  '.webmanifest': 'application/manifest+json',
 };
 
 export async function bundledResponse(
@@ -73,7 +74,7 @@ export async function bundledResponse(
     const body = page
       ? bytes
           .toString('utf8')
-          .replace('</head>', `<meta name="pim-relay-origin" content="${escaped}"></head>`)
+          .replace('</head>', `<meta name="lpi-relay-origin" content="${escaped}"></head>`)
       : Uint8Array.from(bytes);
     const socket = new URL(relay);
     socket.protocol = socket.protocol === 'https:' ? 'wss:' : 'ws:';

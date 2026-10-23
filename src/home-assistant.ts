@@ -46,7 +46,7 @@ export class HomeAssistantNotifications {
     warn: (message: string) => void = console.warn,
   ) {
     if (!token.trim() || /[\r\n]/.test(token)) {
-      throw new Error('Set PIM_HA_TOKEN or PIM_HA_CREDENTIALS_FILE on the relay server');
+      throw new Error('Set LPI_HA_TOKEN or LPI_HA_CREDENTIALS_FILE on the relay server');
     }
     this.unsubscribe = events.subscribe((event) => {
       if (event.type === 'connection') {
@@ -93,7 +93,7 @@ export class HomeAssistantNotifications {
           return;
         }
         if (this.waiting.size >= 32) {
-          warn('[pim:notifications] Too many pending alerts; notification skipped');
+          warn('[lpi:notifications] Too many pending alerts; notification skipped');
           return;
         }
         this.waiting.set(
@@ -104,7 +104,7 @@ export class HomeAssistantNotifications {
           }, 10_000),
         );
       } catch {
-        warn('[pim:notifications] Could not schedule Home Assistant notification');
+        warn('[lpi:notifications] Could not schedule Home Assistant notification');
       }
     });
 
@@ -122,13 +122,13 @@ export class HomeAssistantNotifications {
         }
         // Bound work during an HA outage. Notifications must never block the native bridge.
         if (this.pending.size >= 8) {
-          warn('[pim:notifications] Home Assistant busy; notification skipped');
+          warn('[lpi:notifications] Home Assistant busy; notification skipped');
           return;
         }
         const session = sessions.get(id);
         const url = sessionLink(session.id);
         timer = setTimeout(() => {
-          warn('[pim:notifications] Home Assistant notification timed out; not retried');
+          warn('[lpi:notifications] Home Assistant notification timed out; not retried');
           controller.abort();
         }, 10_000);
         this.pending.set(controller, timer);
@@ -143,15 +143,15 @@ export class HomeAssistantNotifications {
             redirect: 'error',
             signal: controller.signal,
             body: JSON.stringify({
-              title: session.title?.replace(/\s+/g, ' ').trim().slice(0, 160) || 'Pim',
+              title: session.title?.replace(/\s+/g, ' ').trim().slice(0, 160) || 'lpi',
               message: preview,
               data: {
-                notification_icon: 'mdi:robot',
-                notification_icon_color: '#101115',
-                color: '#a5b4fc',
+                notification_icon: 'mdi:vector-polyline',
+                notification_icon_color: '#24333c',
+                color: '#b1d4e5',
                 url,
-                tag: `pim-${session.id}`,
-                actions: [{ action: 'OPEN_PIM', title: 'Open session', uri: url }],
+                tag: `lpi-${session.id}`,
+                actions: [{ action: 'OPEN_LPI', title: 'Open session', uri: url }],
               },
             }),
           },
@@ -160,12 +160,12 @@ export class HomeAssistantNotifications {
         await response.body?.cancel();
         if (!response.ok) {
           warn(
-            `[pim:notifications] Home Assistant rejected notification (HTTP ${response.status})`,
+            `[lpi:notifications] Home Assistant rejected notification (HTTP ${response.status})`,
           );
         }
       } catch {
         if (!controller.signal.aborted) {
-          warn('[pim:notifications] Home Assistant notification failed; not retried');
+          warn('[lpi:notifications] Home Assistant notification failed; not retried');
         }
       } finally {
         clearTimeout(timer);

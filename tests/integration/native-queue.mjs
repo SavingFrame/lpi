@@ -10,7 +10,7 @@ import { fixture } from '../helpers.mjs';
 for (const entry of [
   'cli.js',
   'bundle/cli.js',
-  ...(process.env.PIM_TEST_PI_CLI ? [process.env.PIM_TEST_PI_CLI] : []),
+  ...(process.env.LPI_TEST_PI_CLI ? [process.env.LPI_TEST_PI_CLI] : []),
 ]) {
   test(`real Pi ${entry} loads the source folder and clears/requeues its actual queue`, {
     timeout: 30000,
@@ -18,9 +18,9 @@ for (const entry of [
     const { root, home, config } = fixture(t);
     const resultFile = join(root, 'result.json');
     const agentDir = join(home, 'agent');
-    const extensionDir = join(agentDir, 'extensions', 'pim');
+    const extensionDir = join(agentDir, 'extensions', 'lpi');
     mkdirSync(join(agentDir, 'extensions'), { recursive: true });
-    symlinkSync(fileURLToPath(new URL('../../extensions/pim', import.meta.url)), extensionDir);
+    symlinkSync(fileURLToPath(new URL('../../extensions/lpi', import.meta.url)), extensionDir);
     const execution = promisify(execFile)(
       process.execPath,
       [
@@ -40,7 +40,7 @@ for (const entry of [
         '-e',
         fileURLToPath(new URL('./queue-probe.ts', import.meta.url)),
         '--provider',
-        'pim-queue-probe',
+        'lpi-queue-probe',
         '--model',
         'fake',
         'initial prompt',
@@ -53,7 +53,7 @@ for (const entry of [
           PI_CODING_AGENT_DIR: agentDir,
           PI_OFFLINE: '1',
           PI_SKIP_VERSION_CHECK: '1',
-          PIM_QUEUE_PROBE_RESULT: resultFile,
+          LPI_QUEUE_PROBE_RESULT: resultFile,
         },
         timeout: 20000,
         maxBuffer: 4 * 1024 * 1024,

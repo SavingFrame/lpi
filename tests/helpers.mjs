@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 export function fixture(t) {
-  const root = mkdtempSync(join(tmpdir(), 'pim-relay-test-'));
+  const root = mkdtempSync(join(tmpdir(), 'lpi-relay-test-'));
   const directory = join(root, 'project');
   mkdirSync(directory);
   const home = join(root, 'home');

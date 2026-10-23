@@ -117,7 +117,7 @@ test('model and thinking settings update native Pi and synchronize authoritative
     await assert.rejects(bridges.command(session.id, session.generation, command), /dialogs/);
     await fake.emit('ui_prompt_end');
   }
-  await fake.commands.get('pim-disconnect')('', fake.ctx);
+  await fake.commands.get('lpi-disconnect')('', fake.ctx);
   await waitFor(() => bridges.get(session.id).connection === 'disconnected');
   await assert.rejects(
     bridges.command(session.id, session.generation, modelCommand),
@@ -130,7 +130,7 @@ test('stop runtime is rejected for externally launched Pi', async (t) => {
   const { socket, attached } = await open();
   await assert.rejects(
     bridges.command(attached.sessionId, attached.generation, { type: 'stop_runtime' }),
-    /Only Pim-managed/,
+    /Only lpi-managed/,
   );
   assert.equal(bridges.get(attached.sessionId).connection, 'connected');
   socket.terminate();
@@ -140,7 +140,7 @@ for (const busy of [false, true]) {
   test(`stop runtime requests graceful shutdown without changing history (busy: ${busy})`, async (t) => {
     const { config, root, defer, file, header, entry, url, bridges } = await setup(t);
     const original = readFileSync(file);
-    const keys = ['PIM_BRIDGE_URL', 'PIM_LAUNCH_ID', 'PIM_TMUX_SESSION', 'PATH'];
+    const keys = ['LPI_BRIDGE_URL', 'LPI_LAUNCH_ID', 'LPI_TMUX_SESSION', 'PATH'];
     const previous = keys.map((key) => process.env[key]);
     const launchId = '11111111-1111-1111-1111-111111111111';
     const bin = join(root, 'bin');
@@ -148,9 +148,9 @@ for (const busy of [false, true]) {
     // Stub reservations only. Never contact a real tmux server in this test.
     writeFileSync(join(bin, 'tmux'), '#!/bin/sh\nexit 0\n', { mode: 0o755 });
     process.env.PATH = `${bin}:${process.env.PATH}`;
-    process.env.PIM_BRIDGE_URL = url;
-    process.env.PIM_LAUNCH_ID = launchId;
-    process.env.PIM_TMUX_SESSION = `pim-${launchId}`;
+    process.env.LPI_BRIDGE_URL = url;
+    process.env.LPI_LAUNCH_ID = launchId;
+    process.env.LPI_TMUX_SESSION = `lpi-${launchId}`;
     const fake = fakePi(header, file, entry);
     defer(async () => {
       await fake.emit('session_shutdown');

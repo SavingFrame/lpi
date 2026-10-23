@@ -3,8 +3,8 @@ import { writeFileSync } from 'node:fs';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createAssistantMessageEventStream } from '@earendil-works/pi-ai';
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent';
-import { NativeCommands } from '../../extensions/pim/native/commands.ts';
-import { NativeState } from '../../extensions/pim/native/state.ts';
+import { NativeCommands } from '../../extensions/lpi/native/commands.ts';
+import { NativeState } from '../../extensions/lpi/native/state.ts';
 
 /** Explicitly loaded only by the isolated, opt-in native-queue integration test. */
 export default function queueProbe(pi: ExtensionAPI): void {
@@ -14,13 +14,13 @@ export default function queueProbe(pi: ExtensionAPI): void {
   let calls = 0;
   let cleared = false;
   let failure: string | undefined;
-  const resultFile = process.env.PIM_QUEUE_PROBE_RESULT;
+  const resultFile = process.env.LPI_QUEUE_PROBE_RESULT;
   assert.ok(resultFile);
 
   pi.on('session_start', (_event, context) => {
     assert.equal(context.mode, 'json');
     assert.ok(
-      pi.getCommands().some((command) => command.name === 'pim-connect'),
+      pi.getCommands().some((command) => command.name === 'lpi-connect'),
       'source bridge loaded',
     );
     state.open(context, () => {});
@@ -43,8 +43,8 @@ export default function queueProbe(pi: ExtensionAPI): void {
       writeFileSync(resultFile, JSON.stringify({ passed: false, error: String(error), failure }));
     }
   });
-  pi.registerProvider('pim-queue-probe', {
-    api: 'pim-queue-probe-api',
+  pi.registerProvider('lpi-queue-probe', {
+    api: 'lpi-queue-probe-api',
     baseUrl: 'http://127.0.0.1:1',
     apiKey: 'fake-not-a-credential',
     models: [

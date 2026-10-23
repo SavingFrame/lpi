@@ -97,7 +97,7 @@ export class NativeCommands {
         throw new Error('Wait until native Pi is idle with no queued messages or dialogs');
       }
       if (command.type === 'stop_runtime' && !this.state.managedRuntime) {
-        throw new Error('Only Pim-managed runtimes can be stopped remotely');
+        throw new Error('Only lpi-managed runtimes can be stopped remotely');
       }
       if (command.type === 'prompt' && !context.isIdle() && !command.streamingBehavior) {
         throw new Error('Native agent is busy. Use steer or follow-up.');
@@ -219,7 +219,7 @@ export class NativeCommands {
       );
       if (command.images?.length) {
         // Durable TUI feedback only, without duplicating image bytes or model context.
-        this.pi.appendEntry('pim-image-attachments', {
+        this.pi.appendEntry('lpi-image-attachments', {
           count: command.images.length,
           mode: deliverAs === 'followUp' ? 'follow_up' : (deliverAs ?? 'prompt'),
         });

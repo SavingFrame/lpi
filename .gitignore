@@ -1,7 +1,9 @@
 node_modules/
 dist/
+.lpi/
 .pim/
 *.log
+lpi.config.json
 pim.config.json
 mobile/.expo/
 mobile/expo-env.d.ts

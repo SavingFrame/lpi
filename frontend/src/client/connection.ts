@@ -5,6 +5,6 @@ import { desktopRelayOrigin } from '../../../src/shared/desktop.ts';
 const configured =
   typeof document === 'undefined'
     ? undefined
-    : document.querySelector<HTMLMetaElement>('meta[name="pim-relay-origin"]')?.content;
+    : document.querySelector<HTMLMetaElement>('meta[name="lpi-relay-origin"]')?.content;
 
 export const relayServer = configured === undefined ? undefined : desktopRelayOrigin(configured);

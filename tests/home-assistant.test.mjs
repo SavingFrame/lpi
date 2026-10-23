@@ -103,12 +103,12 @@ test('unread completion waits ten seconds before posting a linked HA alert, with
         title: 'Test session',
         message: 'Done Read docs. Ready!',
         data: {
-          notification_icon: 'mdi:robot',
-          notification_icon_color: '#101115',
-          color: '#a5b4fc',
+          notification_icon: 'mdi:vector-polyline',
+          notification_icon_color: '#24333c',
+          color: '#b1d4e5',
           url: sessionLink(id),
-          tag: `pim-${id}`,
-          actions: [{ action: 'OPEN_PIM', title: 'Open session', uri: sessionLink(id) }],
+          tag: `lpi-${id}`,
+          actions: [{ action: 'OPEN_LPI', title: 'Open session', uri: sessionLink(id) }],
         },
       },
     },
@@ -155,7 +155,7 @@ test('answer previews are bounded, final-only, and never reuse another run or ge
   answer(`**${'😀'.repeat(250)}**`);
   answer('Stale generation answer', 1);
   await finish();
-  assert.equal(delivered[0].title, 'Pim');
+  assert.equal(delivered[0].title, 'lpi');
   assert.equal(delivered[0].message, `${'😀'.repeat(199)}…`);
 
   answer('Must not survive the next run');
@@ -240,7 +240,7 @@ test('HA failures are isolated, redacted, and never retried; shutdown cancels pe
   const config = { url: 'https://ha.invalid', service: 'mobile_app_test_phone' };
   assert.throws(
     () => new HomeAssistantNotifications(config, events, { get: () => session }, store, ''),
-    /PIM_HA_TOKEN/,
+    /LPI_HA_TOKEN/,
   );
   const warnings = [];
   const requests = [];

@@ -5,17 +5,17 @@ import { allowedNavigation, desktopDevelopmentOrigin } from '../policy.ts';
 
 test('desktop configuration accepts only an explicit safe relay origin', () => {
   assert.equal(desktopRelayOrigin(), 'http://127.0.0.1:3141');
-  for (const url of ['http://localhost:5173/', 'http://[::1]:3141', 'https://pim.example']) {
+  for (const url of ['http://localhost:5173/', 'http://[::1]:3141', 'https://lpi.example']) {
     assert.equal(desktopRelayOrigin(url), new URL(url).origin);
   }
   for (const url of [
     'file:///tmp/index.html',
     'javascript:alert(1)',
-    'http://pim.example',
-    'https://user:secret@pim.example',
-    'https://pim.example/app',
-    'https://pim.example/?token=secret',
-    'https://pim.example/#fragment',
+    'http://lpi.example',
+    'https://user:secret@lpi.example',
+    'https://lpi.example/app',
+    'https://lpi.example/?token=secret',
+    'https://lpi.example/#fragment',
     'not a URL',
   ]) {
     assert.throws(() => desktopRelayOrigin(url));
@@ -36,15 +36,15 @@ test('electron-vite renderer URLs stay on an explicit loopback origin', () => {
   }
 });
 
-test('navigation stays within Pim routes and the existing visual frame contract', () => {
+test('navigation stays within lpi routes and the existing visual frame contract', () => {
   const origin = DESKTOP_ORIGIN;
   for (const path of ['/', '/app', '/app/projects/a/sessions/b?branch=c']) {
     assert.equal(allowedNavigation(origin + path, origin, true), true);
   }
   for (const url of [
-    'pim-app://app.evil/app',
-    'pim-app://app:123/app',
-    'pim-app://user:secret@app/app',
+    'lpi-app://app.evil/app',
+    'lpi-app://app:123/app',
+    'lpi-app://user:secret@app/app',
     'untrusted://app/app',
     'http://127.0.0.1:31410/app',
     'http://127.0.0.1.evil.example:3141/app',
@@ -57,7 +57,7 @@ test('navigation stays within Pim routes and the existing visual frame contract'
     'file:///tmp/file',
     'data:text/html,hello',
     'javascript:alert(1)',
-    'pim:///?session=a',
+    'lpi:///?session=a',
     'about:blank',
     'about:srcdoc',
   ]) {

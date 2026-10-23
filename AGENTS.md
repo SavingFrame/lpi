@@ -4,11 +4,11 @@ Adapted from <https://github.com/earendil-works/pi/blob/main/AGENTS.md> for this
 
 ## Project
 
-- Native Pi is the only agent runtime and session-file writer. Pim stores relay metadata separately, never conversation history.
-- Pim is a single relay server. Extensions connect to it; do not run a web server per Pi instance.
+- Native Pi is the only agent runtime and session-file writer. lpi stores relay metadata separately, never conversation history.
+- lpi is a single relay server. Extensions connect to it; do not run a web server per Pi instance.
 - Use public Pi extension APIs and normal JSONL persistence. Do not introduce RPC, runtime handoff, Pi Durable, or experimental server/client packages without discussion.
 - A lost connection never authorizes launching another writer. Saved-session discovery is read-only.
-- Browser create/resume launches native Pi through the dedicated Pim tmux socket. Keep real-Pi integration status and external-writer detection limits explicit.
+- Browser create/resume launches native Pi through the dedicated lpi tmux socket. Keep real-Pi integration status and external-writer detection limits explicit.
 - Share browser/mobile behavior in `src/client/` through platform adapters. Keep it independent of UI frameworks, DOM, filesystem, database, and Pi runtime dependencies. Contracts live in `src/shared/`; extension-specific support lives in `src/extension-support/`.
 - See the repository map in `docs/development.md` for entry points. Keep platform presentation in `frontend/` and `mobile/`.
 

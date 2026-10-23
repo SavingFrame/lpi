@@ -162,7 +162,7 @@ try {
           },
           { id: 'script/2', name: 'read', args: '{"path":"src/example.ts"}', status: 'ok' },
         ],
-        pimEditPatches: [{ toolCallId: 'script/1', patch }],
+        lpiEditPatches: [{ toolCallId: 'script/1', patch }],
       },
       content: [{ type: 'text', text: 'Script failed after applying edit' }],
     },

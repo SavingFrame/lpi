@@ -31,7 +31,7 @@ export function ArchiveSession({
       ? 'Stop runtime'
       : 'Archive session';
   const description = external
-    ? 'Stop Pi in its terminal before archiving. This runtime is not managed by Pim.'
+    ? 'Stop Pi in its terminal before archiving. This runtime is not managed by lpi.'
     : stopping
       ? 'Interrupt active work and stop the Pi runtime. History stays. Archive is a separate action after exit.'
       : session.archived

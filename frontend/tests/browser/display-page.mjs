@@ -87,7 +87,7 @@ try {
     toolCallId: 'show-1',
     timestamp: 2,
     content: [{ type: 'text', text: 'Displayed chart.' }],
-    details: { pimDisplay: artifact },
+    details: { lpiDisplay: artifact },
   };
   const call = {
     role: 'assistant',
@@ -169,7 +169,7 @@ try {
       data: 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+a8uoAAAAASUVORK5CYII=',
     },
   };
-  render([{ ...result, details: { pimDisplay: image } }]);
+  render([{ ...result, details: { lpiDisplay: image } }]);
   await waitFor(() => host.querySelector('.display-image')?.naturalWidth === 1);
   check(!host.querySelector('iframe'), 'image uses a normal image viewer');
   // Layout and theme reports are generated inside the opaque content frame. The
@@ -189,7 +189,7 @@ try {
       addEventListener('message',event=>{if(event.data?.probeAction==='toggle')document.querySelector('#toggle').click();requestAnimationFrame(report);});
       new ResizeObserver(report).observe(document.body);addEventListener('load',report);
     </script>`;
-  render([{ ...result, details: { pimDisplay: { ...artifact, html: layoutHtml } } }]);
+  render([{ ...result, details: { lpiDisplay: { ...artifact, html: layoutHtml } } }]);
   const latest = () => reports.filter((report) => report.kind === 'layout').at(-1);
   await waitFor(() => latest()?.height > 300);
   const frame = host.querySelector('.display-frame');
@@ -204,11 +204,11 @@ try {
     return latest().overflow <= 1;
   });
   check(latest().overflow <= 1, 'the iframe has no inner vertical scroll');
-  check(latest().background === 'rgb(24, 24, 27)', 'visual background matches Pim');
+  check(latest().background === 'rgb(24, 24, 27)', 'visual background matches lpi');
   check(latest().font.includes('Inter'), 'visual typography matches the reply');
   const sizes = [];
   const recordSize = (event) => {
-    if (event.data?.type === 'pim-display-size') {
+    if (event.data?.type === 'lpi-display-size') {
       sizes.push(event.data);
     }
   };
@@ -220,7 +220,7 @@ try {
   await waitFor(() => frameHeight() < grown - 500 && Math.abs(frameHeight() - narrow) <= 1);
   check(sizes.length > 0, 'dynamic size reports reach the host');
   const sizeId = sizes.at(-1).id;
-  window.postMessage({ type: 'pim-display-size', id: sizeId, height: 19999 }, '*');
+  window.postMessage({ type: 'lpi-display-size', id: sizeId, height: 19999 }, '*');
   await new Promise((resolve) => setTimeout(resolve, 50));
   check(frameHeight() === narrow, 'matching data from the wrong window cannot resize a visual');
   window.removeEventListener('message', recordSize);
@@ -242,7 +242,7 @@ try {
   );
   host.style.maxWidth = '360px';
   await waitFor(() => latest().width < 400 && Math.abs(frameHeight() - narrow) <= 1);
-  render([{ ...result, details: { pimDisplay: { ...artifact, version: 99 } } }]);
+  render([{ ...result, details: { lpiDisplay: { ...artifact, version: 99 } } }]);
   check(!host.querySelector('.display-card'), 'unsupported artifacts retain the raw tool fallback');
   render([
     {

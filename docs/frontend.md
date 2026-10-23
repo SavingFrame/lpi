@@ -6,20 +6,20 @@ The React/Vite client uses TanStack Query and Router. It inspects saved history 
 
 ```sh
 npm run build
-npm start -- pim.config.json
+npm start -- lpi.config.json
 ```
 
 Open `http://127.0.0.1:3141`. The server serves `frontend/dist`; browser routes use `/app/projects/:projectId/sessions/:sessionId`.
 
-For development, start the compiled server and run `npm run dev`. Open `http://127.0.0.1:5173`. Vite proxies `/projects`, `/sessions`, and `/events`. `PIM_DEV_SERVER` overrides the target. Configure exact allowed browser origins when changing ports.
+For development, start the compiled server and run `npm run dev`. Open `http://127.0.0.1:5173`. Vite proxies `/projects`, `/sessions`, and `/events`. `LPI_DEV_SERVER` overrides the target. Configure exact allowed browser origins when changing ports.
 
-Browser/API authentication is not enabled. Pim trusts reachable home LAN/Tailscale clients; network access control belongs to deployment. Add each browser URL to `origins` in the server configuration. Host/Origin checks, JSON content-type requirements, and production content security policy remain enforced. Do not expose Pim publicly.
+Browser/API authentication is not enabled. lpi trusts reachable home LAN/Tailscale clients; network access control belongs to deployment. Add each browser URL to `origins` in the server configuration. Host/Origin checks, JSON content-type requirements, and production content security policy remain enforced. Do not expose lpi publicly.
 
 The [Electron app](../desktop/README.md) bundles this same frontend under a private local
 protocol. `frontend/src/client/connection.ts` reads relay-address metadata supplied by the desktop
 launcher, so HTTP/WebSocket requests and durable guards use the configured relay rather than
 the local UI origin. Browser pages without that metadata retain relative same-origin behavior.
-The relay must explicitly allow `pim-app://app` for bundled desktop clients.
+The relay must explicitly allow `lpi-app://app` for bundled desktop clients.
 `frontend/src/client/platform.ts` adapts the optional desktop capabilities typed in `src/shared/desktop.ts`
 without importing Electron. Desktop and browser builds share `frontendConfig()` from
 `frontend/vite.config.ts`; electron-vite supplies the desktop main/preload/renderer pipeline.
@@ -97,7 +97,7 @@ Pane navigation restores the last focused control when available. Up/Down moves 
 
 The command palette searches actions and shows their current shortcuts and availability. Arrow keys select an action and Enter runs it. Escape closes modal dialogs or dismisses suggestions before it can abort. Tab and Shift+Tab retain normal focus navigation outside the composer. Thinking changes and submissions obey the same availability checks as the buttons; IME composition and repeated keys never dispatch commands. Abort does not clear queued messages.
 
-The sidebar project selector and **New session**, or the **+** beside a project, launch native Pi in a dedicated tmux session. Saved sessions offer **Resume session**, with explicit confirmation that no external Pi writer remains. Managed tmux reservations are checked server-side before resume. Both operations wait for bridge registration before opening the session. Unknown outcomes block another launch until the user inspects the runtimes; tab-scoped storage preserves that guard across reloads. Connected Pim-managed runtimes offer **Stop runtime** without confirmation; acceptance is not proof of exit. Startup dialogs remain terminal-only; inspect with `tmux -L pim list-sessions` and attach with `tmux -L pim attach -t <name>`.
+The sidebar project selector and **New session**, or the **+** beside a project, launch native Pi in a dedicated tmux session. Saved sessions offer **Resume session**, with explicit confirmation that no external Pi writer remains. Managed tmux reservations are checked server-side before resume. Both operations wait for bridge registration before opening the session. Unknown outcomes block another launch until the user inspects the runtimes; tab-scoped storage preserves that guard across reloads. Connected lpi-managed runtimes offer **Stop runtime** without confirmation; acceptance is not proof of exit. Startup dialogs remain terminal-only; inspect with `tmux -L lpi list-sessions` and attach with `tmux -L lpi attach -t <name>`.
 
 TanStack Query holds project/session queries. The shell subscribes only to connection status, so transcript events do not regroup or rerender the sidebar. Session events invalidate the inventory without refetching the static project list. The transcript skips metadata-only updates, and unchanged Markdown and tool payloads are memoized. Tool disclosures mount their bodies on first expansion and retain them afterward, preserving native toggling and nested disclosure state. The `LiveSession` store handles the selected snapshot and events. Native partial messages replace content authoritatively; no RPC delta reconstruction is needed.
 

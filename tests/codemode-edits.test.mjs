@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { NativeCodemodeEdits } from '../dist/extensions/pim/native/codemode-edits.js';
+import { NativeCodemodeEdits } from '../dist/extensions/lpi/native/codemode-edits.js';
 import { fakePi } from './bridge-fixture.mjs';
 
 const patch = '--- a.ts\n+++ a.ts\n@@ -1 +1 @@\n-old\n+new\n';
@@ -38,14 +38,14 @@ test('bridge saves final nested edit patches in parent details without changing 
   const changes = await fake.emit('tool_result', original);
   assert.deepEqual(Object.keys(changes), ['details']);
   assert.deepEqual(changes.details.calls, original.details.calls);
-  assert.deepEqual(changes.details.pimEditPatches, [{ toolCallId: 'script/1', patch }]);
-  assert.equal(original.details.pimEditPatches, undefined, 'original data is not mutated');
+  assert.deepEqual(changes.details.lpiEditPatches, [{ toolCallId: 'script/1', patch }]);
+  assert.equal(original.details.lpiEditPatches, undefined, 'original data is not mutated');
   // This is the data Pi persists, and the same details survive JSONL serialization/resume.
   const persisted = JSON.parse(JSON.stringify({ ...original, ...changes }));
   assert.deepEqual(persisted.content, original.content);
   assert.equal(persisted.isError, true, 'script failure does not erase a successful edit');
-  assert.deepEqual(persisted.details.pimEditPatches, changes.details.pimEditPatches);
-  assert.deepEqual((await fake.emit('tool_result', result('other'))).details.pimEditPatches, [
+  assert.deepEqual(persisted.details.lpiEditPatches, changes.details.lpiEditPatches);
+  assert.deepEqual((await fake.emit('tool_result', result('other'))).details.lpiEditPatches, [
     { toolCallId: 'other/1', patch },
   ]);
   assert.equal(await fake.emit('tool_result', original), undefined, 'pending state is released');
@@ -83,8 +83,8 @@ test('storage limits omit whole patches and preserve other parent details', () =
     edits.end(end('script', `script/${i}`));
   }
   const changes = edits.result(result('script'));
-  assert.equal(changes.details.pimEditPatchesOmitted, true);
-  assert.equal(changes.details.pimEditPatches.length, 256);
-  assert.equal(changes.details.pimEditPatches[0].toolCallId, 'script/2');
-  assert.equal(changes.details.pimEditPatches[0].patch, patch);
+  assert.equal(changes.details.lpiEditPatchesOmitted, true);
+  assert.equal(changes.details.lpiEditPatches.length, 256);
+  assert.equal(changes.details.lpiEditPatches[0].toolCallId, 'script/2');
+  assert.equal(changes.details.lpiEditPatches[0].patch, patch);
 });

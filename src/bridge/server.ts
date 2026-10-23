@@ -86,7 +86,7 @@ export class NativeBridges {
     const reader = new BridgeReader(() => socket.terminate());
     function warn(event: string, details: Record<string, unknown>): void {
       console.warn(
-        '[pim:bridge]',
+        '[lpi:bridge]',
         JSON.stringify({
           timestamp: new Date().toISOString(),
           event,
@@ -391,7 +391,7 @@ export class NativeBridges {
       throw new AppError('Native bridge unavailable or stale generation');
     }
     if (command.type === 'stop_runtime' && native.snapshot.state.managedRuntime !== true) {
-      throw new AppError('Only Pim-managed runtimes can be stopped remotely', 422);
+      throw new AppError('Only lpi-managed runtimes can be stopped remotely', 422);
     }
     if (native.pending.size >= 32 || socket.bufferedAmount > 1024 * 1024) {
       throw new AppError('Native command channel overloaded', 429);

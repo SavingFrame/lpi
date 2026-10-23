@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 
-test('preload exposes only scale methods, strips IPC events and removes subscriptions', async () => {
+test('preload exposes narrow desktop methods, strips IPC events and removes subscriptions', async () => {
   let bridge;
   let callback;
   const calls = [];
@@ -29,7 +29,7 @@ test('preload exposes only scale methods, strips IPC events and removes subscrip
               callback = listener;
             },
             removeListener: (channel, listener) => {
-              assert.equal(channel, 'pim:zoom:changed');
+              assert.equal(channel, 'lpi:zoom:changed');
               assert.equal(listener, callback);
               callback = undefined;
             },
@@ -49,7 +49,7 @@ test('preload exposes only scale methods, strips IPC events and removes subscrip
       require: () => ({
         contextBridge: {
           exposeInMainWorld: (name, value) => {
-            assert.equal(name, 'pimDesktop');
+            assert.equal(name, 'lpiDesktop');
             bridge = value;
           },
         },
@@ -69,14 +69,35 @@ test('preload exposes only scale methods, strips IPC events and removes subscrip
       }),
     },
   );
-  assert.deepEqual(Object.keys(bridge).sort(), ['getZoom', 'onZoomChanged', 'setZoom']);
+  assert.deepEqual(Object.keys(bridge).sort(), [
+    'getZoom',
+    'notify',
+    'onNotificationClicked',
+    'onZoomChanged',
+    'setZoom',
+  ]);
   assert.equal(await bridge.getZoom(), 1.25);
   await bridge.setZoom(1.5);
-  assert.deepEqual(calls, [['pim:zoom:get'], ['pim:zoom:set', 1.5]]);
+  assert.deepEqual(calls, [['lpi:zoom:get'], ['lpi:zoom:set', 1.5]]);
   const values = [];
   const unsubscribe = bridge.onZoomChanged((...args) => values.push(args));
   callback({ secret: 'must not reach renderer' }, 1.5);
   assert.deepEqual(values, [[1.5]]);
   unsubscribe();
+  assert.equal(callback, undefined);
+  const notification = {
+    sessionId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    projectId: 'b'.repeat(64),
+    title: 'Session',
+    kind: 'input',
+  };
+  await bridge.notify(notification);
+  assert.equal(calls.at(-1)[0], 'lpi:notify');
+  const clicked = [];
+  const stop = bridge.onNotificationClicked((...args) => clicked.push(args));
+  callback({ secret: true }, notification);
+  callback({}, { ...notification, projectId: 'https://evil.test' });
+  assert.deepEqual(clicked, [[notification]]);
+  stop();
   assert.equal(callback, undefined);
 });

@@ -21,11 +21,11 @@ export class NativeState {
 
   constructor(pi: ExtensionAPI) {
     this.pi = pi;
-    const launchId = process.env.PIM_LAUNCH_ID;
+    const launchId = process.env.LPI_LAUNCH_ID;
     this.managedRuntime =
       launchId !== undefined &&
       /^[a-f0-9-]{36}$/.test(launchId) &&
-      process.env.PIM_TMUX_SESSION === `pim-${launchId}`;
+      process.env.LPI_TMUX_SESSION === `lpi-${launchId}`;
   }
 
   get view(): View {
@@ -83,7 +83,7 @@ export class NativeState {
     const context = this.requireContext();
     const file = context.sessionManager.getSessionFile();
     if (!file) {
-      throw new Error('Ephemeral sessions cannot connect to Pim');
+      throw new Error('Ephemeral sessions cannot connect to lpi');
     }
     return {
       file,

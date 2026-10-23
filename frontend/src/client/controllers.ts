@@ -2,10 +2,12 @@ import { QueryClient } from '@tanstack/react-query';
 import { SessionCommands } from '../../../src/client/commands';
 import { SessionDrafts } from '../../../src/client/drafts';
 import { LaunchController } from '../../../src/client/launches';
+import { SessionNotifications } from '../../../src/client/notifications';
 import type { InventorySession } from '../../../src/shared/sessions';
 import { launch, operate } from './api';
 import { relayServer } from './connection';
 import { LiveSession } from './live';
+import { desktop } from './platform';
 import { browserStorage } from './storage';
 
 export const queryClient = new QueryClient({
@@ -15,15 +17,47 @@ export const queryClient = new QueryClient({
   },
 });
 
-export const live = new LiveSession((refreshTrees, sessionId) => {
-  void queryClient.invalidateQueries({ queryKey: ['sessions'] });
-  if (!sessionId) {
-    void queryClient.invalidateQueries({ queryKey: ['projects'] });
-  }
-  if (refreshTrees) {
-    void queryClient.invalidateQueries({ queryKey: sessionId ? ['tree', sessionId] : ['tree'] });
-  }
-});
+const notifications = new SessionNotifications();
+
+export const live = new LiveSession(
+  (refreshTrees, sessionId) => {
+    void queryClient.invalidateQueries({ queryKey: ['sessions'] });
+    if (!sessionId) {
+      void queryClient.invalidateQueries({ queryKey: ['projects'] });
+    }
+    if (refreshTrees) {
+      void queryClient.invalidateQueries({ queryKey: sessionId ? ['tree', sessionId] : ['tree'] });
+    }
+  },
+  (event) => {
+    if (!desktop) {
+      return;
+    }
+    try {
+      const kind = notifications.accept(event);
+      if (!kind) {
+        return;
+      }
+      const session = queryClient
+        .getQueryData<InventorySession[]>(['sessions'])
+        ?.find((session) => session.id === event.sessionId);
+      if (!session || session.archived || session.generation > event.generation) {
+        return;
+      }
+      void desktop
+        .notify({
+          sessionId: session.id,
+          projectId: session.projectId,
+          title: (session.title || 'lpi').replace(/\s+/g, ' ').slice(0, 160),
+          kind,
+        })
+        .catch(() => {});
+    } catch {
+      // Best-effort notifications never interrupt session synchronization.
+    }
+  },
+  notifications.reset,
+);
 
 const commandControllers = new Map<string, SessionCommands>();
 

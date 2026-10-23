@@ -1,9 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { Link, Outlet, useParams } from '@tanstack/react-router';
-import { Folder, Settings, Terminal } from 'lucide-react';
+import { Link, Outlet, useNavigate, useParams } from '@tanstack/react-router';
+import { Folder, Settings } from 'lucide-react';
 import { type CSSProperties, useEffect, useState, useSyncExternalStore } from 'react';
 import { projects } from '../client/api';
 import { live } from '../client/controllers';
+import { desktop } from '../client/platform';
 import { KeyboardProvider } from '../keyboard/keyboard';
 import { KeyboardNavigation } from '../keyboard/navigation';
 import { SessionNavigation } from '../navigation/session-navigation';
@@ -28,6 +29,17 @@ export function Shell() {
 
 function ShellContent() {
   const [width, setWidth] = useState(360);
+  const navigate = useNavigate();
+  useEffect(
+    () =>
+      desktop?.onNotificationClicked(({ projectId, sessionId }) => {
+        void navigate({
+          to: '/app/projects/$projectId/sessions/$sessionId',
+          params: { projectId, sessionId },
+        });
+      }),
+    [navigate],
+  );
   const { projectId, sessionId } = useParams({ strict: false });
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
   const online = useSyncExternalStore(live.subscribe, () => {
@@ -44,10 +56,8 @@ function ShellContent() {
       <aside className="sidebar" aria-label="Session sidebar">
         <div className="brand">
           <Link to="/">
-            <span className="brand-mark">
-              <Terminal size={17} aria-hidden="true" />
-            </span>
-            pim<span>native Pi relay</span>
+            <img className="brand-mark" src="/assets/lpi-icon.svg" width={32} height={32} alt="" />
+            lpi<span>native Pi relay</span>
           </Link>
         </div>
         <ConnectionStatus />

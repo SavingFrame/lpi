@@ -10,7 +10,7 @@ import { fixture } from './helpers.mjs';
 
 test('archive metadata survives restarts independently of completions and restores durably', (t) => {
   const { root } = fixture(t);
-  const path = join(root, 'pim.sqlite');
+  const path = join(root, 'lpi.sqlite');
   let store = new SessionReadStore(path);
   const completion = store.complete('session');
   assert.equal(store.isArchived('session'), false);

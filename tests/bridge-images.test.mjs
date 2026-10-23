@@ -39,7 +39,7 @@ test('browser images reach native Pi as structured user content, including image
     assert.deepEqual(fake.sent[index].message, [{ type: 'text', text: message }, ...images]);
     assert.equal(fake.sent[index].expandPromptTemplates, false);
     assert.equal(fake.appended.length, index + 1);
-    assert.equal(fake.appended[index].customType, 'pim-image-attachments');
+    assert.equal(fake.appended[index].customType, 'lpi-image-attachments');
     assert.deepEqual(fake.appended[index].data, { count: images.length, mode: type });
   }
   assert.equal(fake.sent[1].deliverAs, 'steer');
@@ -48,14 +48,14 @@ test('browser images reach native Pi as structured user content, including image
 
   // A fresh extension can render persisted metadata without the original image files or bytes.
   const reloaded = fakePi(header, file, entry);
-  const render = reloaded.renderers.get('pim-image-attachments');
+  const render = reloaded.renderers.get('lpi-image-attachments');
   const theme = { fg: (_color, text) => text };
   for (const [index, saved] of JSON.parse(JSON.stringify(fake.appended)).entries()) {
     const component = render(saved, { expanded: false }, theme);
     const label = [
-      'Pim: 1 image submitted (prompt)',
-      'Pim: 1 image submitted (steer)',
-      'Pim: 2 images submitted (follow-up)',
+      'lpi: 1 image submitted (prompt)',
+      'lpi: 1 image submitted (steer)',
+      'lpi: 2 images submitted (follow-up)',
     ][index];
     assert.deepEqual(component.render(80), [label]);
     assert.deepEqual(component.render(8), [label.slice(0, 8)]);

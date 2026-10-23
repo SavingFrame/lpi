@@ -17,7 +17,7 @@ function DisplayPreview({ artifact, theme }: { artifact: DisplayArtifact; theme:
   const send = useCallback(() => {
     if (html !== undefined) {
       // This exact sandboxed window has an opaque origin. No actions are accepted back.
-      frame.current?.contentWindow?.postMessage({ type: 'pim-display', id, html, theme }, '*');
+      frame.current?.contentWindow?.postMessage({ type: 'lpi-display', id, html, theme }, '*');
     }
   }, [html, id, theme]);
   // Register during commit so a cached frame cannot send its first size too early.
@@ -113,7 +113,7 @@ export function DisplayCard({ artifact }: { artifact: DisplayArtifact }) {
             <a href={download} download={artifact.filename}>
               Download
             </a>
-            {artifact.kind === 'html' && <small>Downloaded HTML runs outside Pim’s sandbox.</small>}
+            {artifact.kind === 'html' && <small>Downloaded HTML runs outside lpi’s sandbox.</small>}
           </div>
         </details>
       </div>

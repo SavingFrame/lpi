@@ -10,5 +10,5 @@ export function sessionLink(id: string): string {
   if (!linkedSessionId(id)) {
     throw new Error('Invalid session link ID');
   }
-  return `pim:///?session=${id}`;
+  return `lpi:///?session=${id}`;
 }

@@ -11,26 +11,26 @@ import { object, text } from './shared/errors.js';
 import { SessionDiscovery } from './storage/discovery.js';
 import { SessionReadStore } from './storage/read-state.js';
 
-const config = loadConfig(process.argv[2] ?? 'pim.config.json');
+const config = loadConfig(process.argv[2] ?? 'lpi.config.json');
 const events = new Events();
 const discovery = new SessionDiscovery(config.piSessionRoots, config.projects);
 for (const warning of discovery.warnings) {
   console.warn(warning);
 }
 const bridges = new NativeBridges(config, events);
-const stateDirectory = process.env.PIM_STATE_DIR ?? join(homedir(), '.local', 'state', 'pim');
+const stateDirectory = process.env.LPI_STATE_DIR ?? join(homedir(), '.local', 'state', 'lpi');
 mkdirSync(stateDirectory, { recursive: true, mode: 0o700 });
-const readStates = new SessionReadStore(join(stateDirectory, 'pim.sqlite'));
+const readStates = new SessionReadStore(join(stateDirectory, 'lpi.sqlite'));
 const sessions = new Sessions(discovery, bridges, events, readStates);
-let notificationToken = process.env.PIM_HA_TOKEN ?? '';
-if (config.homeAssistant && !notificationToken && process.env.PIM_HA_CREDENTIALS_FILE) {
+let notificationToken = process.env.LPI_HA_TOKEN ?? '';
+if (config.homeAssistant && !notificationToken && process.env.LPI_HA_CREDENTIALS_FILE) {
   try {
     const credentials = object(
-      JSON.parse(readFileSync(process.env.PIM_HA_CREDENTIALS_FILE, 'utf8')),
+      JSON.parse(readFileSync(process.env.LPI_HA_CREDENTIALS_FILE, 'utf8')),
     );
     notificationToken = text(credentials.token, 'Home Assistant token', 8192);
   } catch {
-    throw new Error('Could not load Home Assistant token from PIM_HA_CREDENTIALS_FILE');
+    throw new Error('Could not load Home Assistant token from LPI_HA_CREDENTIALS_FILE');
   }
 }
 const notifications = config.homeAssistant
@@ -61,7 +61,7 @@ process.once('SIGINT', shutdown);
 process.once('SIGTERM', shutdown);
 try {
   const address = await server.listen({ port: config.port, host: config.host });
-  console.log(`Pim listening on ${address}`);
+  console.log(`lpi listening on ${address}`);
 } catch (error) {
   console.error(error);
   process.exitCode = 1;

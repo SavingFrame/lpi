@@ -15,6 +15,8 @@ export interface EventSocket {
 export interface LiveEnvironment {
   openSocket: () => EventSocket;
   inspect: (id: string, signal: AbortSignal) => Promise<Snapshot>;
+  onEvent?: (event: ServerEvent) => void;
+  onBoundary?: () => void;
 }
 
 export interface LiveState {
@@ -105,6 +107,7 @@ export class LiveSession {
           // Revalidate all history after reconnecting, including same-epoch event gaps.
           this.snapshots.clear();
           this.stale.clear();
+          this.environment.onBoundary?.();
           this.epoch = raw.epoch;
           this.cursor = raw.cursor;
           this.attempt = 0;
@@ -124,6 +127,7 @@ export class LiveSession {
         }
         const item = raw as unknown as ServerEvent;
         this.cursor = item.cursor;
+        this.environment.onEvent?.(item);
         if (
           ['connection', 'bridge-status', 'bridge-sync', 'read-state', 'archive-state'].includes(
             item.type,

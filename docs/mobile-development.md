@@ -80,7 +80,7 @@ build or device validation.
 On a Mac with Xcode:
 
 ```sh
-npm run ios --workspace @pim/mobile
+npm run ios --workspace @lpi/mobile
 ```
 
 Xcode 27 uses Device Hub. If Expo does not focus the simulator, find its UDID with
@@ -98,10 +98,10 @@ Notification handoff checks are in [manual mobile testing](notifications.md#manu
 
 ```sh
 npm run check
-npm run typecheck --workspace @pim/mobile
-npm exec --workspace @pim/mobile -- expo install --check
-npm run test --workspace @pim/mobile
-npm run bundle:ios --workspace @pim/mobile
+npm run typecheck --workspace @lpi/mobile
+npm exec --workspace @lpi/mobile -- expo install --check
+npm run test --workspace @lpi/mobile
+npm run bundle:ios --workspace @lpi/mobile
 ```
 
 `bundle:ios` exports JavaScript/assets to ignored `mobile/dist/`; it is not a native build.

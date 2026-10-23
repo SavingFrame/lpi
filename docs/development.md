@@ -1,13 +1,13 @@
 # Development
 
-For installation and running Pim, see the [README](../README.md). Development rules and
+For installation and running lpi, see the [README](../README.md). Development rules and
 runtime-safety constraints live in [AGENTS.md](../AGENTS.md).
 
 ## Repository map
 
 - `src/main.ts`: relay server entry point.
 - `src/api/`: Fastify HTTP/WebSocket routes, security checks, and frontend serving.
-- `extensions/pim/index.ts`: native Pi bridge entry point.
+- `extensions/lpi/index.ts`: native Pi bridge entry point.
 - `extensions/session-name/index.ts`: independent session-naming extension.
 - `src/shared/`: browser-safe contracts and validators.
 - `src/client/`: shared browser/mobile transport, synchronization, and controllers.
@@ -15,6 +15,7 @@ runtime-safety constraints live in [AGENTS.md](../AGENTS.md).
 - `frontend/src/`: browser UI and platform adapters.
 - `mobile/src/`: Expo app, native UI, and platform adapters.
 - `desktop/`: Electron shell bundling the existing frontend.
+- `assets/brand/`: shared icon masters and platform exports.
 - `tests/`, `frontend/tests/`, `mobile/tests/`, `desktop/tests/`: isolated tests.
 
 ## Shared contract boundaries
@@ -37,7 +38,7 @@ Native Pi loads extension source, not build output.
 
 For browser development, run the relay separately, then `npm run dev` and open
 `http://127.0.0.1:5173`. Vite proxies API/WebSocket traffic to the relay;
-`PIM_DEV_SERVER` overrides its target. Allow the exact development origin in the relay config.
+`LPI_DEV_SERVER` overrides its target. Allow the exact development origin in the relay config.
 
 ## Reference
 
@@ -56,7 +57,7 @@ Use the [test guide](../tests/README.md) to select suites and follow
 [AGENTS.md](../AGENTS.md) for the affected surface;
 native-Pi integration is opt-in.
 
-Pim reads Pi history without opening another runtime. Its SQLite database stores relay
+lpi reads Pi history without opening another runtime. Its SQLite database stores relay
 metadata, never conversations. Disconnects never authorize a second writer, and reconnects
 never replay mutations automatically. Managed resume checks tmux reservations, but cannot
 reliably detect external writers. Full native TUI/relay integration remains unverified.

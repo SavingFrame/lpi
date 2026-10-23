@@ -4,10 +4,10 @@ Native extension: `@juicesharp/rpiv-ask-user-question`.
 Public contract inspected: **2.13.9**, its exported `/events` declarations and
 `docs/tool-schema.md`. This is not the separate `pi-ask-user` package.
 
-Install/load the native extension through normal Pi configuration. Pim neither installs
-it nor registers another `ask_user_question` tool. Rebuild Pim, restart the relay, reload
+Install/load the native extension through normal Pi configuration. lpi neither installs
+it nor registers another `ask_user_question` tool. Rebuild lpi, restart the relay, reload
 its bridge in native Pi while idle, and refresh the browser to enable support. No extra
-Pim dependency or API key is required.
+lpi dependency or API key is required.
 
 ## Behavior
 
@@ -102,7 +102,7 @@ Answers use the normal `POST /sessions/:id/commands` endpoint:
 Indexes are zero-based. Entries may include `text` and `notes`; the action may include
 `globalNote`. To decline, send `{ toolCallId, cancel: true }` as the action.
 
-Only known fields are forwarded. Pim supplies its own native request ID, validates
+Only known fields are forwarded. lpi supplies its own native request ID, validates
 against the current open questionnaire, and waits for the extension's verdict before
 acknowledging. An explicit rejection keeps the connection usable. Verdict timeout
 (five seconds), malformed correlation, or transport loss is an unknown outcome, never

@@ -37,5 +37,5 @@ export function serializedStorage(storage: ClientStorage): ClientStorage {
 
 /** Scope persisted state to one configured relay, never to the currently selected server. */
 export function clientStorageKey(server: string, kind: string, id: string): string {
-  return `pim:${encodeURIComponent(server)}:${kind}:${encodeURIComponent(id)}`;
+  return `lpi:${encodeURIComponent(server)}:${kind}:${encodeURIComponent(id)}`;
 }

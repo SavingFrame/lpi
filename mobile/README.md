@@ -1,7 +1,7 @@
-# Pim mobile
+# lpi mobile
 
 An iOS-first app for following and controlling your native Pi sessions from your phone.
-It connects to an existing Pim relay. Pi and your conversation files stay on the relay host.
+It connects to an existing lpi relay. Pi and your conversation files stay on the relay host.
 
 The app currently runs through Expo Go or a local native build. No App Store release or
 prebuilt installer is available.
@@ -13,14 +13,14 @@ prebuilt installer is available.
 - Read streaming Markdown, code, tables, images, and expandable tool details. Thinking is hidden.
 - View image and interactive HTML artifacts, including CDN-backed charts when online.
 - Send text and images, steer running agents, and stop a response.
-- Create, resume, and stop Pim-managed runtimes.
+- Create, resume, and stop lpi-managed runtimes.
 - Choose models and thinking levels, and answer supported Ask User Question prompts inline.
 - Keep text drafts and relay settings on your device.
 - Open sessions from optional Home Assistant completion notifications.
 
 ## Run with Expo Go
 
-You need Node.js **22.19 or newer**, a running [Pim relay](../README.md#install-and-run),
+You need Node.js **22.19 or newer**, a running [lpi relay](../README.md#install-and-run),
 and an Expo Go installation compatible with **Expo SDK 57**. Keep both the relay and Expo's
 development server on a trusted network. No paid Apple developer account is needed for Expo Go.
 
@@ -28,7 +28,7 @@ From the repository root:
 
 ```sh
 npm ci --ignore-scripts
-npm run start --workspace @pim/mobile -- --go --lan
+npm run start --workspace @lpi/mobile -- --go --lan
 ```
 
 Scan the QR code with the iPhone Camera, or open `exp://<computer-LAN-IP>:8081` in Safari.
@@ -49,11 +49,11 @@ http://192.168.1.20:3141
 credentials, query parameters, or fragments.
 
 Configure the relay to listen on a reachable address and add that exact relay URL, including
-its port, to `origins` in `pim.config.json`. Restart the relay after changing its configuration.
+its port, to `origins` in `lpi.config.json`. Restart the relay after changing its configuration.
 Prefer HTTPS, especially for qualified Tailscale hostnames. Some HTTP hostnames may be blocked
 by iOS transport policy; certificate validation is not bypassed.
 
-**Pim has no application authentication. Anyone who can reach the relay can control connected
+**lpi has no application authentication. Anyone who can reach the relay can control connected
 agents. Keep it behind trusted LAN, Tailscale, or tunnel access controls.**
 
 ## Using the app
@@ -70,7 +70,7 @@ The attachment **+** opens the photo picker. Up to four PNG, JPEG, GIF, or WebP 
 4 MiB per message. Image-only messages are supported with an image-capable model. Text drafts
 survive app restarts; unsent images do not.
 
-The header power button stops a connected Pim-managed runtime **without confirmation**.
+The header power button stops a connected lpi-managed runtime **without confirmation**.
 This interrupts active work but keeps saved history. Externally managed runtimes must be stopped
 in their terminal. Saved sessions offer **Resume runtime**, which requires confirmation that no
 other Pi process is using the file. A disconnected session may still be running.
@@ -88,7 +88,7 @@ configured. From `mobile/`:
 npx expo prebuild --platform ios
 ```
 
-Open `ios/Pim.xcworkspace` in Xcode, configure your signing team, and select your phone.
+Open `ios/lpi.xcworkspace` in Xcode, configure your signing team, and select your phone.
 Use the **Release** run configuration to bundle JavaScript without Metro. A free Personal Team
 requires signing renewal every seven days and cannot enable remote push notifications.
 Avoid `prebuild --clean` unless you intend to recreate native settings.
@@ -98,17 +98,17 @@ when changing Expo or the generated iOS project.
 
 ## Notification session links
 
-Optional alerts use the Home Assistant Companion app, so Pim needs no push entitlement or
+Optional alerts use the Home Assistant Companion app, so lpi needs no push entitlement or
 paid Apple membership. See [notification setup](../docs/notifications.md).
 
-A native Pim build registers links such as `pim:///?session=<inventory-session-id>`.
+A native lpi build registers links such as `lpi:///?session=<inventory-session-id>`.
 They open history on the app's currently configured relay, without starting Pi or switching
-servers. Missing sessions show an error. iOS opens Home Assistant first, then redirects to Pim;
+servers. Missing sessions show an error. iOS opens Home Assistant first, then redirects to lpi;
 the first handoff may require confirmation.
 
-Expo Go cannot handle `pim://`. For development, use
+Expo Go cannot handle `lpi://`. For development, use
 `exp://<metro-host>:8081/--/?session=<inventory-session-id>` while Metro is reachable.
-Automatic relay notifications target native Pim, not Expo Go. See the
+Automatic relay notifications target native lpi, not Expo Go. See the
 [manual notification checks](../docs/notifications.md#manual-mobile-testing).
 
 ## Limitations

@@ -1,12 +1,12 @@
 # Extension support modules
 
-Pim adds browser support explicitly, one extension at a time. Normal tools still execute
+lpi adds browser support explicitly, one extension at a time. Normal tools still execute
 in native Pi without an adapter. A support module adds browser interaction or rendering
 through an extension's documented public API. It does not install, replace, or run that
 extension in the browser.
 
 No universal interaction schema, terminal-input proxy, RPC runtime, or per-extension
-server is involved. All modules share Pim's existing connection, snapshots, and
+server is involved. All modules share lpi's existing connection, snapshots, and
 generation-checked command endpoint.
 
 ## Layout
@@ -47,7 +47,7 @@ Pi from loading React or CSS. Shared contracts must remain browser-safe.
    Keep live pending state while the transport is offline. The bridge snapshots that
    state on reconnect and forwards changes without retransmitting the transcript.
 5. Register its React component in `web.tsx`. Use the provided disabled state and
-   `onCommand` callback rather than creating another transport or bypassing Pim's
+   `onCommand` callback rather than creating another transport or bypassing lpi's
    mutation/uncertainty guards. Render only validated data. Use
    `frontend/src/components/safe-markdown.ts` for rich Markdown content so raw HTML,
    image URLs, and unsafe links use the same policy as the transcript.

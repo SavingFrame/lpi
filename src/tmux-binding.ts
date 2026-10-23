@@ -5,11 +5,11 @@ import { piInventoryId } from './storage/session-id.js';
 
 /** Keep conservative file reservations in tmux, surviving relay restarts and TUI switches. */
 export function reserveManagedFile(file: string): void {
-  const name = process.env.PIM_TMUX_SESSION;
+  const name = process.env.LPI_TMUX_SESSION;
   if (!name) {
     return;
   }
-  if (!/^pim-[a-f0-9-]{36}$/.test(name)) {
+  if (!/^lpi-[a-f0-9-]{36}$/.test(name)) {
     throw new Error('Invalid managed tmux session');
   }
   const canonical = existsSync(file)
@@ -17,7 +17,7 @@ export function reserveManagedFile(file: string): void {
     : join(realpathSync(dirname(file)), basename(file));
   execFileSync(
     'tmux',
-    ['-L', 'pim', 'set-option', '-t', `=${name}:`, `@pim_file_${piInventoryId(canonical)}`, '1'],
+    ['-L', 'lpi', 'set-option', '-t', `=${name}:`, `@lpi_file_${piInventoryId(canonical)}`, '1'],
     { timeout: 5000, stdio: ['ignore', 'pipe', 'pipe'] },
   );
 }

@@ -37,7 +37,7 @@ test('real Electron loads the frontend, restricts navigation, and closes without
   await server.listen({ port: 0, host: '127.0.0.1' });
   config.port = server.server.address().port;
   const origin = `http://127.0.0.1:${config.port}`;
-  config.origins = [origin, 'pim-app://app', 'http://127.0.0.1:5173'];
+  config.origins = [origin, 'lpi-app://app', 'http://127.0.0.1:5173'];
   const uiRequests = [];
   const requestOrigins = [];
   const requestMethods = [];
@@ -60,7 +60,7 @@ test('real Electron loads the frontend, restricts navigation, and closes without
     XDG_CONFIG_HOME: join(home, '.config'),
     XDG_CACHE_HOME: join(home, '.cache'),
     PI_CODING_AGENT_DIR: join(home, '.pi'),
-    PIM_DESKTOP_SERVER: origin,
+    LPI_DESKTOP_SERVER: origin,
   };
   delete env.ELECTRON_RUN_AS_NODE;
   delete env.ELECTRON_RENDERER_URL;
@@ -86,7 +86,7 @@ test('real Electron loads the frontend, restricts navigation, and closes without
   assert.match(output, /DESKTOP_SMOKE_OK/);
   assert.deepEqual(uiRequests, [], 'desktop UI and visuals never come from the relay');
   assert.ok(
-    requestOrigins.includes('pim-app://app'),
+    requestOrigins.includes('lpi-app://app'),
     'custom origin stays explicit on HTTP requests',
   );
   assert.ok(requestMethods.includes('OPTIONS'), 'cross-origin JSON mutations use CORS preflight');
@@ -120,8 +120,8 @@ test('real Electron loads the frontend, restricts navigation, and closes without
       {
         env: {
           ...env,
-          PIM_DESKTOP_DEV_PORT: String(devPort),
-          PIM_DEV_SERVER: 'https://unused.invalid',
+          LPI_DESKTOP_DEV_PORT: String(devPort),
+          LPI_DEV_SERVER: 'https://unused.invalid',
         },
         stdio: ['ignore', 'pipe', 'pipe'],
       },
@@ -159,7 +159,7 @@ test('real Electron loads the frontend, restricts navigation, and closes without
   // Local assets must still render when there is no relay at all.
   await server.close();
   const offline = spawn(electron, [fileURLToPath(new URL('./smoke-app.mjs', import.meta.url))], {
-    env: { ...env, PIM_SMOKE_OFFLINE: '1' },
+    env: { ...env, LPI_SMOKE_OFFLINE: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let offlineOutput = '';

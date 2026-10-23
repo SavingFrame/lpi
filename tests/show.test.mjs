@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { mkdir, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import test from 'node:test';
-import { registerShow } from '../dist/extensions/pim/native/show.js';
+import { registerShow } from '../dist/extensions/lpi/native/show.js';
 import { displayArtifact, MAX_HTML_BYTES } from '../dist/src/shared/display.js';
 import { fakePi } from './bridge-fixture.mjs';
 import { fixture } from './helpers.mjs';
@@ -55,24 +55,24 @@ test('bridge registers direct show, snapshots HTML/images and retains short mode
   await unlink(join(cwd, 'pixel.png'));
   assert.equal(displayArtifact(htmlResult).html, html);
   assert.equal(displayArtifact(imageResult).image.data, png.toString('base64'));
-  assert.match(htmlResult.content[0].text, /Saved inline visual for Pim: Example/);
+  assert.match(htmlResult.content[0].text, /Saved inline visual for lpi: Example/);
   assert.match(htmlResult.content[0].text, /A useful visual/);
   assert.equal(JSON.stringify(htmlResult.content).includes(html), false);
   for (const invalid of [
     { ...htmlResult, isError: true },
     { ...htmlResult, toolName: 'read' },
     { ...htmlResult, role: 'assistant' },
-    { ...htmlResult, details: { pimDisplay: { ...htmlResult.details.pimDisplay, version: 2 } } },
-    { ...htmlResult, details: { pimDisplay: { ...htmlResult.details.pimDisplay, html: 123 } } },
+    { ...htmlResult, details: { lpiDisplay: { ...htmlResult.details.lpiDisplay, version: 2 } } },
+    { ...htmlResult, details: { lpiDisplay: { ...htmlResult.details.lpiDisplay, html: 123 } } },
     {
       ...htmlResult,
-      details: { pimDisplay: { ...htmlResult.details.pimDisplay, filename: '../secret.html' } },
+      details: { lpiDisplay: { ...htmlResult.details.lpiDisplay, filename: '../secret.html' } },
     },
     {
       ...imageResult,
       details: {
-        pimDisplay: {
-          ...imageResult.details.pimDisplay,
+        lpiDisplay: {
+          ...imageResult.details.lpiDisplay,
           image: { type: 'image', mimeType: 'image/png', data: 'AAAA' },
         },
       },

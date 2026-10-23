@@ -10,7 +10,7 @@ export const nativeStorage = {
   removeItem: (key) => AsyncStorage.removeItem(key),
 } satisfies ClientStorage;
 
-export const serverPreferenceKey = 'pim:mobile:server';
+export const serverPreferenceKey = 'lpi:mobile:server';
 
 export function createRelay(origin: string): MobileRelay {
   return new MobileRelay(origin, {

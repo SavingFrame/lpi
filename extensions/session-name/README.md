@@ -1,10 +1,10 @@
 # Automatic session names
 
 The independent `extensions/session-name/index.ts` extension generates native Pi session names from the
-first user message. It does not depend on Pim or tmux. Load it separately:
+first user message. It does not depend on lpi or tmux. Load it separately:
 
 ```sh
-pi --extension /absolute/path/to/pim/extensions/session-name/index.ts
+pi --extension /absolute/path/to/lpi/extensions/session-name/index.ts
 ```
 
 For persistent loading, symlink `extensions/session-name` into `~/.pi/agent/extensions/session-name`

@@ -16,7 +16,7 @@ test('managed file reservations target the exact tmux session and accumulate', (
   }
   assert.equal(available.status, 0);
   const { root, home, defer } = fixture(t);
-  const name = 'pim-11111111-1111-1111-1111-111111111111';
+  const name = 'lpi-11111111-1111-1111-1111-111111111111';
   const env = {
     ...process.env,
     HOME: home,
@@ -24,10 +24,10 @@ test('managed file reservations target the exact tmux session and accumulate', (
     TMUX: '',
     TMUX_PANE: '',
     TMUX_TMPDIR: root,
-    PIM_TMUX_SESSION: name,
+    LPI_TMUX_SESSION: name,
   };
   const run = (args) =>
-    execFileSync('tmux', ['-L', 'pim', '-f', '/dev/null', ...args], {
+    execFileSync('tmux', ['-L', 'lpi', '-f', '/dev/null', ...args], {
       env,
       encoding: 'utf8',
       timeout: 5000,
@@ -35,7 +35,7 @@ test('managed file reservations target the exact tmux session and accumulate', (
     });
   run(['new-session', '-d', '-s', name, 'sleep 60']);
   defer(() => run(['kill-server']));
-  t.diagnostic(`Monitor: TMUX_TMPDIR=${root} tmux -L pim attach -t ${name}`);
+  t.diagnostic(`Monitor: TMUX_TMPDIR=${root} tmux -L lpi attach -t ${name}`);
   run(['new-session', '-d', '-s', `${name}-other`, 'sleep 60']);
 
   const existing = join(root, 'existing.jsonl');
@@ -58,7 +58,7 @@ test('managed file reservations target the exact tmux session and accumulate', (
 
   // Option commands accept pane targets, so exact session names need a trailing colon.
   const options = run(['show-options', '-t', `=${name}:`]);
-  assert.ok(options.includes(`@pim_file_${piInventoryId(existing)} 1`));
-  assert.ok(options.includes(`@pim_file_${piInventoryId(fresh)} 1`));
+  assert.ok(options.includes(`@lpi_file_${piInventoryId(existing)} 1`));
+  assert.ok(options.includes(`@lpi_file_${piInventoryId(fresh)} 1`));
   assert.equal(run(['show-options', '-t', `=${name}-other:`]), '');
 });

@@ -50,7 +50,7 @@ test('relay REST, host/origin checks, WebSocket events and removed runtime endpo
   assert.equal((await fetch(`${base}/sessions`)).status, 200);
   assert.equal((await fetch(`${base}/sessions`, { headers })).status, 200);
   const lanOrigin = 'http://192.168.1.20:3141';
-  const tailscaleOrigin = 'http://pim.example.ts.net:3141';
+  const tailscaleOrigin = 'http://lpi.example.ts.net:3141';
   config.origins.push(lanOrigin, tailscaleOrigin);
   for (const origin of [lanOrigin, tailscaleOrigin]) {
     const request = get(`${base}/sessions`, {
@@ -159,8 +159,9 @@ test('production frontend serves deep links and assets without bypassing origin 
   const { root, config, defer } = fixture(t);
   const directory = join(root, 'frontend');
   mkdirSync(join(directory, 'assets'), { recursive: true });
-  writeFileSync(join(directory, 'index.html'), '<!doctype html><title>Pim test</title>');
+  writeFileSync(join(directory, 'index.html'), '<!doctype html><title>lpi test</title>');
   writeFileSync(join(directory, 'assets', 'test.js'), 'console.log("test");');
+  writeFileSync(join(directory, 'assets', 'lpi.webmanifest'), '{"name":"lpi"}');
   const events = new Events();
   const bridges = new NativeBridges(config, events);
   const sessions = new Sessions(
@@ -185,10 +186,13 @@ test('production frontend serves deep links and assets without bypassing origin 
   const policy = page.headers.get('Content-Security-Policy');
   assert.match(policy, /(?:^|; )style-src 'self' 'unsafe-inline';/);
   assert.match(policy, /(?:^|; )script-src 'self';/);
-  assert.match(await page.text(), /Pim test/);
+  assert.match(await page.text(), /lpi test/);
   const asset = await fetch(`${base}/assets/test.js`);
   assert.equal(asset.status, 200);
   assert.match(asset.headers.get('Content-Type'), /javascript/);
+  const manifest = await fetch(`${base}/assets/lpi.webmanifest`);
+  assert.equal(manifest.headers.get('Content-Type'), 'application/manifest+json');
+  assert.deepEqual(await manifest.json(), { name: 'lpi' });
   assert.equal((await fetch(`${base}/assets/missing.js`)).status, 404);
   assert.equal((await fetch(`${base}/assets/%2e%2e%2fsrc%2fmain.ts`)).status, 404);
   assert.equal(

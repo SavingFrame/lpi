@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform } from 'react-native';
 import { Button, Input, Text, YStack } from 'tamagui';
+import { BrandIcon } from '../../components/brand-icon';
 import { colors } from '../../theme/colors';
 
 export function ConnectionForm({
@@ -33,15 +34,16 @@ export function ConnectionForm({
       style={{ flex: 1 }}
     >
       <YStack flex={1} justifyContent="center" padding={24} gap={20}>
+        <BrandIcon size={52} />
         <Text color={colors.accent} fontSize={18} fontWeight="700">
-          PIM / MOBILE
+          LPI / MOBILE
         </Text>
         <Text color={colors.text} fontSize={30} fontWeight="700">
           Your sessions, anywhere on your network.
         </Text>
         <Text color={colors.muted}>Connect to your existing relay over LAN or Tailscale.</Text>
         <Input
-          accessibilityLabel="Pim server URL"
+          accessibilityLabel="lpi server URL"
           value={value}
           onChangeText={setValue}
           placeholder="http://192.168.1.20:3141"
@@ -65,7 +67,7 @@ export function ConnectionForm({
           {pending ? 'Saving server…' : 'Connect'}
         </Button>
         <Text color={colors.muted} fontSize={13}>
-          Pim trusts everyone who can reach it. Keep the relay private. HTTP support depends on
+          lpi trusts everyone who can reach it. Keep the relay private. HTTP support depends on
           native transport policy; HTTPS is preferred.
         </Text>
       </YStack>

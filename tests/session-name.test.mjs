@@ -7,7 +7,7 @@ import { setImmediate } from 'node:timers/promises';
 import sessionName from '../dist/extensions/session-name/index.js';
 
 function fixture(t, { name, history = [], missingModel = false } = {}) {
-  const agentDir = mkdtempSync(join(tmpdir(), 'pim-session-name-'));
+  const agentDir = mkdtempSync(join(tmpdir(), 'lpi-session-name-'));
   const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
   process.env.PI_CODING_AGENT_DIR = agentDir;
   t.after(() => rmSync(agentDir, { recursive: true, force: true }));

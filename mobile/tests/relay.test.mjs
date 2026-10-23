@@ -212,7 +212,7 @@ test('relay settings normalize origins and reject credentials, paths, and unsupp
   assert.equal(eventsUrl('http://[::1]:3141'), 'ws://[::1]:3141/events');
   for (const value of [
     'relay-one:3141',
-    'file:///tmp/pim',
+    'file:///tmp/lpi',
     'https://user:secret@relay',
     'https://relay/proxy',
     'https://relay/?token=secret',

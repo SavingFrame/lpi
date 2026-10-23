@@ -11,7 +11,7 @@ import {
 const contentRuntime = `(config => {
   const style = document.currentScript.previousElementSibling;
   const themeListeners = new Set();
-  window.pim = Object.freeze({
+  window.lpi = Object.freeze({
     color: name => getComputedStyle(document.documentElement).getPropertyValue(name).trim(),
     onThemeChange: listener => {
       if (typeof listener !== 'function') throw new TypeError('Expected a theme-change callback.');
@@ -46,7 +46,7 @@ const contentRuntime = `(config => {
   };
   theme(config.theme);
   addEventListener('message', event => {
-    if (event.source === parent && event.data?.type === 'pim-display-theme' && event.data.id === config.id && event.data.theme) theme(event.data.theme);
+    if (event.source === parent && event.data?.type === 'lpi-display-theme' && event.data.id === config.id && event.data.theme) theme(event.data.theme);
   });
   let height = 0;
   let pending = false;
@@ -58,7 +58,7 @@ const contentRuntime = `(config => {
     const next = Math.ceil(Math.max(rect.bottom + scrollY, rect.top + scrollY + body.scrollHeight));
     if (next > 0 && next !== height) {
       height = next;
-      parent.postMessage({type:'pim-display-size', id:config.id, height:next}, '*');
+      parent.postMessage({type:'lpi-display-size', id:config.id, height:next}, '*');
     }
   };
   const schedule = () => {
@@ -95,7 +95,7 @@ export function displayDocument(initial?: {
       if (!current) return;
       current.theme = theme;
       document.body.style.background = theme.background;
-      frame.contentWindow.postMessage({type:'pim-display-theme', id:current.id, theme}, '*');
+      frame.contentWindow.postMessage({type:'lpi-display-theme', id:current.id, theme}, '*');
     };
     const show = data => {
       if (typeof data.html !== 'string' || data.html.length > ${MAX_HTML_BYTES} || typeof data.id !== 'string' || data.id.length > 128) return;
@@ -114,10 +114,10 @@ export function displayDocument(initial?: {
     };
     addEventListener('message', event => {
       const data = event.data;
-      if (event.source === parent && data?.type === 'pim-display') show(data);
-      if (event.source === parent && data?.type === 'pim-display-theme' && current?.id === data.id && data.theme) sendTheme(data.theme);
-      if (event.source !== frame.contentWindow || data?.type !== 'pim-display-size' || data.id !== current?.id || typeof data.height !== 'number' || !Number.isFinite(data.height) || data.height <= 0) return;
-      const report = {type:'pim-display-size', id:current.id, height:Math.min(${MAX_DISPLAY_HEIGHT}, Math.ceil(data.height))};
+      if (event.source === parent && data?.type === 'lpi-display') show(data);
+      if (event.source === parent && data?.type === 'lpi-display-theme' && current?.id === data.id && data.theme) sendTheme(data.theme);
+      if (event.source !== frame.contentWindow || data?.type !== 'lpi-display-size' || data.id !== current?.id || typeof data.height !== 'number' || !Number.isFinite(data.height) || data.height <= 0) return;
+      const report = {type:'lpi-display-size', id:current.id, height:Math.min(${MAX_DISPLAY_HEIGHT}, Math.ceil(data.height))};
       // Native's only callback is the same bounded size report, never arbitrary page messages.
       if (initial) window.ReactNativeWebView?.postMessage(JSON.stringify(report));
       else parent.postMessage(report, '*');

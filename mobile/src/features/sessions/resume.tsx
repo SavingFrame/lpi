@@ -34,7 +34,7 @@ export function ResumeSession({
             onOpen(true);
             Alert.alert(
               'Resume runtime?',
-              'Confirm no Pi process is still using this session, including terminals outside Pim. Pim checks managed tmux reservations but cannot detect every external writer. Resuming starts Pi on the existing session file.',
+              'Confirm no Pi process is still using this session, including terminals outside lpi. lpi checks managed tmux reservations but cannot detect every external writer. Resuming starts Pi on the existing session file.',
               [
                 { text: 'Cancel', style: 'cancel', onPress: () => onOpen(false) },
                 {
@@ -60,7 +60,7 @@ export function ResumeSession({
           {state.status === 'uncertain' && (
             <>
               <Text style={styles.hint}>
-                Resume outcome unknown. Inspect this session and tmux -L pim list-sessions on the
+                Resume outcome unknown. Inspect this session and tmux -L lpi list-sessions on the
                 relay host before trying again.
               </Text>
               <Pressable

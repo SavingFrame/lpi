@@ -30,7 +30,7 @@ app.once('browser-window-created', (_event, window) => {
       assert.equal(window.isMenuBarAutoHide(), true, 'menu remains accessible with Alt');
       assert.equal(window.isMenuBarVisible(), false, 'menu bar starts hidden');
     }
-    if (process.env.PIM_SMOKE_OFFLINE === '1') {
+    if (process.env.LPI_SMOKE_OFFLINE === '1') {
       await until(() =>
         contents.executeJavaScript(
           'Boolean(document.querySelector(".welcome h1")) && document.querySelector("[role=status]")?.textContent === "offline"',
@@ -92,9 +92,9 @@ app.once('browser-window-created', (_event, window) => {
     contents.sendInputEvent({ type: 'keyDown', keyCode: '0', modifiers: ['control'] });
     contents.sendInputEvent({ type: 'keyUp', keyCode: '0', modifiers: ['control'] });
     await until(() => Math.abs(contents.getZoomFactor() - 1) < 0.0001);
-    await contents.executeJavaScript('window.pimDesktop.setZoom(1.15)');
+    await contents.executeJavaScript('window.lpiDesktop.setZoom(1.15)');
     assert.equal(contents.getZoomFactor(), 1.15);
-    await assert.rejects(contents.executeJavaScript('window.pimDesktop.setZoom(999)'));
+    await assert.rejects(contents.executeJavaScript('window.lpiDesktop.setZoom(999)'));
     assert.equal(contents.getZoomFactor(), 1.15, 'invalid IPC does not change scale');
     const reloaded = once(contents, 'did-finish-load');
     contents.reload();
@@ -108,7 +108,7 @@ app.once('browser-window-created', (_event, window) => {
     // Cross-origin API and event-socket traffic has loaded the actual React UI.
     assert.match(await contents.executeJavaScript('document.body.innerText'), /test/);
     const mutation = await contents.executeJavaScript(`
-      fetch(document.querySelector('meta[name="pim-relay-origin"]').content +
+      fetch(document.querySelector('meta[name="lpi-relay-origin"]').content +
         '/sessions/00000000-0000-0000-0000-000000000000/archive', {
           method: 'POST', headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ requestId: 'desktop-cors-probe', archived: false })
@@ -133,7 +133,7 @@ app.once('browser-window-created', (_event, window) => {
     });
     await contents.executeJavaScript(`
       document.getElementById('visual-probe').contentWindow.postMessage({
-        type: 'pim-display', id: 'smoke', html: '<p>Visual probe</p>'
+        type: 'lpi-display', id: 'smoke', html: '<p>Visual probe</p>'
       }, '*');
     `);
     await until(async () => {
@@ -142,7 +142,7 @@ app.once('browser-window-created', (_event, window) => {
       return (
         inner &&
         (await inner.executeJavaScript(
-          'document.body.textContent.includes("Visual probe") && typeof require === "undefined" && typeof window.pimDesktop === "undefined"',
+          'document.body.textContent.includes("Visual probe") && typeof require === "undefined" && typeof window.lpiDesktop === "undefined"',
         ))
       );
     });

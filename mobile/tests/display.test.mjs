@@ -67,7 +67,7 @@ test('saved visuals sit outside mobile tool groups and the native callback accep
     toolCallId: 'show-1',
     timestamp: 2,
     content: [{ type: 'text', text: 'Displayed chart.' }],
-    details: { pimDisplay: artifact },
+    details: { lpiDisplay: artifact },
   };
   assert.equal(
     conversationRows([result], [])[0].artifact.html,
@@ -109,15 +109,15 @@ test('saved visuals sit outside mobile tool groups and the native callback accep
     'not json',
     'x'.repeat(257),
     JSON.stringify({ type: 'prompt', message: 'Run a command' }),
-    JSON.stringify({ type: 'pim-display-size', id: 'old-preview', height: 900 }),
-    JSON.stringify({ type: 'pim-display-size', id: initial.id, height: -1 }),
+    JSON.stringify({ type: 'lpi-display-size', id: 'old-preview', height: 900 }),
+    JSON.stringify({ type: 'lpi-display-size', id: initial.id, height: -1 }),
   ]) {
     report(invalid);
   }
   assert.equal(updates.length, 0, 'malformed, stale and action messages do nothing');
-  report(JSON.stringify({ type: 'pim-display-size', id: initial.id, height: 700 }));
+  report(JSON.stringify({ type: 'lpi-display-size', id: initial.id, height: 700 }));
   assert.equal(updates.at(-1).height, 700);
-  report(JSON.stringify({ type: 'pim-display-size', id: initial.id, height: 1e9 }));
+  report(JSON.stringify({ type: 'lpi-display-size', id: initial.id, height: 1e9 }));
   assert.equal(updates.at(-1).height, MAX_DISPLAY_HEIGHT);
   for (const key of [
     'allowFileAccess',

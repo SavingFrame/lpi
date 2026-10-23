@@ -7,7 +7,7 @@ import { setup, waitFor } from './bridge-fixture.mjs';
 test('bridge rejection logs identify invalid fields and redact payload contents', async (t) => {
   const logs = [];
   t.mock.method(console, 'warn', (prefix, line) => {
-    assert.equal(prefix, '[pim:bridge]');
+    assert.equal(prefix, '[lpi:bridge]');
     logs.push(JSON.parse(line));
   });
   const { url, identity, snapshot, open } = await setup(t);

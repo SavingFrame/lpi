@@ -30,6 +30,6 @@ export function composerCommands(value: unknown): ComposerCommand[] {
 
 export function availableComposerCommands(commands: ComposerCommand[]): ComposerCommand[] {
   return commands.filter(
-    ({ name }) => !name.startsWith('pim-') && !['new', 'compact'].includes(name),
+    ({ name }) => !name.startsWith('lpi-') && !['new', 'compact'].includes(name),
   );
 }

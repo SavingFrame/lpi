@@ -1,12 +1,12 @@
 ---
 name: ios-macos
-description: Test Pim's mobile app on the already-prepared SSH Mac. Use the bundled Bash helper to sync source, reuse Metro, open Expo Go on the current simulator, capture screenshots, and inspect logs.
+description: Test lpi's mobile app on the already-prepared SSH Mac. Use the bundled Bash helper to sync source, reuse Metro, open Expo Go on the current simulator, capture screenshots, and inspect logs.
 ---
 
-# Test Pim on the Mac
+# Test lpi on the Mac
 
 The Mac is already prepared. Use the [Bash helper](scripts/ios-mac.sh), not a provisioning
-workflow. From the Pim repository root:
+workflow. From the lpi repository root:
 
 ```sh
 bash .pi/skills/ios-macos/scripts/ios-mac.sh run
@@ -42,10 +42,10 @@ explicitly before testing, following the boundaries below.
 
 SSH: `user@192.168.100.209`. Checkout: `/Users/user/Projects/pim-mobile-test.VdZTqa`.
 Private Node 22, npm config, Expo home/cache are under `.tools/` there. Metro uses port
-8081, socket `/tmp/claude-tmux-sockets/pim-mobile.sock`, session `pim-mobile-metro`.
+8081, socket `/tmp/claude-tmux-sockets/lpi-mobile.sock`, session `lpi-mobile-metro`.
 Working device: iPhone 17 on iOS 27.0; always rediscover its UDID.
 
-Overrides: `PIM_IOS_SSH`, `PIM_IOS_DIR`, `PIM_IOS_HOST`, `PIM_IOS_DEVICE`. Set the last to
+Overrides: `LPI_IOS_SSH`, `LPI_IOS_DIR`, `LPI_IOS_HOST`, `LPI_IOS_DEVICE`. Set the last to
 a current UDID when multiple devices are booted or explicitly selecting a shutdown device.
 Only `open` boots an explicitly selected shutdown device.
 

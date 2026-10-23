@@ -26,10 +26,12 @@ test('windowed sidebar search, project controls and settings work in desktop and
   // Native settings capability only. No Electron APIs, real relay, or agent commands.
   const bootstrap = `<script>
     if (!new URLSearchParams(location.search).has('browser')) {
-      window.pimDesktop = {
+      window.lpiDesktop = {
         getZoom: async () => 1,
         setZoom: async value => value,
-        onZoomChanged: () => () => {}
+        onZoomChanged: () => () => {},
+        notify: async () => {},
+        onNotificationClicked: () => () => {}
       };
     }
     const headerFixture = new URLSearchParams(location.search).has('header');

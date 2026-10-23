@@ -12,6 +12,7 @@ import { activityCounts, groupSessions, visibleSessions } from '../../../../src/
 import type { LaunchController } from '../../../../src/client/launches';
 import { relativeTime } from '../../../../src/client/relative-time';
 import { hasUnreadCompletion } from '../../../../src/shared/session-read-state';
+import { BrandIcon } from '../../components/brand-icon';
 import type { MobileMessages } from '../../lib/messages';
 import type { InventoryState } from '../../lib/relay';
 import { colors, projectColor } from '../../theme/colors';
@@ -65,7 +66,10 @@ export function ProjectDrawer({
   return (
     <View style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.heading}>Projects</Text>
+        <View style={styles.brand}>
+          <BrandIcon size={28} />
+          <Text style={styles.heading}>lpi</Text>
+        </View>
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Close projects"
@@ -107,7 +111,7 @@ export function ProjectDrawer({
       {launch.status === 'uncertain' && (
         <View style={styles.launchNotice}>
           <Text style={styles.notice}>
-            Launch outcome unknown. Inspect recent sessions and tmux -L pim list-sessions on the
+            Launch outcome unknown. Inspect recent sessions and tmux -L lpi list-sessions on the
             relay host before creating another session.
           </Text>
           <Pressable
@@ -325,6 +329,7 @@ const styles = StyleSheet.create({
     paddingRight: 8,
     paddingVertical: 8,
   },
+  brand: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   heading: { color: colors.text, fontSize: 22, fontWeight: '700' },
   close: { width: 44, height: 44, justifyContent: 'center', alignItems: 'center' },
   closeText: { color: colors.muted, fontSize: 28 },

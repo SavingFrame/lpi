@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { NativeCommands } from '../dist/extensions/pim/native/commands.js';
-import { nativeComposerCommands } from '../dist/extensions/pim/native/composer-commands.js';
+import { NativeCommands } from '../dist/extensions/lpi/native/commands.js';
+import { nativeComposerCommands } from '../dist/extensions/lpi/native/composer-commands.js';
 import { bridgeCommand } from '../dist/src/shared/commands.js';
 
 function setup() {
@@ -10,7 +10,7 @@ function setup() {
     { name: 'hello', source: 'extension', description: 'Hello' },
     { name: 'skill:review', source: 'skill' },
     { name: 'template', source: 'prompt' },
-    { name: 'pim-tree', source: 'extension' },
+    { name: 'lpi-tree', source: 'extension' },
     { name: 'new', source: 'extension' },
   ];
   const pi = {

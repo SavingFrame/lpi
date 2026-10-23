@@ -5,7 +5,7 @@ For installation, relay selection, and appearance controls, see the
 
 ## Build and architecture
 
-Electron bundles the existing React frontend and shared client code at `pim-app://app/`.
+Electron bundles the existing React frontend and shared client code at `lpi-app://app/`.
 It starts no local UI web server and never starts Pi or the relay.
 
 `npm run build:desktop` builds without launching. `electron-vite` compiles the main process to `dist/desktop/main/index.js`, bundles the TypeScript
@@ -27,7 +27,7 @@ The shared settings page uses a typed platform adapter; browser users retain bro
 ```sh
 npm run desktop:dev
 # Select another relay:
-PIM_DESKTOP_SERVER=https://your-trusted-relay npm run desktop:dev
+LPI_DESKTOP_SERVER=https://your-trusted-relay npm run desktop:dev
 ```
 
 `electron-vite dev --watch` builds main/preload, starts Vite at `http://127.0.0.1:5173`, and
@@ -35,11 +35,11 @@ launches Electron. Frontend edits use HMR, main-process edits restart Electron, 
 reload its renderer. These actions leave the relay and Pi running. The main process accepts
 `ELECTRON_RENDERER_URL` only as an exact HTTP loopback origin and never uses it when packaged.
 The desktop config injects the relay endpoint into the dev page and aligns Vite's visual/API
-proxies with it. `PIM_DEV_SERVER` remains the browser-development override; use
-`PIM_DESKTOP_SERVER` for desktop development.
+proxies with it. `LPI_DEV_SERVER` remains the browser-development override; use
+`LPI_DESKTOP_SERVER` for desktop development.
 
 Port 5173 must be available; the tool never silently selects another port. Set
-`PIM_DESKTOP_DEV_PORT=5174` to use another port explicitly, and add that exact HTTP loopback
+`LPI_DESKTOP_DEV_PORT=5174` to use another port explicitly, and add that exact HTTP loopback
 origin to the relay configuration. Closing Electron on Linux/Windows or quitting on macOS stops
 the dev process. Ctrl+C stops Electron and Vite only. On macOS closing the last window keeps the
 app/Vite running; activation reopens it.
@@ -47,8 +47,9 @@ app/Vite running; activation reopens it.
 ## Security and lifecycle
 
 - Sandboxed, context-isolated renderer; Node integration disabled in pages, workers, and frames.
-- A sandboxed preload exposes only get/set/subscribe UI-scale methods. Main-process IPC checks
-  the exact window, top-level frame, trusted UI URL, and bounded scale before changing preferences.
+- A sandboxed preload exposes get/set/subscribe UI-scale methods and bounded notification
+  delivery/click methods. Main-process IPC checks the exact window, top-level frame, trusted UI
+  URL, and validated payloads. Native alerts are suppressed while the window is focused.
   It exposes no raw IPC objects/events, filesystem access, relay commands, or agent controls.
   Shared client code remains independent of Electron.
 - Web security, CORS, and certificate validation stay enabled.
@@ -62,9 +63,10 @@ app/Vite running; activation reopens it.
   locally in bundled mode. Existing visual CSP permits HTTP(S) chart scripts/styles without
   granting relay access. Vite remains development-only and does not supply production CSP.
 - Webviews, permission requests/checks, device permissions, and display capture are denied.
-  Native notifications and permission-gated clipboard APIs are not integrated.
+  Native notifications use main-process Electron APIs, not browser permission grants.
+  Permission-gated clipboard APIs are not integrated.
 - Downloads retain the native Save As flow; files never open automatically.
-- Desktop storage lives in Electron's app-data directory under `pim-desktop`, separate from
+- Desktop storage lives in Electron's app-data directory under `lpi-desktop`, separate from
   browser storage. Reload guards are relay-scoped; there is no automatic runtime resume/stop.
 - One desktop instance per profile; another launch focuses the current window. Standard native
   menus provide copy/paste, reload, and developer tools. Renderer-crash reload is explicit.
@@ -89,5 +91,6 @@ and Electron binary are required.
 
 This does not establish real-Pi integration or macOS/Windows behavior. Manual platform checks
 should include window reopening, app quit, downloads, attachment/paste, and development HMR.
-Tabs, native notifications, external-link UX, deep links, installers, signing, auto-updates,
+Native notification delivery and click behavior require manual OS checks.
+Tabs, external-link UX, deep links, installers, signing, auto-updates,
 and production distribution remain separate work. Bundling the UI is not an installer.

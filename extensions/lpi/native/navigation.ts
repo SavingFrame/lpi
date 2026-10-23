@@ -19,8 +19,8 @@ export class NativeNavigation {
 
   constructor(pi: ExtensionAPI) {
     this.pi = pi;
-    pi.registerCommand('pim-tree', {
-      description: 'Internal Pim tree navigation. Use the browser branch controls.',
+    pi.registerCommand('lpi-tree', {
+      description: 'Internal lpi tree navigation. Use the browser branch controls.',
       handler: async (args, context) => {
         const pending = this.pending;
         if (!pending || args !== pending.token) {
@@ -65,7 +65,7 @@ export class NativeNavigation {
       };
       this.pending = pending;
       try {
-        this.pi.sendUserMessage(`/pim-tree ${pending.token}`, { expandPromptTemplates: true });
+        this.pi.sendUserMessage(`/lpi-tree ${pending.token}`, { expandPromptTemplates: true });
       } catch (error) {
         clearTimeout(pending.timer);
         this.pending = undefined;

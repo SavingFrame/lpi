@@ -125,7 +125,7 @@ export function SessionShell({
                 </Pressable>
                 <View style={styles.titleContainer}>
                   <Text style={styles.title} numberOfLines={1}>
-                    {selected?.title || 'Pim'}
+                    {selected?.title || 'lpi'}
                   </Text>
                   <View style={styles.statusRow}>
                     {running && <ActivityIndicator size="small" color={colors.running} />}

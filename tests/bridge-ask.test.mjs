@@ -127,12 +127,12 @@ test('Ask pending state survives bridge disconnects and captures offline opens a
   await waitFor(
     () => bridges.snapshot(session.id).view.extensions['ask-user-question']?.length === 2,
   );
-  await fake.commands.get('pim-disconnect')('', fake.ctx);
+  await fake.commands.get('lpi-disconnect')('', fake.ctx);
   await waitFor(() => bridges.get(session.id).connection === 'disconnected');
   assert.deepEqual(bridges.snapshot(session.id).view.extensions, {});
   fake.bus.emit(ASK_BLOCKED, { active: false, toolCallId: 'first' });
   fake.bus.emit(ASK_PROMPT, askPrompt('offline'));
-  await fake.commands.get('pim-connect')('', fake.ctx);
+  await fake.commands.get('lpi-connect')('', fake.ctx);
   await waitFor(() => bridges.get(session.id).connection === 'connected');
   await waitFor(
     () => bridges.snapshot(session.id).view.extensions['ask-user-question']?.length === 2,
@@ -210,7 +210,7 @@ test('Ask unknown delivery is never replayed and late verdicts do not acknowledg
   );
   await waitFor(() => bridges.get(session.id).connection === 'disconnected');
   assert.equal(inbound.length, 1);
-  await fake.commands.get('pim-connect')('', fake.ctx);
+  await fake.commands.get('lpi-connect')('', fake.ctx);
   await waitFor(() => bridges.get(session.id).connection === 'connected');
   const reconnected = bridges.get(session.id).generation;
   fake.bus.emit(ASK_ANSWER_RESULT, { ...inbound[0], ok: true });

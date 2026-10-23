@@ -135,7 +135,7 @@ try {
     'Compact must use structured dispatch',
   );
   type('/files');
-  check(!container.querySelector('[role=option]'), 'Pim must not offer the removed /files command');
+  check(!container.querySelector('[role=option]'), 'lpi must not offer the removed /files command');
   type('Review @REA');
   await waitFor(() => container.querySelector('[role=option]'));
   check(fileQueries.at(-1) === 'REA', 'References must search the project using the full query');

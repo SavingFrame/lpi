@@ -5,10 +5,10 @@ import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
 import { createEventBus } from '@earendil-works/pi-coding-agent';
 import { WebSocketServer } from 'ws';
-import extension from '../dist/extensions/pim/index.js';
-import { NativeCommands } from '../dist/extensions/pim/native/commands.js';
-import { NativeState } from '../dist/extensions/pim/native/state.js';
-import { NativeTransport } from '../dist/extensions/pim/native/transport.js';
+import extension from '../dist/extensions/lpi/index.js';
+import { NativeCommands } from '../dist/extensions/lpi/native/commands.js';
+import { NativeState } from '../dist/extensions/lpi/native/state.js';
+import { NativeTransport } from '../dist/extensions/lpi/native/transport.js';
 import { BridgeReader } from '../dist/src/bridge/wire.js';
 import { ASK_PROMPT } from '../dist/src/extension-support/ask-user-question/contract.js';
 import { BRIDGE_LIMIT } from '../dist/src/shared/commands.js';
@@ -27,12 +27,12 @@ async function waitFor(check) {
 
 function setup(t) {
   const base = fixture(t);
-  const keys = ['HOME', 'PI_CODING_AGENT_DIR', 'PIM_LAUNCH_ID', 'PIM_TMUX_SESSION'];
+  const keys = ['HOME', 'PI_CODING_AGENT_DIR', 'LPI_LAUNCH_ID', 'LPI_TMUX_SESSION'];
   const previous = keys.map((key) => process.env[key]);
   process.env.HOME = base.home;
   process.env.PI_CODING_AGENT_DIR = join(base.home, '.pi', 'agent');
-  delete process.env.PIM_LAUNCH_ID;
-  delete process.env.PIM_TMUX_SESSION;
+  delete process.env.LPI_LAUNCH_ID;
+  delete process.env.LPI_TMUX_SESSION;
   base.defer(() => {
     for (const [index, key] of keys.entries()) {
       if (previous[index] === undefined) {
@@ -158,7 +158,7 @@ test('extension load and non-TUI session hooks never start transport resources',
   for (const mode of ['rpc', 'json', 'print']) {
     const context = { ...base.context, mode };
     await base.handlers.get('session_start')({ type: 'session_start' }, context);
-    await base.registered.get('pim-connect')('', context);
+    await base.registered.get('lpi-connect')('', context);
     await base.handlers.get('session_shutdown')({ type: 'session_shutdown' }, context);
   }
 });
@@ -368,8 +368,8 @@ test('tree navigation obtains a fresh command context and acknowledges completio
   base.pi.sendUserMessage = (message, options) => {
     assert.equal(options.expandPromptTemplates, true);
     const token = message.split(' ')[1];
-    void base.registered.get('pim-tree')(token, base.context);
-    void base.registered.get('pim-tree')(token, base.context);
+    void base.registered.get('lpi-tree')(token, base.context);
+    void base.registered.get('lpi-tree')(token, base.context);
   };
   const connection = { generation: 3, session: base.state.identity(), isCurrent: () => true };
   let finished = false;
@@ -426,7 +426,7 @@ test('tree navigation rejects stale leaves, queues, dialogs, missing targets and
   base.state.prompt(null, base.context);
   base.context.navigateTree = async () => ({ cancelled: true });
   base.pi.sendUserMessage = (message) => {
-    void base.registered.get('pim-tree')(message.split(' ')[1], base.context);
+    void base.registered.get('lpi-tree')(message.split(' ')[1], base.context);
   };
   assert.match((await execute()).error, /cancelled/);
 });
@@ -455,7 +455,7 @@ test('tree command revalidates the connection and native position before navigat
     connection,
   );
   connected = false;
-  await base.registered.get('pim-tree')(token, base.context);
+  await base.registered.get('lpi-tree')(token, base.context);
   assert.match((await pending).error, /branch changed/);
 });
 
@@ -485,7 +485,7 @@ test('timed-out tree dispatch cannot execute later or replay itself', async (t) 
   const rejected = assert.rejects(pending, /outcome unknown/);
   t.mock.timers.tick(8000);
   await rejected;
-  await base.registered.get('pim-tree')(token, base.context);
+  await base.registered.get('lpi-tree')(token, base.context);
 });
 
 test('late model acceptance never acknowledges or syncs a replacement connection', async (t) => {

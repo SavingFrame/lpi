@@ -4,8 +4,8 @@ export type { DesktopPlatform } from '../../../src/shared/desktop';
 
 declare global {
   interface Window {
-    pimDesktop?: DesktopPlatform;
+    lpiDesktop?: DesktopPlatform;
   }
 }
 
-export const desktop = typeof window === 'undefined' ? undefined : window.pimDesktop;
+export const desktop = typeof window === 'undefined' ? undefined : window.lpiDesktop;

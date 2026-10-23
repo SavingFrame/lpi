@@ -1,5 +1,6 @@
 import { fileURLToPath } from 'node:url';
 import { BrowserWindow, type Session } from 'electron';
+import appIcon from '../assets/brand/lpi-icon.png?asset';
 import { allowedNavigation } from './policy.js';
 
 /** Apply once to the dedicated desktop session, before creating a renderer. */
@@ -10,13 +11,14 @@ export function secureSession(session: Session): void {
   session.setDisplayMediaRequestHandler((_request, callback) => callback(null));
   session.on('will-download', (_event, item) => {
     // Keep the normal native Save As flow. Never set a silent destination or open the file.
-    item.setSaveDialogOptions({ title: 'Save Pim download' });
+    item.setSaveDialogOptions({ title: 'Save lpi download' });
   });
 }
 
 export function createWindow(origin: string, session: Session, zoomFactor: number): BrowserWindow {
   const window = new BrowserWindow({
-    title: 'Pim',
+    title: 'lpi',
+    icon: appIcon,
     autoHideMenuBar: process.platform !== 'darwin',
     width: 1280,
     height: 900,

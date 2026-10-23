@@ -1,5 +1,5 @@
 {
-  "name": "pim",
+  "name": "lpi",
   "private": true,
   "type": "module",
   "main": "./dist/desktop/main/index.js",
@@ -34,7 +34,7 @@
     "build": "npm run build:server && npm run build:frontend",
     "build:server": "tsc -p tsconfig.json",
     "build:frontend": "vite build --config frontend/vite.config.ts frontend",
-    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p frontend/tsconfig.json && tsc -p desktop/tsconfig.json --noEmit && npm run typecheck --workspace @pim/mobile",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p frontend/tsconfig.json && tsc -p desktop/tsconfig.json --noEmit && npm run typecheck --workspace @lpi/mobile",
     "start": "node dist/src/main.js",
     "test:frontend": "node --experimental-strip-types --test --test-reporter=spec frontend/tests/*.test.mjs",
     "test:browser": "node --test --test-reporter=spec frontend/tests/browser/chat-scroll.mjs",

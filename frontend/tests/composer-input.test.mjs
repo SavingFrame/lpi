@@ -6,7 +6,7 @@ import {
   slashSuggestions,
 } from '../src/session/composer/composer-input.ts';
 
-test('slash menu contains Pim actions and native commands, with no interception of ordinary text', () => {
+test('slash menu contains lpi actions and native commands, with no interception of ordinary text', () => {
   const commands = [{ name: 'skill:review', description: 'Review code', source: 'skill' }];
   assert.deepEqual(
     slashSuggestions('/', commands).map((item) => item.name),
