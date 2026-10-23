@@ -93,7 +93,9 @@ for all defaults and scope rules. Native menu and operating-system shortcuts may
 While the window is unfocused, native desktop notifications report finished turns, input
 requests (including native-terminal prompts), and agent or compaction errors across sessions.
 Click an alert to focus lpi and open that session. Archived sessions are excluded.
-Notifications show the session title and a generic status, not conversation or error contents.
+Notifications show the session title and up to 200 characters from the start of the agent’s final
+response. Turns without response text, input requests, and errors use a generic status.
+Response previews may be visible on your lock screen, depending on OS settings.
 
 The window must remain open and connected. Notifications are best-effort, depend on OS
 notification settings, and are not replayed after reloads or reconnects. Closing the last macOS

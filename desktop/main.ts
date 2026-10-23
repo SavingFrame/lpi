@@ -205,7 +205,7 @@ if (primary) {
             }
             const notification = new Notification({
               title: value.title || 'lpi',
-              body: bodies[value.kind],
+              body: value.body || bodies[value.kind],
               icon: appIcon,
             });
             const remove = () => {

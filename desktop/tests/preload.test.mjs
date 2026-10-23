@@ -89,6 +89,7 @@ test('preload exposes narrow desktop methods, strips IPC events and removes subs
     sessionId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     projectId: 'b'.repeat(64),
     title: 'Session',
+    body: '',
     kind: 'input',
   };
   await bridge.notify(notification);
@@ -97,6 +98,8 @@ test('preload exposes narrow desktop methods, strips IPC events and removes subs
   const stop = bridge.onNotificationClicked((...args) => clicked.push(args));
   callback({ secret: true }, notification);
   callback({}, { ...notification, projectId: 'https://evil.test' });
+  callback({}, { ...notification, body: 'x'.repeat(201) });
+  callback({}, { ...notification, body: 42 });
   assert.deepEqual(clicked, [[notification]]);
   stop();
   assert.equal(callback, undefined);

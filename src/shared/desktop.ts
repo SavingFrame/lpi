@@ -4,6 +4,7 @@ export interface DesktopNotification {
   sessionId: string;
   projectId: string;
   title: string;
+  body: string;
   kind: 'finished' | 'input' | 'error';
 }
 
@@ -19,6 +20,8 @@ export function isDesktopNotification(value: unknown): value is DesktopNotificat
     /^[a-f0-9]{64}$/.test(item.projectId) &&
     typeof item.title === 'string' &&
     item.title.length <= 160 &&
+    typeof item.body === 'string' &&
+    item.body.length <= 200 &&
     typeof item.kind === 'string' &&
     ['finished', 'input', 'error'].includes(item.kind)
   );

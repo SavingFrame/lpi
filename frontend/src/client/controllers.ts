@@ -34,8 +34,8 @@ export const live = new LiveSession(
       return;
     }
     try {
-      const kind = notifications.accept(event);
-      if (!kind) {
+      const notification = notifications.accept(event);
+      if (!notification) {
         return;
       }
       const session = queryClient
@@ -49,7 +49,7 @@ export const live = new LiveSession(
           sessionId: session.id,
           projectId: session.projectId,
           title: (session.title || 'lpi').replace(/\s+/g, ' ').slice(0, 160),
-          kind,
+          ...notification,
         })
         .catch(() => {});
     } catch {

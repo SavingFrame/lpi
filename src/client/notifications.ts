@@ -6,6 +6,7 @@ interface Activity {
   generation: number;
   failed: boolean;
   notice: string | null;
+  response: string;
 }
 
 /** Live events only. Snapshots and read acknowledgments must never generate alerts. */
@@ -14,13 +15,13 @@ export class SessionNotifications {
 
   reset = (): void => this.sessions.clear();
 
-  accept(event: ServerEvent): DesktopNotification['kind'] | null {
+  accept(event: ServerEvent): Pick<DesktopNotification, 'kind' | 'body'> | null {
     let state = this.sessions.get(event.sessionId);
     if (state && event.generation < state.generation) {
       return null;
     }
     if (!state || event.generation !== state.generation || event.type === 'connection') {
-      state = { generation: event.generation, failed: false, notice: null };
+      state = { generation: event.generation, failed: false, notice: null, response: '' };
       this.sessions.delete(event.sessionId);
       this.sessions.set(event.sessionId, state);
       if (this.sessions.size > 64) {
@@ -38,17 +39,33 @@ export class SessionNotifications {
       const notice = typeof data.notice === 'string' && data.notice ? data.notice : null;
       const changed = notice !== null && notice !== state.notice;
       state.notice = notice;
-      return changed ? 'input' : null;
+      return changed ? { kind: 'input', body: '' } : null;
     }
     if (data.type === 'agent_start') {
       state.failed = false;
+      state.response = '';
     }
     if (data.type === 'message_end') {
       const message = record(data.message);
+      if (message.role === 'assistant') {
+        const content = message.content;
+        const text =
+          typeof content === 'string'
+            ? content
+            : Array.isArray(content)
+              ? content
+                  .map((block: unknown) => {
+                    const item = record(block);
+                    return item.type === 'text' && typeof item.text === 'string' ? item.text : '';
+                  })
+                  .join('\n')
+              : '';
+        state.response = text.replace(/\s+/g, ' ').trim().slice(0, 200);
+      }
       if (message.role === 'assistant' && message.stopReason === 'error') {
         const first = !state.failed;
         state.failed = true;
-        return first ? 'error' : null;
+        return first ? { kind: 'error', body: '' } : null;
       }
       if (message.role === 'assistant' && message.stopReason === 'aborted') {
         state.failed = true;
@@ -56,8 +73,10 @@ export class SessionNotifications {
     }
     if (data.type === 'compaction_end' && typeof data.errorMessage === 'string') {
       state.failed = true;
-      return 'error';
+      return { kind: 'error', body: '' };
     }
-    return data.type === 'agent_settled' && !state.failed ? 'finished' : null;
+    return data.type === 'agent_settled' && !state.failed
+      ? { kind: 'finished', body: state.response }
+      : null;
   }
 }

@@ -50,42 +50,91 @@ function pi(type, data = {}, extra = {}) {
 
 test('live alerts distinguish completions, input transitions, and failed or aborted turns', () => {
   const alerts = new SessionNotifications();
-  assert.equal(alerts.accept(pi('agent_start')), null);
-  assert.equal(
+  assert.deepEqual(alerts.accept(pi('agent_start')), null);
+  assert.deepEqual(
     alerts.accept(pi('message_end', { message: { role: 'assistant', stopReason: 'stop' } })),
     null,
   );
-  assert.equal(alerts.accept(pi('agent_settled')), 'finished');
-  assert.equal(alerts.accept(pi('extension_support', { notice: 'Question' })), 'input');
-  assert.equal(alerts.accept(event('bridge-status', { notice: 'Question' })), null);
-  assert.equal(alerts.accept(pi('extension_support', { notice: null })), null);
-  assert.equal(alerts.accept(event('bridge-status', { notice: 'Question' })), 'input');
-  assert.equal(alerts.accept(pi('agent_start')), null);
+  assert.deepEqual(alerts.accept(pi('agent_settled')), { kind: 'finished', body: '' });
+  assert.deepEqual(alerts.accept(pi('extension_support', { notice: 'Question' })), {
+    kind: 'input',
+    body: '',
+  });
+  assert.deepEqual(alerts.accept(event('bridge-status', { notice: 'Question' })), null);
+  assert.deepEqual(alerts.accept(pi('extension_support', { notice: null })), null);
+  assert.deepEqual(alerts.accept(event('bridge-status', { notice: 'Question' })), {
+    kind: 'input',
+    body: '',
+  });
+  assert.deepEqual(alerts.accept(pi('agent_start')), null);
   const failed = pi('message_end', { message: { role: 'assistant', stopReason: 'error' } });
-  assert.equal(alerts.accept(failed), 'error');
-  assert.equal(alerts.accept(failed), null);
-  assert.equal(alerts.accept(pi('agent_settled')), null);
-  assert.equal(alerts.accept(pi('agent_start')), null);
-  assert.equal(
+  assert.deepEqual(alerts.accept(failed), { kind: 'error', body: '' });
+  assert.deepEqual(alerts.accept(failed), null);
+  assert.deepEqual(alerts.accept(pi('agent_settled')), null);
+  assert.deepEqual(alerts.accept(pi('agent_start')), null);
+  assert.deepEqual(
     alerts.accept(pi('message_end', { message: { role: 'assistant', stopReason: 'aborted' } })),
     null,
   );
-  assert.equal(alerts.accept(pi('agent_settled')), null);
-  assert.equal(alerts.accept(pi('agent_start')), null);
-  assert.equal(alerts.accept(pi('agent_settled')), 'finished');
+  assert.deepEqual(alerts.accept(pi('agent_settled')), null);
+  assert.deepEqual(alerts.accept(pi('agent_start')), null);
+  assert.deepEqual(alerts.accept(pi('agent_settled')), { kind: 'finished', body: '' });
+});
+
+test('completion previews use the last assistant text, never thinking or tool output', () => {
+  const alerts = new SessionNotifications();
+  const message = (role, content) =>
+    alerts.accept(pi('message_end', { message: { role, content, stopReason: 'stop' } }));
+  alerts.accept(pi('agent_start'));
+  message('assistant', [{ type: 'text', text: 'Let me check.' }]);
+  message('toolResult', 'Private tool output');
+  message('assistant', [
+    { type: 'thinking', thinking: 'Private reasoning' },
+    { type: 'text', text: '  Fixed the issue.\n\n' },
+    { type: 'text', text: 'Details '.repeat(40) },
+  ]);
+  message('toolResult', 'More tool output');
+  assert.deepEqual(alerts.accept(pi('agent_settled')), {
+    kind: 'finished',
+    body: `Fixed the issue. ${'Details '.repeat(40)}`.slice(0, 200),
+  });
+  alerts.accept(pi('agent_start', {}, { sessionId: 'another' }));
+  assert.deepEqual(alerts.accept(pi('agent_settled', {}, { sessionId: 'another' })), {
+    kind: 'finished',
+    body: '',
+  });
+  alerts.accept(pi('agent_start'));
+  assert.deepEqual(alerts.accept(pi('agent_settled')), { kind: 'finished', body: '' });
+  message('assistant', 'String response');
+  assert.deepEqual(alerts.accept(pi('agent_settled')), {
+    kind: 'finished',
+    body: 'String response',
+  });
+  message('assistant', [{ type: 'thinking', thinking: 'No public response' }]);
+  assert.deepEqual(alerts.accept(pi('agent_settled')), { kind: 'finished', body: '' });
+  message('assistant', 'Old generation');
+  assert.deepEqual(alerts.accept(pi('agent_settled', {}, { generation: 2 })), {
+    kind: 'finished',
+    body: '',
+  });
+  alerts.reset();
+  assert.deepEqual(alerts.accept(pi('agent_settled')), { kind: 'finished', body: '' });
 });
 
 test('notification state is scoped by session, generation, and connection boundary', () => {
   const alerts = new SessionNotifications();
   const input = pi('extension_support', { notice: 'Input' });
-  assert.equal(alerts.accept(input), 'input');
-  assert.equal(alerts.accept({ ...input, sessionId: 'another' }), 'input');
-  assert.equal(alerts.accept({ ...input, generation: 2 }), 'input');
-  assert.equal(alerts.accept(pi('agent_settled', {}, { generation: 1 })), null);
-  assert.equal(alerts.accept(event('bridge-sync')), null);
-  assert.equal(alerts.accept(event('read-state', { completionId: 'new' })), null);
+  assert.deepEqual(alerts.accept(input), { kind: 'input', body: '' });
+  assert.deepEqual(alerts.accept({ ...input, sessionId: 'another' }), { kind: 'input', body: '' });
+  assert.deepEqual(alerts.accept({ ...input, generation: 2 }), { kind: 'input', body: '' });
+  assert.deepEqual(alerts.accept(pi('agent_settled', {}, { generation: 1 })), null);
+  assert.deepEqual(alerts.accept(event('bridge-sync')), null);
+  assert.deepEqual(alerts.accept(event('read-state', { completionId: 'new' })), null);
   alerts.reset();
-  assert.equal(alerts.accept(input), 'input');
-  assert.equal(alerts.accept(pi('compaction_end', { errorMessage: 'Failed' })), 'error');
-  assert.equal(alerts.accept(pi('agent_settled')), null);
+  assert.deepEqual(alerts.accept(input), { kind: 'input', body: '' });
+  assert.deepEqual(alerts.accept(pi('compaction_end', { errorMessage: 'Failed' })), {
+    kind: 'error',
+    body: '',
+  });
+  assert.deepEqual(alerts.accept(pi('agent_settled')), null);
 });
