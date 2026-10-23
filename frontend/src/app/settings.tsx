@@ -1,7 +1,9 @@
+import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { live } from '../client/controllers';
 import { type DesktopPlatform, desktop } from '../client/platform';
 import { Button } from '../components/ui/button';
+import { KeyboardSettings } from '../keyboard/settings';
 
 function DesktopAppearance({ platform }: { platform: DesktopPlatform }) {
   const [factor, setFactor] = useState<number>();
@@ -88,10 +90,38 @@ function DesktopAppearance({ platform }: { platform: DesktopPlatform }) {
 }
 
 export function SettingsPage() {
+  const router = useRouter();
   useEffect(() => live.select(null), []);
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => {
+      if (
+        event.key !== 'Escape' ||
+        event.defaultPrevented ||
+        event.isComposing ||
+        event.keyCode === 229 ||
+        event.repeat ||
+        event.ctrlKey ||
+        event.metaKey ||
+        event.altKey ||
+        event.shiftKey ||
+        document.querySelector('dialog[open]')
+      ) {
+        return;
+      }
+      event.preventDefault();
+      if (router.history.canGoBack()) {
+        router.history.back();
+      } else {
+        void router.navigate({ to: '/', replace: true });
+      }
+    };
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [router]);
   return (
     <div className="settings-page">
       <h1>Settings</h1>
+      <KeyboardSettings />
       {desktop ? (
         <DesktopAppearance platform={desktop} />
       ) : (

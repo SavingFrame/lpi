@@ -78,6 +78,16 @@ use the same preference. It persists across reloads and app restarts independent
 Desktop data lives under `pim-desktop` in Electron's app-data directory, separate from browser
 storage. Another launch with the same profile focuses the existing window.
 
+## Keyboard
+
+Open **Settings > Keyboard** to customize shortcuts, choose Enter behavior, and restore defaults.
+Enter sends and Shift+Enter inserts a newline. Shift+Tab cycles supported thinking levels while
+in the composer. Ctrl+H / Ctrl+L focuses the left / right pane, Ctrl+K searches sessions, and
+Ctrl+Shift+P opens the command palette. Ctrl+, opens Settings.
+
+Preferences are saved on this device. See [keyboard navigation](../docs/frontend.md#keyboard-navigation)
+for all defaults and scope rules. Native menu and operating-system shortcuts may take precedence.
+
 ## Limitations
 
 - Tabs, native notifications, deep links, installers, signing, and auto-updates are not implemented.

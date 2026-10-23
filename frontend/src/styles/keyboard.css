@@ -1,0 +1,100 @@
+@layer components {
+  .settings-section + .settings-section {
+    margin-top: 36px;
+  }
+  .keyboard-setting {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px;
+    margin: 16px 0;
+  }
+  .keyboard-setting input,
+  .keyboard-setting select,
+  .keyboard-dialog input {
+    max-width: 100%;
+    padding: 8px 10px;
+    border: 1px solid var(--input);
+    border-radius: 6px;
+    background: var(--background);
+    color: var(--foreground);
+  }
+  .shortcut-list {
+    margin-bottom: 20px;
+  }
+  .shortcut-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .shortcut-row > span {
+    flex: 1;
+    min-width: 140px;
+  }
+  .keyboard-dialog {
+    position: fixed;
+    inset: 0;
+    margin: auto;
+    width: min(540px, calc(100% - 32px));
+    max-height: 80dvh;
+    overflow-y: auto;
+    padding: 20px;
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    background: var(--background);
+    color: var(--foreground);
+    box-shadow: 0 16px 60px #0008;
+  }
+  .keyboard-dialog::backdrop {
+    background: #0009;
+  }
+  .keyboard-dialog-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .keyboard-dialog-heading h2 {
+    font-size: 18px;
+  }
+  .keyboard-dialog > input {
+    width: 100%;
+  }
+  .palette-results {
+    list-style: none;
+    margin: 12px 0 0;
+    padding: 0;
+  }
+  .palette-results button {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+    text-align: left;
+    gap: 12px;
+    padding: 10px;
+    border-radius: 6px;
+  }
+  .palette-results [data-highlighted="true"] button,
+  .palette-results button:hover {
+    background: var(--secondary);
+  }
+  .palette-results button:disabled {
+    opacity: 0.4;
+  }
+  .palette-results kbd {
+    font-size: 11px;
+    color: var(--muted-foreground);
+    white-space: nowrap;
+  }
+  .sidebar:focus-within {
+    box-shadow: inset 2px 0 var(--ring);
+  }
+  main:focus-visible {
+    outline-offset: -3px;
+  }
+}

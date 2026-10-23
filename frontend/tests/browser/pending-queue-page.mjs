@@ -1,7 +1,9 @@
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { drafts } from '../../src/client/controllers';
+import { KeyboardProvider } from '../../src/keyboard/keyboard.tsx';
 import { Composer } from '../../src/session/composer/composer';
 import '../../src/style.css';
 
@@ -16,6 +18,7 @@ void (async () => {
     host.style.width = '340px';
     document.body.append(host);
     const root = createRoot(host);
+    const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     const commands = [];
     const controller = drafts.get('pending-queue-test');
     await controller.initialize();
@@ -37,22 +40,30 @@ void (async () => {
     const render = (active = true) =>
       flushSync(() =>
         root.render(
-          createElement(Composer, {
-            id: 'pending-queue-test',
-            snapshot,
-            active,
-            previewing: false,
-            restoredDraft: null,
-            pending: false,
-            uncertain: false,
-            outcome: null,
-            following: true,
-            onFollow() {},
-            onCommand: async (command) => {
-              commands.push(command);
-              return true;
-            },
-          }),
+          createElement(
+            QueryClientProvider,
+            { client: queryClient },
+            createElement(
+              KeyboardProvider,
+              null,
+              createElement(Composer, {
+                id: 'pending-queue-test',
+                snapshot,
+                active,
+                previewing: false,
+                restoredDraft: null,
+                pending: false,
+                uncertain: false,
+                outcome: null,
+                following: true,
+                onFollow() {},
+                onCommand: async (command) => {
+                  commands.push(command);
+                  return true;
+                },
+              }),
+            ),
+          ),
         ),
       );
     const click = (button) => flushSync(() => button.click());
@@ -116,6 +127,7 @@ void (async () => {
       'disconnected snapshots never present a live queue',
     );
     root.unmount();
+    queryClient.clear();
     document.body.dataset.result = 'passed';
   } catch (error) {
     document.body.dataset.result = String(error.stack ?? error);

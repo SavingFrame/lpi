@@ -23,7 +23,7 @@ export function WindowedList({ items, resetKey }: { items: WindowedItem[]; reset
   const lastReset = useRef<string | null>(null);
   const [viewport, setViewport] = useState({ top: 0, height: 600 });
   const [focused, setFocused] = useState<string | null>(null);
-  const pendingFocus = useRef<{ key: string; backwards: boolean } | null>(null);
+  const pendingFocus = useRef<{ key: string; backwards: boolean; primary?: boolean } | null>(null);
   const layout = useMemo(() => {
     let top = 0;
     const rows = items.map((item, index) => {
@@ -125,7 +125,12 @@ export function WindowedList({ items, resetKey }: { items: WindowedItem[]; reset
         (child) => (child as HTMLElement).dataset.windowKey === request.key,
       );
       const targets = row?.querySelectorAll<HTMLElement>(focusable);
-      const target = request.backwards ? targets?.[targets.length - 1] : targets?.[0];
+      const target = request.primary
+        ? (row?.querySelector<HTMLElement>('.session-link, .project-toggle') ??
+          row?.querySelector<HTMLElement>('button:not(:disabled)'))
+        : request.backwards
+          ? targets?.[targets.length - 1]
+          : targets?.[0];
       if (target) {
         pendingFocus.current = null;
         target.focus();
@@ -135,7 +140,20 @@ export function WindowedList({ items, resetKey }: { items: WindowedItem[]; reset
   }, [visible]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLUListElement>) => {
-    if (event.key !== 'Tab' || event.ctrlKey || event.altKey || event.metaKey) {
+    const arrow = event.key === 'ArrowUp' || event.key === 'ArrowDown';
+    if (
+      event.defaultPrevented ||
+      event.nativeEvent.isComposing ||
+      (arrow &&
+        (event.target as HTMLElement).matches(
+          'input, textarea, select, [contenteditable="true"]',
+        )) ||
+      (!arrow && event.key !== 'Tab') ||
+      event.ctrlKey ||
+      event.altKey ||
+      event.metaKey ||
+      (arrow && event.shiftKey)
+    ) {
       return;
     }
     const target = event.target as HTMLElement;
@@ -145,16 +163,20 @@ export function WindowedList({ items, resetKey }: { items: WindowedItem[]; reset
     if (!element || !row) {
       return;
     }
+    const backwards = arrow ? event.key === 'ArrowUp' : event.shiftKey;
     const targets = element.querySelectorAll<HTMLElement>(focusable);
-    if (target !== (event.shiftKey ? targets[0] : targets[targets.length - 1])) {
+    if (!arrow && target !== (backwards ? targets[0] : targets[targets.length - 1])) {
       return;
     }
-    const next = layout.rows[index + (event.shiftKey ? -1 : 1)];
-    if (!next || visible.some((item) => item.key === next.key)) {
+    const next = layout.rows[index + (backwards ? -1 : 1)];
+    if (!next) {
+      return;
+    }
+    if (!arrow && visible.some((item) => item.key === next.key)) {
       return;
     }
     event.preventDefault();
-    pendingFocus.current = { key: next.key, backwards: event.shiftKey };
+    pendingFocus.current = { key: next.key, backwards: arrow ? false : backwards, primary: arrow };
     const scroll = root.current?.closest('nav');
     if (scroll && root.current) {
       const offset = root.current.getBoundingClientRect().top - scroll.getBoundingClientRect().top;

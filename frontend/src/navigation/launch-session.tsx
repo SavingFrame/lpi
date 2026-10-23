@@ -11,10 +11,12 @@ export function LaunchSession({
   projectId,
   resumeId,
   compact = false,
+  onStarted,
 }: {
   projectId?: string;
   resumeId?: string;
   compact?: boolean;
+  onStarted?: () => void;
 }) {
   const navigate = useNavigate();
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
@@ -28,6 +30,7 @@ export function LaunchSession({
   async function start() {
     const session = await launches.start(projectId ?? selected, resumeId);
     if (session) {
+      onStarted?.();
       void navigate({
         to: '/app/projects/$projectId/sessions/$sessionId',
         params: { projectId: session.projectId, sessionId: session.id },
@@ -74,6 +77,7 @@ export function LaunchSession({
               ? `New session in ${projectQuery.data?.find((project) => project.id === projectId)?.name ?? 'project'}`
               : undefined
           }
+          data-launch-session
           title={compact ? 'New session in this project' : undefined}
           disabled={state.status !== 'ready' || !(projectId ?? selected)}
           onClick={() => void start()}

@@ -37,6 +37,31 @@ async function run() {
       frameDocument.querySelectorAll('.session-item').length < 40,
       `Bounded initial rows: ${context}`,
     );
+    frameDocument.body.dispatchEvent(
+      new frame.contentWindow.KeyboardEvent('keydown', {
+        key: 'p',
+        ctrlKey: true,
+        shiftKey: true,
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await until(() => frameDocument.querySelector('.keyboard-dialog[open]'));
+    const palette = frameDocument.querySelector('.keyboard-dialog[open]');
+    const bounds = palette.getBoundingClientRect();
+    check(
+      Math.abs(bounds.left + bounds.width / 2 - frame.contentWindow.innerWidth / 2) < 1 &&
+        Math.abs(bounds.top + bounds.height / 2 - viewport / 2) < 1,
+      `Command palette must be centered in the window: ${context}`,
+    );
+    check(
+      bounds.left >= 0 &&
+        bounds.right <= frame.contentWindow.innerWidth &&
+        bounds.top >= 0 &&
+        bounds.bottom <= viewport,
+      `Command palette must fit the window: ${context}`,
+    );
+    palette.close();
     const firstProject = frameDocument.querySelector('.project-toggle');
     firstProject.click();
     await until(() => firstProject.getAttribute('aria-expanded') === 'false');
@@ -108,6 +133,42 @@ async function run() {
           ) ===
           position + 1,
       );
+      const focused = frameDocument.activeElement;
+      focused.dispatchEvent(
+        new frame.contentWindow.KeyboardEvent('keydown', {
+          key: 'ArrowDown',
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      await until(
+        () =>
+          Number(
+            frameDocument.activeElement.closest('[data-window-index]')?.dataset.windowIndex,
+          ) ===
+          position + 2,
+      );
+      const keyboard = (key, options = {}) =>
+        frameDocument.activeElement.dispatchEvent(
+          new frame.contentWindow.KeyboardEvent('keydown', {
+            key,
+            bubbles: true,
+            cancelable: true,
+            ...options,
+          }),
+        );
+      keyboard('l', { ctrlKey: true });
+      await until(() => frameDocument.activeElement === frameDocument.querySelector('main'));
+      keyboard('h', { ctrlKey: true });
+      await until(
+        () =>
+          Number(
+            frameDocument.activeElement.closest('[data-window-index]')?.dataset.windowIndex,
+          ) ===
+          position + 2,
+      );
+      keyboard('k', { ctrlKey: true });
+      await until(() => frameDocument.activeElement === input);
       setValue.call(input, '');
       input.dispatchEvent(new frame.contentWindow.Event('input', { bubbles: true }));
       await until(() => frameDocument.querySelector('.project-scope'));
@@ -121,7 +182,7 @@ async function run() {
       `Project list has usable height: ${context}, nav=${navigation.clientHeight}, sidebar=${sidebar.clientHeight}, children=${Array.from(sidebar.children, (child) => `${child.className}:${child.getBoundingClientRect().height}`).join(',')}`,
     );
     if (!desktop) {
-      check(!settings, 'Browser must not expose native settings');
+      check(settings, 'Browser must expose shared keyboard settings');
       frame.remove();
       continue;
     }
@@ -152,6 +213,84 @@ async function run() {
     );
     settings.click();
     await until(() => frameDocument.querySelector('.settings-page h1')?.textContent === 'Settings');
+    check(frameDocument.querySelector('#keyboard-heading'), 'Keyboard settings must be available');
+    if (width === 1280) {
+      const record = frameDocument.querySelector(
+        'button[aria-label="Change Focus left pane shortcut"]',
+      );
+      record.click();
+      await until(() => record.textContent.includes('Press keys'));
+      record.dispatchEvent(
+        new frame.contentWindow.KeyboardEvent('keydown', {
+          key: 'l',
+          ctrlKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      await until(() =>
+        frameDocument.querySelector('[role="alert"]')?.textContent.includes('already assigned'),
+      );
+      record.dispatchEvent(
+        new frame.contentWindow.KeyboardEvent('keydown', {
+          key: 'y',
+          ctrlKey: true,
+          shiftKey: true,
+          bubbles: true,
+          cancelable: true,
+        }),
+      );
+      await until(() => record.textContent === 'Ctrl+Shift+y');
+      check(
+        !frameDocument.querySelector('[role="alert"]'),
+        'A valid assignment clears the conflict',
+      );
+      frame.contentWindow.location.reload();
+      await until(
+        () =>
+          frame.contentDocument?.querySelector(
+            'button[aria-label="Change Focus left pane shortcut"]',
+          )?.textContent === 'Ctrl+Shift+y',
+      );
+      const reset = [...frame.contentDocument.querySelectorAll('button')].find(
+        (button) => button.textContent === 'Restore keyboard defaults',
+      );
+      reset.click();
+      await until(
+        () =>
+          frame.contentDocument.querySelector(
+            'button[aria-label="Change Focus left pane shortcut"]',
+          )?.textContent === 'Ctrl+h',
+      );
+    }
+    const settingsDocument = frame.contentDocument;
+    const recorder = settingsDocument.querySelector('[data-shortcut-recorder]');
+    recorder.click();
+    await until(() => recorder.textContent.includes('Press keys'));
+    recorder.dispatchEvent(
+      new frame.contentWindow.KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await until(() => !recorder.textContent.includes('Press keys'));
+    check(
+      settingsDocument.querySelector('.settings-page'),
+      'Escape cancels recording before leaving Settings',
+    );
+    settingsDocument.body.dispatchEvent(
+      new frame.contentWindow.KeyboardEvent('keydown', {
+        key: 'Escape',
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+    await until(() => !frame.contentDocument.querySelector('.settings-page'));
+    check(
+      frame.contentDocument.querySelector('.welcome'),
+      'Escape returns to the page before Settings',
+    );
     frame.remove();
   }
   for (const width of [1280, 390]) {

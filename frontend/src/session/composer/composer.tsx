@@ -9,6 +9,8 @@ import { searchFiles } from '../../client/api';
 import { drafts, launches } from '../../client/controllers';
 import { Button } from '../../components/ui/button';
 import { Textarea } from '../../components/ui/textarea';
+import { useKeyboard, useKeyboardAction } from '../../keyboard/keyboard';
+import { shortcut } from '../../keyboard/shortcuts';
 import { fileReference, referencePath, slashSuggestions } from './composer-input';
 import { ImageAttachments } from './image-attachments';
 import { PendingMessages } from './pending-queue';
@@ -43,6 +45,7 @@ export function Composer({
   onCommand: (command: BridgeCommand) => Promise<boolean>;
   onNew: () => Promise<boolean>;
 }) {
+  const { bindings } = useKeyboard();
   const [controller] = useState(() => drafts.get(id));
   const draftState = useSyncExternalStore(controller.subscribe, controller.getState);
   const { draft } = draftState;
@@ -143,6 +146,38 @@ export function Composer({
     !draftState.loading &&
     !readingImages &&
     Boolean(draft.text.trim() || draft.images.length);
+  const settingsDisabled =
+    !active ||
+    !snapshot ||
+    snapshot.view.running ||
+    snapshot.view.compacting ||
+    snapshot.state.isStreaming === true ||
+    snapshot.state.hasPendingMessages === true ||
+    snapshot.state.pendingDialog != null;
+  useKeyboardAction(
+    'thinking',
+    () => {
+      if (!snapshot) {
+        return;
+      }
+      const { availableThinkingLevels: levels, thinkingLevel } = snapshot.controls;
+      const next = levels[(levels.indexOf(thinkingLevel ?? 'off') + 1) % levels.length];
+      if (next) {
+        void onCommand({ type: 'set_thinking_level', level: next });
+      }
+    },
+    !settingsDisabled &&
+      Boolean(snapshot?.controls.model) &&
+      (snapshot?.controls.availableThinkingLevels.length ?? 0) > 1,
+  );
+  useKeyboardAction(
+    'abort',
+    () => {
+      void onCommand({ type: 'abort' });
+    },
+    active,
+  );
+  useKeyboardAction('send', () => input.current?.form?.requestSubmit(), canSend);
   return (
     <div className="composer">
       {!following && (
@@ -161,14 +196,7 @@ export function Composer({
       {snapshot && (
         <SessionSettings
           controls={snapshot.controls}
-          disabled={
-            !active ||
-            snapshot.view.running ||
-            snapshot.view.compacting ||
-            snapshot.state.isStreaming === true ||
-            snapshot.state.hasPendingMessages === true ||
-            snapshot.state.pendingDialog != null
-          }
+          disabled={settingsDisabled}
           onCommand={onCommand}
         />
       )}
@@ -313,6 +341,7 @@ export function Composer({
         >
           <Textarea
             ref={input}
+            data-message-composer
             aria-label="Message"
             aria-controls={suggestions.length ? 'composer-suggestions' : undefined}
             aria-expanded={suggestions.length > 0}
@@ -337,16 +366,17 @@ export function Composer({
               setInputError(null);
             }}
             onKeyDown={(event) => {
-              if (
-                event.nativeEvent.isComposing ||
-                (event.repeat && event.key !== 'ArrowDown' && event.key !== 'ArrowUp') ||
-                event.ctrlKey ||
-                event.metaKey ||
-                event.shiftKey
-              ) {
+              if (event.nativeEvent.isComposing || event.nativeEvent.keyCode === 229) {
                 return;
               }
-              if (suggestions.length && !event.altKey) {
+              const key = shortcut(event);
+              if (
+                suggestions.length &&
+                !event.altKey &&
+                !event.ctrlKey &&
+                !event.metaKey &&
+                !event.shiftKey
+              ) {
                 if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
                   event.preventDefault();
                   setSelected(
@@ -357,7 +387,9 @@ export function Composer({
                 }
                 if (event.key === 'Tab' || event.key === 'Enter') {
                   event.preventDefault();
-                  chooseSuggestion(highlighted);
+                  if (!event.repeat) {
+                    chooseSuggestion(highlighted);
+                  }
                   return;
                 }
                 if (event.key === 'Escape') {
@@ -366,12 +398,25 @@ export function Composer({
                   return;
                 }
               }
-              if (event.key === 'Enter' && event.altKey) {
+              if (key === bindings.send && bindings.send) {
                 event.preventDefault();
-                event.currentTarget.form?.requestSubmit();
-              } else if (event.key === 'Escape' && !event.altKey && active) {
+                if (!event.repeat) {
+                  event.currentTarget.form?.requestSubmit();
+                }
+              } else if (key === bindings.newline && bindings.newline) {
                 event.preventDefault();
-                void onCommand({ type: 'abort' });
+                if (event.repeat) {
+                  return;
+                }
+                const element = event.currentTarget;
+                const start = element.selectionStart;
+                const end = element.selectionEnd;
+                controller.update((current) => ({
+                  ...current,
+                  text: `${current.text.slice(0, start)}\n${current.text.slice(end)}`,
+                }));
+                setCaret(start + 1);
+                requestAnimationFrame(() => element.setSelectionRange(start + 1, start + 1));
               }
             }}
             rows={4}
@@ -388,8 +433,7 @@ export function Composer({
             className="text-red-300 hover:text-red-200"
             disabled={!active}
             onClick={() => void onCommand({ type: 'abort' })}
-            aria-keyshortcuts="Escape"
-            title="Abort (Esc in message box). Does not clear queued messages"
+            title={`Abort${bindings.abort ? ` (${bindings.abort})` : ''}. Does not clear queued messages`}
           >
             <Square aria-hidden="true" />
             Abort
@@ -397,8 +441,7 @@ export function Composer({
           <Button
             type="submit"
             size="sm"
-            aria-keyshortcuts="Alt+Enter"
-            title="Send (Alt+Enter in message box)"
+            title={`Send${bindings.send ? ` (${bindings.send} in message box)` : ''}`}
             disabled={!canSend}
           >
             <ArrowUp aria-hidden="true" />

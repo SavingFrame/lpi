@@ -23,8 +23,9 @@ The relay must explicitly allow `pim-app://app` for bundled desktop clients.
 `frontend/src/client/platform.ts` adapts the optional desktop capabilities typed in `src/shared/desktop.ts`
 without importing Electron. Desktop and browser builds share `frontendConfig()` from
 `frontend/vite.config.ts`; electron-vite supplies the desktop main/preload/renderer pipeline.
-The desktop-only Settings link opens `/app/settings`; its appearance controls use this adapter
-for device-local UI scale. Browser clients keep normal browser zoom.
+The Settings link opens `/app/settings` in both desktop and browser clients. Desktop appearance
+controls use this adapter for device-local UI scale. Browser clients keep normal browser zoom.
+Keyboard preferences are stored in local storage for the current UI origin, separately from relay metadata.
 
 ## UI components
 
@@ -38,7 +39,8 @@ The shadcn configuration is `frontend/components.json`. Run future shadcn CLI co
 - `src/client/`: shared transport, synchronization, server-scoped mutation/draft persistence, inventory projections, and read-completion controllers. See [client behavior](../src/client/README.md).
 - `frontend/src/main.tsx`: browser bootstrap and provider mounting. `style.css` is the stylesheet entry point; feature code lives in directories.
 - `frontend/src/client/`: browser transport construction, socket event adaptation, platform capabilities, and tab-scoped storage. `controllers.ts` wires tab-wide query, command, draft, and launch controllers. Framework-independent behavior belongs in repository-root `src/client/`, not here.
-- `frontend/src/app/`: router, application shell, welcome view, and desktop settings.
+- `frontend/src/app/`: router, application shell, welcome view, and settings.
+- `frontend/src/keyboard/`: action registry, shortcut matching, device-local preferences, command palette, and pane focus adapters.
 - `frontend/src/navigation/`: session search, project/sidebar presentation, launch/archive actions, and sidebar projections.
 - `frontend/src/components/`: reusable presentation primitives, Markdown policy, deferred content, and windowing. Feature-specific components stay with their feature.
 - `frontend/src/session/branches/tree.tsx`, `tree-graph.ts`, `tree-query.ts`: selected-session tree fetching, projected conversation-tip counting, nested branch groups, symmetric branch collapse controls, role-colored rows, and saved-entry browsing. Sidebar observers use the same query with fetching disabled.
@@ -71,7 +73,29 @@ The Ask User Question support module renders pending questionnaires below the tr
 
 Attach PNG, JPEG, GIF, or WebP images using **Attach images**, clipboard paste, or drag-and-drop onto the composer. Preview and remove images before sending; image-only messages work too. Prompt, steer, and follow-up deliver structured image content through Pi’s public `sendUserMessage` API. The selected model must support images. Limits are four images and 4 MiB total decoded data per message, with a 6 MiB JSON request limit. Unsent images stay in memory across session navigation within the tab, but are not persisted across reload. Rejected/unknown submissions retain draft text and images; unknown outcomes still block resending until reviewed.
 
-With the message box focused, **Alt+Enter** sends using the selected mode and **Esc** aborts. Plain Enter inserts a newline. Shortcuts obey the same availability checks as the buttons and are ignored during IME composition or key repeat. Abort does not clear queued messages.
+### Keyboard navigation
+
+Open **Settings > Keyboard** to search actions, record shortcuts, clear assignments, change Enter behavior, or restore defaults. Escape returns to the previous page (or the welcome page when Settings was opened directly); shortcut recording and open dialogs consume Escape first. Duplicate assignments, plain typing keys, plain Tab, and UI-scale shortcuts are rejected. Exact modifiers matter; Ctrl is not automatically changed to Cmd on macOS. Browser and operating-system shortcuts can take precedence over application bindings.
+
+Defaults:
+
+| Action | Shortcut |
+| --- | --- |
+| Send message | Enter in the composer |
+| Insert newline | Shift+Enter in the composer |
+| Cycle supported thinking levels | Shift+Tab in the composer |
+| Focus left / right pane | Ctrl+H / Ctrl+L |
+| Focus composer | Ctrl+I |
+| Search sessions | Ctrl+K |
+| New session | Ctrl+N |
+| Previous / next session | Ctrl+Shift+Up / Down |
+| Command palette | Ctrl+Shift+P |
+| Settings | Ctrl+, |
+| Abort | Escape |
+
+Pane navigation restores the last focused control when available. Up/Down moves between virtualized sidebar rows; Enter activates the focused item. Previous/next session uses the current search/filter results, ordered newest first, without wrapping. New session opens a launch dialog using the current project, or a project selector when none is selected. Launching uses the existing guarded controller.
+
+The command palette searches actions and shows their current shortcuts and availability. Arrow keys select an action and Enter runs it. Escape closes modal dialogs or dismisses suggestions before it can abort. Tab and Shift+Tab retain normal focus navigation outside the composer. Thinking changes and submissions obey the same availability checks as the buttons; IME composition and repeated keys never dispatch commands. Abort does not clear queued messages.
 
 The sidebar project selector and **New session**, or the **+** beside a project, launch native Pi in a dedicated tmux session. Saved sessions offer **Resume session**, with explicit confirmation that no external Pi writer remains. Managed tmux reservations are checked server-side before resume. Both operations wait for bridge registration before opening the session. Unknown outcomes block another launch until the user inspects the runtimes; tab-scoped storage preserves that guard across reloads. Connected Pim-managed runtimes offer **Stop runtime** without confirmation; acceptance is not proof of exit. Startup dialogs remain terminal-only; inspect with `tmux -L pim list-sessions` and attach with `tmux -L pim attach -t <name>`.
 

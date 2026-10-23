@@ -193,7 +193,13 @@ export function SessionTree({
     }
     input.current?.focus();
     const close = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') {
+      if (
+        event.key === 'Escape' &&
+        !event.defaultPrevented &&
+        !event.isComposing &&
+        !document.querySelector('dialog[open]')
+      ) {
+        event.preventDefault();
         onOpenChange(false);
         trigger.current?.focus();
       }

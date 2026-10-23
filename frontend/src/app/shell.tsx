@@ -4,7 +4,8 @@ import { Folder, Settings, Terminal } from 'lucide-react';
 import { type CSSProperties, useEffect, useState, useSyncExternalStore } from 'react';
 import { projects } from '../client/api';
 import { live } from '../client/controllers';
-import { desktop } from '../client/platform';
+import { KeyboardProvider } from '../keyboard/keyboard';
+import { KeyboardNavigation } from '../keyboard/navigation';
 import { SessionNavigation } from '../navigation/session-navigation';
 
 function ConnectionStatus() {
@@ -18,6 +19,14 @@ function ConnectionStatus() {
 }
 
 export function Shell() {
+  return (
+    <KeyboardProvider>
+      <ShellContent />
+    </KeyboardProvider>
+  );
+}
+
+function ShellContent() {
   const [width, setWidth] = useState(360);
   const { projectId, sessionId } = useParams({ strict: false });
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
@@ -31,7 +40,8 @@ export function Shell() {
   }, []);
   return (
     <div className="shell" style={{ '--sidebar-width': `${width}px` } as CSSProperties}>
-      <aside className="sidebar">
+      <KeyboardNavigation />
+      <aside className="sidebar" aria-label="Session sidebar">
         <div className="brand">
           <Link to="/">
             <span className="brand-mark">
@@ -50,16 +60,10 @@ export function Shell() {
           </p>
         )}
         <SessionNavigation selectedId={sessionId} online={online} />
-        {desktop && (
-          <Link
-            to="/app/settings"
-            className="settings-link"
-            activeProps={{ className: 'selected' }}
-          >
-            <Settings size={15} aria-hidden="true" />
-            Settings
-          </Link>
-        )}
+        <Link to="/app/settings" className="settings-link" activeProps={{ className: 'selected' }}>
+          <Settings size={15} aria-hidden="true" />
+          Settings
+        </Link>
         <footer>
           <Folder size={13} aria-hidden="true" />
           {projectQuery.data?.find((project) => project.id === projectId)?.name ??
@@ -94,7 +98,7 @@ export function Shell() {
           }
         }}
       />
-      <main>
+      <main tabIndex={-1} aria-label="Conversation">
         <Outlet />
       </main>
     </div>

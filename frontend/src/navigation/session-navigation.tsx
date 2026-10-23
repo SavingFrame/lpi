@@ -1,8 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from '@tanstack/react-router';
 import { memo, useDeferredValue, useMemo, useState } from 'react';
 import { indexSessions, type SessionFilter, searchSessions } from '../../../src/client/inventory';
 import type { InventorySession, Project } from '../../../src/shared/sessions';
 import { projects, sessions } from '../client/api';
+import { useKeyboardAction } from '../keyboard/keyboard';
 import { SessionSidebar } from './session-sidebar';
 
 const emptyProjects: Project[] = [];
@@ -17,6 +19,7 @@ export const SessionNavigation = memo(function SessionNavigation({
   selectedId?: string;
   online: boolean;
 }) {
+  const navigate = useNavigate();
   const [filter, setFilter] = useState<SessionFilter>('all');
   const [search, setSearch] = useState('');
   const deferredSearch = useDeferredValue(search);
@@ -29,6 +32,21 @@ export const SessionNavigation = memo(function SessionNavigation({
     () => searchSessions(index, deferredSearch, online),
     [index, deferredSearch, online],
   );
+  const ordered = [...matches[filter]].sort((a, b) =>
+    (b.updatedAt ?? b.createdAt).localeCompare(a.updatedAt ?? a.createdAt),
+  );
+  function move(direction: number) {
+    const index = ordered.findIndex((session) => session.id === selectedId);
+    const next = ordered[index < 0 ? 0 : index + direction];
+    if (next) {
+      void navigate({
+        to: '/app/projects/$projectId/sessions/$sessionId',
+        params: { projectId: next.projectId, sessionId: next.id },
+      });
+    }
+  }
+  useKeyboardAction('previous', () => move(-1), ordered.length > 0);
+  useKeyboardAction('next', () => move(1), ordered.length > 0);
   return (
     <nav aria-label="Sessions by project">
       <label className="session-search">
@@ -38,6 +56,34 @@ export const SessionNavigation = memo(function SessionNavigation({
           placeholder="Search sessions or projects…"
           value={search}
           onChange={(event) => setSearch(event.target.value)}
+          onKeyDown={(event) => {
+            if (
+              event.nativeEvent.isComposing ||
+              event.repeat ||
+              event.ctrlKey ||
+              event.metaKey ||
+              event.altKey ||
+              event.shiftKey ||
+              search !== deferredSearch
+            ) {
+              return;
+            }
+            if (event.key !== 'ArrowDown' && event.key !== 'Enter') {
+              return;
+            }
+            const first = event.currentTarget
+              .closest('nav')
+              ?.querySelector<HTMLAnchorElement>('.session-link');
+            if (!first) {
+              return;
+            }
+            event.preventDefault();
+            if (event.key === 'Enter') {
+              first.click();
+            } else {
+              first.focus();
+            }
+          }}
         />
       </label>
       <fieldset className="session-visibility" aria-label="Session visibility">

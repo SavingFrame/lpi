@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
+import { KeyboardProvider } from '../../src/keyboard/keyboard.tsx';
 import { Composer } from '../../src/session/composer/composer.tsx';
 import '../../src/styles/composer.css';
 
@@ -18,23 +19,27 @@ try {
         createElement(
           QueryClientProvider,
           { client: queryClient },
-          createElement(Composer, {
-            key: id,
-            id,
-            projectId: 'test',
-            onNew: async () => false,
-            snapshot: null,
-            active: false,
-            previewing: false,
-            restoredDraft: null,
-            pending: false,
-            uncertain: false,
-            outcome: null,
-            following: true,
-            onFollow: () => {},
-            onCommand: async () => false,
-            ...props,
-          }),
+          createElement(
+            KeyboardProvider,
+            null,
+            createElement(Composer, {
+              key: id,
+              id,
+              projectId: 'test',
+              onNew: async () => false,
+              snapshot: null,
+              active: false,
+              previewing: false,
+              restoredDraft: null,
+              pending: false,
+              uncertain: false,
+              outcome: null,
+              following: true,
+              onFollow: () => {},
+              onCommand: async () => false,
+              ...props,
+            }),
+          ),
         ),
       );
     });
@@ -123,7 +128,7 @@ try {
   check(input().value === '/new ', 'Arrow navigation and Tab must select the highlighted command');
   type('/compact Keep decisions');
   await waitFor(() => !container.querySelector('button[type=submit]').disabled);
-  key('Enter', { altKey: true });
+  key('Enter');
   await waitFor(() => sent.length === 1);
   check(
     sent[0].type === 'compact' && sent[0].instructions === 'Keep decisions',
@@ -251,6 +256,68 @@ try {
       'Extension warning must remain available in the tooltip',
     );
   }
+  const keyboardCommands = [];
+  const keyboardSnapshot = {
+    ...snapshot,
+    controls: {
+      ...snapshot.controls,
+      model: { provider: 'test', id: 'test', name: 'Test' },
+      thinkingLevel: 'low',
+      availableThinkingLevels: ['off', 'low', 'high'],
+    },
+  };
+  const keyboardProps = {
+    active: true,
+    snapshot: keyboardSnapshot,
+    onCommand: async (command) => {
+      keyboardCommands.push(command);
+      return true;
+    },
+  };
+  render('keyboard', keyboardProps);
+  type('hello');
+  await waitFor(() => !container.querySelector('button[type=submit]').disabled);
+  key('Enter', { isComposing: true });
+  key('Enter', { repeat: true });
+  check(keyboardCommands.length === 0, 'IME and repeated Enter must not send');
+  key('Enter', { shiftKey: true });
+  check(input().value === 'hello\n', 'Shift+Enter must insert a newline, not send');
+  check(keyboardCommands.length === 0, 'Newlines must not dispatch commands');
+  key('Tab', { shiftKey: true });
+  check(
+    keyboardCommands.length === 1 &&
+      keyboardCommands[0].type === 'set_thinking_level' &&
+      keyboardCommands[0].level === 'high',
+    'Shift+Tab must cycle supported thinking levels',
+  );
+  key('Tab', { shiftKey: true, repeat: true });
+  check(keyboardCommands.length === 1, 'Held thinking shortcut must not dispatch again');
+  render('keyboard', {
+    ...keyboardProps,
+    snapshot: { ...keyboardSnapshot, view: { running: true } },
+  });
+  key('Tab', { shiftKey: true });
+  check(keyboardCommands.length === 1, 'Thinking must remain guarded while running');
+  render('keyboard', keyboardProps);
+  input().focus();
+  key('p', { ctrlKey: true, shiftKey: true });
+  const palette = container.querySelector('dialog');
+  check(
+    palette.open && document.activeElement === palette.querySelector('input'),
+    'Command palette must open with search focused',
+  );
+  palette.dispatchEvent(
+    new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }),
+  );
+  check(keyboardCommands.length === 1, 'Escape in a dialog must not abort Pi');
+  palette.close();
+  input().focus();
+  key('Enter');
+  await waitFor(() => keyboardCommands.length === 2);
+  check(
+    keyboardCommands[1].type === 'prompt',
+    'Enter must use the guarded message submission path',
+  );
   root.unmount();
   queryClient.clear();
   await fetch('/result', { method: 'POST', body: JSON.stringify({ passed: true }) });
