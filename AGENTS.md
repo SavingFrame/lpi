@@ -54,13 +54,13 @@ Adapted from <https://github.com/earendil-works/pi/blob/main/AGENTS.md> for this
 - Preserve safety coverage for duplicate writers, stale generations, unknown command outcomes, no automatic replay, reconnect ordering, and durable read state. Similar assertions at different trust boundaries are not automatically redundant.
 - Read and run only tests relevant to the change. Do not audit, reorganize, expand matrices, or create new harnesses as routine feature work. Keep test maintenance scoped; do not target an arbitrary test count or coverage percentage.
 - Use manual browser/device checks for presentation when practical. Add automated real-layout coverage only for a meaningful regression or risk, not every visual change. Mocked DOM tests do not verify layout; fake-native tests do not verify real-Pi integration.
-- Before removing an existing test, identify whether its behavior is covered elsewhere, obsolete, or no longer required. Ask before removing intentional coverage unless its removal was explicitly requested.
 
 ## Dependencies
 
 - Keep direct dependencies pinned to exact versions. Review package and lockfile changes as code.
 - Use `npm install --ignore-scripts` for local dependency changes and `npm ci --ignore-scripts` for clean installs.
-- Refresh `package-lock.json` when dependency metadata changes. Do not run lifecycle scripts without permission.
+- For desktop setup, after installing dependencies, verify the Electron binary with `node_modules/electron/dist/electron --version`. If missing, run `node node_modules/electron/install.js` to download it, then verify again. This specific download script is permitted; keep other dependency lifecycle scripts disabled. A successful desktop build does not verify that Electron can launch.
+- Refresh `package-lock.json` when dependency metadata changes. Do not run other lifecycle scripts without permission.
 - Do not add a framework or dependency without a concrete need.
 
 ## Git
