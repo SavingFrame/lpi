@@ -5,7 +5,8 @@ import { Button, Text, YStack } from 'tamagui';
 import { linkedSessionId } from '../../src/shared/session-link';
 import { ConnectionForm } from './features/connection/form';
 import { SessionShell } from './features/sessions/shell';
-import { createRelay, nativeStorage, serverPreferenceKey } from './lib/native';
+import { RelayConnection, serverPreferenceKey } from './lib/connection';
+import { checkServer, createRelay, nativeStorage } from './lib/native';
 import type { MobileRelay } from './lib/relay';
 import { relayOrigin } from './lib/server';
 import { colors } from './theme/colors';
@@ -98,12 +99,23 @@ export function MobileApp({
     };
   }, [client]);
 
-  async function connect(value: string) {
-    const origin = relayOrigin(value);
-    await nativeStorage.setItem(serverPreferenceKey, origin);
-    setClient(getClient(origin));
+  const [connection] = useState(
+    () =>
+      new RelayConnection({
+        storage: nativeStorage,
+        check: checkServer,
+        accept: (origin) => {
+          setClient(getClient(origin));
+          setSettings(false);
+          setError(null);
+        },
+      }),
+  );
+  useEffect(() => () => connection.cancel(), [connection]);
+
+  function closeSettings() {
+    connection.cancel();
     setSettings(false);
-    setError(null);
   }
 
   if (booting) {
@@ -129,14 +141,16 @@ export function MobileApp({
           onSettings={() => setSettings(true)}
         />
       ) : (
-        <ConnectionForm initialValue="" onConnect={connect} />
+        <ConnectionForm initialValue="" connection={connection} />
       )}
-      <Modal visible={settings} animationType="slide" onRequestClose={() => setSettings(false)}>
+      <Modal visible={settings} animationType="slide" onRequestClose={closeSettings}>
         <SafeAreaView style={{ flex: 1, backgroundColor: colors.background }}>
-          <Button margin={16} alignSelf="flex-start" onPress={() => setSettings(false)}>
+          <Button margin={16} alignSelf="flex-start" onPress={closeSettings}>
             Close settings
           </Button>
-          <ConnectionForm initialValue={client?.origin ?? ''} onConnect={connect} />
+          {settings && (
+            <ConnectionForm initialValue={client?.origin ?? ''} connection={connection} />
+          )}
         </SafeAreaView>
       </Modal>
     </SafeAreaView>

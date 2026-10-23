@@ -1,33 +1,20 @@
-import { useState } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import { KeyboardAvoidingView, Platform } from 'react-native';
 import { Button, Input, Text, YStack } from 'tamagui';
 import { BrandIcon } from '../../components/brand-icon';
+import type { RelayConnection } from '../../lib/connection';
 import { colors } from '../../theme/colors';
 
 export function ConnectionForm({
   initialValue,
-  onConnect,
+  connection,
 }: {
   initialValue: string;
-  onConnect: (server: string) => Promise<void>;
+  connection: RelayConnection;
 }) {
   const [value, setValue] = useState(initialValue);
-  const [pending, setPending] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  async function connect() {
-    if (pending) {
-      return;
-    }
-    setPending(true);
-    setError(null);
-    try {
-      await onConnect(value);
-    } catch (error) {
-      setError(error instanceof Error ? error.message : String(error));
-    } finally {
-      setPending(false);
-    }
-  }
+  const { pending, error } = useSyncExternalStore(connection.subscribe, connection.getState);
+  useEffect(() => () => connection.cancel(), [connection]);
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -45,13 +32,17 @@ export function ConnectionForm({
         <Input
           accessibilityLabel="lpi server URL"
           value={value}
-          onChangeText={setValue}
+          onChangeText={(text) => {
+            if (!connection.getState().pending) {
+              setValue(text);
+            }
+          }}
           placeholder="http://192.168.1.20:3141"
           autoCapitalize="none"
           autoCorrect={false}
           keyboardType="url"
           returnKeyType="go"
-          onSubmitEditing={() => void connect()}
+          onSubmitEditing={() => void connection.connect(value)}
           disabled={pending}
           color={colors.text}
           backgroundColor={colors.panel}
@@ -63,8 +54,13 @@ export function ConnectionForm({
             {error}
           </Text>
         )}
-        <Button height={48} disabled={pending || !value.trim()} onPress={() => void connect()}>
-          {pending ? 'Saving server…' : 'Connect'}
+        <Button
+          height={48}
+          disabled={pending || !value.trim()}
+          onPress={() => void connection.connect(value)}
+          accessibilityState={{ busy: pending, disabled: pending || !value.trim() }}
+        >
+          {pending ? 'Checking relay…' : 'Connect'}
         </Button>
         <Text color={colors.muted} fontSize={13}>
           lpi trusts everyone who can reach it. Keep the relay private. HTTP support depends on

@@ -107,8 +107,8 @@ export class RelayApi {
     }
   }
 
-  async projects(): Promise<Project[]> {
-    const raw = record(await this.request('/projects'));
+  async projects(signal?: AbortSignal): Promise<Project[]> {
+    const raw = record(await this.request('/projects', undefined, signal));
     if (!Array.isArray(raw.projects)) {
       throw new Error('Invalid projects');
     }
@@ -129,8 +129,8 @@ export class RelayApi {
     );
   }
 
-  async sessions(): Promise<InventorySession[]> {
-    const raw = record(await this.request('/sessions'));
+  async sessions(signal?: AbortSignal): Promise<InventorySession[]> {
+    const raw = record(await this.request('/sessions', undefined, signal));
     if (!Array.isArray(raw.sessions)) {
       throw new Error('Invalid sessions');
     }

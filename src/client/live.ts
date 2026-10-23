@@ -1,6 +1,6 @@
 import { EVENT_BUFFER_LIMIT } from '../shared/attachments.ts';
 import { record } from '../shared/client-state.ts';
-import type { ServerEvent } from '../shared/events.ts';
+import { connectionBoundary, type ServerEvent } from '../shared/events.ts';
 import { readState } from '../shared/session-read-state.ts';
 import { bridgeStatus, projectEvent, projectStatus, type Snapshot } from '../shared/snapshots.ts';
 /** Structural socket contract usable by browser and React Native adapters. */
@@ -97,19 +97,13 @@ export class LiveSession {
         }
         const raw = record(JSON.parse(event.data));
         if (raw.type === 'connected') {
-          if (
-            typeof raw.epoch !== 'string' ||
-            typeof raw.cursor !== 'number' ||
-            !Number.isSafeInteger(raw.cursor)
-          ) {
-            throw new Error('Invalid connection boundary');
-          }
+          const boundary = connectionBoundary(raw);
           // Revalidate all history after reconnecting, including same-epoch event gaps.
           this.snapshots.clear();
           this.stale.clear();
           this.environment.onBoundary?.();
-          this.epoch = raw.epoch;
-          this.cursor = raw.cursor;
+          this.epoch = boundary.epoch;
+          this.cursor = boundary.cursor;
           this.attempt = 0;
           this.invalidate(true);
           this.refresh();

@@ -10,8 +10,8 @@ const api = new RelayApi({
 });
 
 export const searchFiles = api.searchFiles.bind(api);
-export const projects = api.projects.bind(api);
-export const sessions = api.sessions.bind(api);
+export const projects = () => api.projects();
+export const sessions = () => api.sessions();
 export const inspect = api.inspect.bind(api);
 export const tree = api.tree.bind(api);
 export const previewBranch = api.previewBranch.bind(api);

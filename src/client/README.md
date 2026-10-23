@@ -5,6 +5,8 @@ filesystem, database, or Pi runtime dependencies belong here.
 
 - `api.ts`: validated HTTP endpoints, request correlation, cancellation/timeouts, and
   unknown mutation outcomes. Inject fetch/addressing and request-ID generation.
+- `connection-check.ts`: bounded, cancellable, read-only relay inventory and event-handshake
+  validation before mobile server selection. Does not start a client or dispatch commands.
 - `live.ts`: subscribe/buffer/snapshot synchronization, event projections, generation and
   cursor recovery. Inject socket construction and snapshot loading. Lifecycle adapters
   call `disconnect()` when suspending and `connect()` when returning; neither method

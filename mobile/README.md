@@ -46,7 +46,10 @@ http://192.168.1.20:3141
 ```
 
 `localhost` on your phone refers to the phone, not your computer. Do not include paths,
-credentials, query parameters, or fragments.
+credentials, query parameters, or fragments. Use the relay address, not the Expo development
+server address. Before saving or switching servers, the app checks relay inventory responses
+and the event WebSocket handshake with a five-second timeout. Failed or cancelled checks
+keep your previous server settings and connection.
 
 Configure the relay to listen on a reachable address and add that exact relay URL, including
 its port, to `origins` in `lpi.config.json`. Restart the relay after changing its configuration.
