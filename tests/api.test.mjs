@@ -6,7 +6,6 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { WebSocket } from 'ws';
 import { createApi } from '../dist/src/api/http.js';
-import { attachWebSockets } from '../dist/src/api/websocket.js';
 import { NativeBridges } from '../dist/src/bridge/server.js';
 import { Events } from '../dist/src/events.js';
 import { Sessions } from '../dist/src/sessions.js';
@@ -24,16 +23,12 @@ test('relay REST, host/origin checks, WebSocket events and removed runtime endpo
     events,
     new SessionReadStore(':memory:'),
   );
-  const server = createApi(config, sessions, bridges);
-  const closeSockets = attachWebSockets(server, config, events, bridges);
+  const server = await createApi(config, sessions, bridges, events);
   defer(async () => {
-    closeSockets();
-    server.close();
-    server.closeAllConnections();
+    return server.close();
   });
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  config.port = server.address().port;
+  await server.listen({ port: 0, host: '127.0.0.1' });
+  config.port = server.server.address().port;
   const base = `http://127.0.0.1:${config.port}`;
   const headers = { 'Content-Type': 'application/json', Origin: config.origins[0] };
   const projectResponse = await fetch(`${base}/projects`, { headers });
@@ -126,15 +121,13 @@ test('launch API correlates create/resume requests and rejects replay', async (t
       return { id, projectId: 'test' };
     },
   };
-  const server = createApi(config, sessions, bridges, 'frontend/dist', launches);
+  const server = await createApi(config, sessions, bridges, events, 'frontend/dist', launches);
   defer(() => {
     bridges.close();
-    server.close();
-    server.closeAllConnections();
+    return server.close();
   });
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  config.port = server.address().port;
+  await server.listen({ port: 0, host: '127.0.0.1' });
+  config.port = server.server.address().port;
   const base = `http://127.0.0.1:${config.port}`;
   const headers = { 'Content-Type': 'application/json', Origin: config.origins[0] };
   const create = () =>
@@ -176,15 +169,13 @@ test('production frontend serves deep links and assets without bypassing origin 
     events,
     new SessionReadStore(':memory:'),
   );
-  const server = createApi(config, sessions, bridges, directory);
+  const server = await createApi(config, sessions, bridges, events, directory);
   defer(async () => {
-    server.close();
-    server.closeAllConnections();
     bridges.close();
+    await server.close();
   });
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  config.port = server.address().port;
+  await server.listen({ port: 0, host: '127.0.0.1' });
+  config.port = server.server.address().port;
   const base = `http://127.0.0.1:${config.port}`;
   const page = await fetch(`${base}/app/projects/test/sessions/anything`);
   assert.equal(page.status, 200);

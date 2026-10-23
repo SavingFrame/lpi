@@ -163,16 +163,17 @@ test('saved sessions are read-only through HTTP until explicitly resumed', async
   defer(() => bridges.close());
   const inventory = new Sessions(discovery, bridges, events, new SessionReadStore(':memory:'));
   const session = discovery.list()[0];
-  const api = createApi(
+  const api = await createApi(
     config,
     inventory,
     bridges,
+    events,
     'frontend/dist',
     new Launches(config, inventory, bridges, async () => ''),
   );
-  await new Promise((resolve) => api.listen(0, '127.0.0.1', resolve));
-  defer(() => new Promise((resolve) => api.close(resolve)));
-  config.port = api.address().port;
+  await api.listen({ port: 0, host: '127.0.0.1' });
+  defer(() => api.close());
+  config.port = api.server.address().port;
   const base = `http://127.0.0.1:${config.port}`;
   const get = async (path) => {
     const response = await fetch(`${base}${path}`);

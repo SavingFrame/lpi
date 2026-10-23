@@ -2,7 +2,6 @@ import { mkdirSync, readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { join } from 'node:path';
 import { createApi } from './api/http.js';
-import { attachWebSockets } from './api/websocket.js';
 import { NativeBridges } from './bridge/server.js';
 import { loadConfig } from './config.js';
 import { Events } from './events.js';
@@ -43,8 +42,7 @@ const notifications = config.homeAssistant
       notificationToken,
     )
   : undefined;
-const server = createApi(config, sessions, bridges);
-const closeSockets = attachWebSockets(server, config, events, bridges);
+const server = await createApi(config, sessions, bridges, events);
 
 let closing = false;
 function shutdown(): void {
@@ -53,19 +51,19 @@ function shutdown(): void {
   }
   closing = true;
   notifications?.close();
-  closeSockets();
-  server.close();
-  server.closeAllConnections();
+  void server.close().catch((error: unknown) => {
+    console.error(error);
+    process.exitCode = 1;
+  });
 }
 
 process.once('SIGINT', shutdown);
 process.once('SIGTERM', shutdown);
-server.on('error', (error) => {
-  console.error(error.message);
+try {
+  const address = await server.listen({ port: config.port, host: config.host });
+  console.log(`Pim listening on ${address}`);
+} catch (error) {
+  console.error(error);
   process.exitCode = 1;
   shutdown();
-});
-server.listen(config.port, config.host, () => {
-  const host = config.host.includes(':') ? `[${config.host}]` : config.host;
-  console.log(`Pim listening on http://${host}:${config.port}`);
-});
+}

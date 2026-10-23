@@ -1,5 +1,4 @@
 import assert from 'node:assert/strict';
-import { once } from 'node:events';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
@@ -170,15 +169,13 @@ test('tree and branch HTTP reads preserve files, distinguish saved paths, and ex
   const events = new Events();
   const bridges = new NativeBridges(config, events);
   const sessions = new Sessions(discovery, bridges, events, new SessionReadStore(':memory:'));
-  const server = createApi(config, sessions, bridges);
+  const server = await createApi(config, sessions, bridges, events);
   defer(() => {
     bridges.close();
-    server.close();
-    server.closeAllConnections();
+    return server.close();
   });
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  config.port = server.address().port;
+  await server.listen({ port: 0, host: '127.0.0.1' });
+  config.port = server.server.address().port;
   const base = `http://127.0.0.1:${config.port}/sessions/${session.id}`;
   const get = async (path) => {
     const response = await fetch(`${base}${path}`);

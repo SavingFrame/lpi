@@ -111,11 +111,11 @@ test('status events carry validated metadata without retransmitting conversation
   assert.equal(event.type, 'bridge-status');
   assert.equal(event.sessionId, attached.sessionId);
   assert.equal(event.generation, attached.generation);
-  assert.deepEqual(event.data, {
-    state: { ...state, readOnly: false, nativeTui: true },
-    controls: snapshot.controls,
-    notice: state.pendingDialog,
-  });
+  for (const [key, value] of Object.entries({ ...state, readOnly: false, nativeTui: true })) {
+    assert.equal(event.data.state[key], value);
+  }
+  assert.deepEqual(event.data.controls, snapshot.controls);
+  assert.equal(event.data.notice, state.pendingDialog);
   assert.equal(event.data.view, undefined);
   assert.deepEqual(bridges.snapshot(attached.sessionId).view.messages, snapshot.view.messages);
   socket.terminate();

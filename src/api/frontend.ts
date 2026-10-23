@@ -1,6 +1,6 @@
 import { readFile } from 'node:fs/promises';
-import type { ServerResponse } from 'node:http';
 import { extname, resolve, sep } from 'node:path';
+import type { FastifyReply } from 'fastify';
 import { DISPLAY_CSP } from '../shared/display.ts';
 import { displayDocument } from '../shared/display-document.ts';
 
@@ -13,13 +13,13 @@ const types: Record<string, string> = {
 
 export async function serveFrontend(
   path: string,
-  response: ServerResponse,
+  response: FastifyReply,
   directory: string,
 ): Promise<boolean> {
   if (path === '/display') {
     // Static, sandboxed shell only. Artifact bytes arrive from its parent frame,
     // never from a file-serving endpoint, URL parameter, or another session writer.
-    response.writeHead(200, {
+    response.code(200).headers({
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-store',
       'X-Content-Type-Options': 'nosniff',
@@ -27,7 +27,7 @@ export async function serveFrontend(
       'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
       'Content-Security-Policy': `${DISPLAY_CSP}; sandbox allow-scripts; frame-ancestors 'self'`,
     });
-    response.end(displayDocument());
+    response.send(displayDocument());
     return true;
   }
   const page = path === '/' || path === '/app' || path.startsWith('/app/');
@@ -41,7 +41,7 @@ export async function serveFrontend(
   }
   try {
     const data = await readFile(file);
-    response.writeHead(200, {
+    response.code(200).headers({
       'Content-Type': types[extname(file)] ?? 'application/octet-stream',
       'Cache-Control': page ? 'no-store' : 'public, max-age=31536000, immutable',
       'X-Content-Type-Options': 'nosniff',
@@ -50,7 +50,7 @@ export async function serveFrontend(
       'Content-Security-Policy':
         "default-src 'self'; connect-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-ancestors 'none'; base-uri 'none'",
     });
-    response.end(data);
+    response.send(data);
     return true;
   } catch (error) {
     if (error instanceof Error && 'code' in error && error.code === 'ENOENT') {

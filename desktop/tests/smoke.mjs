@@ -8,7 +8,6 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import electron from 'electron';
 import { createApi } from '../../dist/src/api/http.js';
-import { attachWebSockets } from '../../dist/src/api/websocket.js';
 import { NativeBridges } from '../../dist/src/bridge/server.js';
 import { Events } from '../../dist/src/events.js';
 import { Sessions } from '../../dist/src/sessions.js';
@@ -25,22 +24,24 @@ test('real Electron loads the frontend, restricts navigation, and closes without
   const bridges = new NativeBridges(config, events);
   const states = new SessionReadStore(join(root, 'state.sqlite'));
   const sessions = new Sessions(new SessionDiscovery([], config.projects), bridges, events, states);
-  const server = createApi(config, sessions, bridges, join(root, 'no-relay-frontend'));
-  const closeSockets = attachWebSockets(server, config, events, bridges);
+  const server = await createApi(
+    config,
+    sessions,
+    bridges,
+    events,
+    join(root, 'no-relay-frontend'),
+  );
   defer(async () => {
-    closeSockets();
-    server.closeAllConnections();
-    await new Promise((resolve) => server.close(resolve));
+    await server.close();
   });
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  config.port = server.address().port;
+  await server.listen({ port: 0, host: '127.0.0.1' });
+  config.port = server.server.address().port;
   const origin = `http://127.0.0.1:${config.port}`;
   config.origins = [origin, 'pim-app://app', 'http://127.0.0.1:5173'];
   const uiRequests = [];
   const requestOrigins = [];
   const requestMethods = [];
-  server.on('request', (request) => {
+  server.server.on('request', (request) => {
     if (request.url === '/' || request.url === '/display' || request.url.startsWith('/assets/')) {
       uiRequests.push(request.url);
     }
@@ -48,7 +49,7 @@ test('real Electron loads the frontend, restricts navigation, and closes without
     requestMethods.push(request.method);
   });
   let eventConnections = 0;
-  server.on('upgrade', (request) => {
+  server.server.on('upgrade', (request) => {
     if (request.url === '/events') {
       eventConnections++;
     }
@@ -156,9 +157,7 @@ test('real Electron loads the frontend, restricts navigation, and closes without
   });
 
   // Local assets must still render when there is no relay at all.
-  closeSockets();
-  server.closeAllConnections();
-  await new Promise((resolve) => server.close(resolve));
+  await server.close();
   const offline = spawn(electron, [fileURLToPath(new URL('./smoke-app.mjs', import.meta.url))], {
     env: { ...env, PIM_SMOKE_OFFLINE: '1' },
     stdio: ['ignore', 'pipe', 'pipe'],

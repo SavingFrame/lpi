@@ -101,6 +101,7 @@ The agent always runs in Pi, not in the server or clients. Closing a client or t
 ## Repository map
 
 - `src/main.ts`: relay server entry point.
+- `src/api/`: Fastify HTTP/WebSocket routes, shared security checks, and frontend serving.
 - `extensions/pim/index.ts`: native Pi bridge entry point.
 - `extensions/session-name/index.ts`: independent session-naming extension.
 - `src/shared/`: browser-safe contracts and validators.

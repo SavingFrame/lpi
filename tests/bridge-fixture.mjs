@@ -8,7 +8,6 @@ import { createEventBus } from '@earendil-works/pi-coding-agent';
 import { WebSocket } from 'ws';
 import extension from '../dist/extensions/pim/index.js';
 import { createApi } from '../dist/src/api/http.js';
-import { attachWebSockets } from '../dist/src/api/websocket.js';
 import { NativeBridges } from '../dist/src/bridge/server.js';
 import { Events } from '../dist/src/events.js';
 import { Launches } from '../dist/src/launches.js';
@@ -53,21 +52,18 @@ export async function setup(t, timeout = 1000, tmux = async () => '') {
   const discovery = new SessionDiscovery([sessions], config.projects);
   const bridges = new NativeBridges(config, events, timeout);
   const inventory = new Sessions(discovery, bridges, events, new SessionReadStore(':memory:'));
-  const api = createApi(
+  const api = await createApi(
     config,
     inventory,
     bridges,
+    events,
     'frontend/dist',
     new Launches(config, inventory, bridges, tmux),
   );
-  const closeSockets = attachWebSockets(api, config, events, bridges);
-  api.listen(0, '127.0.0.1');
-  await once(api, 'listening');
-  config.port = api.address().port;
+  await api.listen({ port: 0, host: '127.0.0.1' });
+  config.port = api.server.address().port;
   defer(async () => {
-    closeSockets();
-    api.closeAllConnections();
-    await new Promise((resolve) => api.close(resolve));
+    await api.close();
   });
   const url = `ws://127.0.0.1:${config.port}/bridge`;
   const identity = { file, cwd: header.cwd, id: header.id, createdAt: header.timestamp };

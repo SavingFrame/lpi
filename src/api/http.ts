@@ -1,220 +1,173 @@
-import { createServer, type IncomingMessage, type ServerResponse } from 'node:http';
+import websocket from '@fastify/websocket';
+import Fastify, { type FastifyRequest, type RouteHandlerMethod } from 'fastify';
 import type { NativeBridges } from '../bridge/server.js';
 import type { Config } from '../config.js';
+import type { Events } from '../events.js';
 import { Launches } from '../launches.js';
-import { searchProjectFiles } from '../project-files.js';
 import type { Sessions } from '../sessions.js';
 import { COMMAND_BODY_LIMIT } from '../shared/attachments.js';
-import { bridgeCommand } from '../shared/commands.js';
-import { AppError, generation, object, text } from '../shared/errors.js';
+import { BRIDGE_LIMIT } from '../shared/commands.js';
+import { AppError, object, text } from '../shared/errors.js';
 import { serveFrontend } from './frontend.js';
+import { registerProjectRoutes } from './projects.js';
 import { validateRequest } from './security.js';
+import { registerSessionRoutes } from './sessions.js';
+import { registerWebSocketRoutes } from './websocket.js';
 
-async function body(request: IncomingMessage): Promise<Record<string, unknown>> {
-  if (request.headers['content-type']?.split(';')[0] !== 'application/json') {
-    throw new AppError('Content-Type must be application/json', 415);
-  }
-  const chunks: Buffer[] = [];
-  let size = 0;
-  for await (const chunk of request) {
-    const buffer = Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk);
-    size += buffer.length;
-    if (size > COMMAND_BODY_LIMIT) {
-      throw new AppError('Request body too large', 413);
-    }
-    chunks.push(buffer);
-  }
-  try {
-    return object(JSON.parse(Buffer.concat(chunks).toString('utf8')));
-  } catch (error) {
-    if (error instanceof AppError) {
-      throw error;
-    }
-    throw new AppError('Invalid JSON', 400);
-  }
-}
-
-function send(response: ServerResponse, status: number, data: unknown): void {
-  response.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' });
-  response.end(JSON.stringify(data));
-}
-
-export function createApi(
+export async function createApi(
   config: Config,
   sessions: Sessions,
   bridges: NativeBridges,
+  events: Events,
   frontendDirectory = 'frontend/dist',
   launches = new Launches(config, sessions, bridges),
 ) {
+  const app = Fastify({
+    bodyLimit: COMMAND_BODY_LIMIT,
+    requestTimeout: 15_000,
+    forceCloseConnections: true,
+    exposeHeadRoutes: false,
+  });
+  await app.register(websocket, {
+    // The plugin has one transport limit shared by events and native bridges.
+    options: { maxPayload: BRIDGE_LIMIT, perMessageDeflate: false },
+    preClose(done) {
+      for (const socket of this.websocketServer.clients) {
+        socket.terminate();
+      }
+      this.websocketServer.close(done);
+    },
+  });
   const usedRequests = new Set<string>();
-  let inFlight = 0;
-  let fileSearches = 0;
-  const server = createServer((request, response) => {
-    void handle(request, response);
+  const requestIds = new WeakMap<FastifyRequest, string>();
+  const inFlight = new Set<FastifyRequest>();
+
+  app.addHook('onRequest', async (request, reply) => {
+    validateRequest(request.raw, config, request.method === 'OPTIONS');
+    reply.header('Cache-Control', 'no-store');
+    if (request.headers.origin) {
+      reply.header('Access-Control-Allow-Origin', request.headers.origin);
+      reply.header('Vary', 'Origin');
+    }
+    if (request.method === 'OPTIONS') {
+      return reply
+        .header('Access-Control-Allow-Methods', 'GET, POST')
+        .header('Access-Control-Allow-Headers', 'Content-Type')
+        .code(204)
+        .send();
+    }
+    if (!request.routeOptions.url) {
+      throw new AppError('Route not found', 404);
+    }
+    const { id } = request.params as { id?: string };
+    if (id !== undefined && !/^[a-f0-9-]{36}$/.test(id)) {
+      throw new AppError('Route not found', 404);
+    }
   });
 
-  async function handle(request: IncomingMessage, response: ServerResponse): Promise<void> {
-    let counted = false;
-    let requestId: string | undefined;
+  // Keep the relay's JSON-only input contract. Fastify enforces the body limit
+  // before this parser runs, including when Content-Length is absent.
+  app.removeAllContentTypeParsers();
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (_request, body, done) => {
     try {
-      validateRequest(request, config, request.method === 'OPTIONS');
-      if (request.headers.origin) {
-        response.setHeader('Access-Control-Allow-Origin', request.headers.origin);
-        response.setHeader('Vary', 'Origin');
-      }
-      if (request.method === 'OPTIONS') {
-        response.setHeader('Access-Control-Allow-Methods', 'GET, POST');
-        response.setHeader('Access-Control-Allow-Headers', 'Content-Type');
-        response.writeHead(204);
-        response.end();
-        return;
-      }
-      const url = new URL(request.url ?? '/', 'http://localhost');
-      const path = url.pathname;
-      if (request.method === 'GET' && (await serveFrontend(path, response, frontendDirectory))) {
-        return;
-      }
-      if (request.method === 'GET' && path === '/projects') {
-        send(response, 200, { projects: config.projects });
-        return;
-      }
-      const files = /^\/projects\/([^/]+)\/files$/.exec(path);
-      if (request.method === 'GET' && files) {
-        if (fileSearches >= 8) {
-          throw new AppError('Project search concurrency limit reached', 429);
-        }
-        fileSearches++;
-        const controller = new AbortController();
-        const abort = () => controller.abort();
-        response.once('close', abort);
-        try {
-          const result = await searchProjectFiles(
-            config,
-            decodeURIComponent(String(files[1])),
-            url.searchParams.get('query') ?? '',
-            controller.signal,
-          );
-          send(response, 200, result);
-        } finally {
-          fileSearches--;
-          response.off('close', abort);
-        }
-        return;
-      }
-      if (request.method === 'GET' && path === '/sessions') {
-        send(response, 200, { sessions: sessions.list() });
-        return;
-      }
-      const match =
-        /^\/sessions\/([a-f0-9-]{36})(?:\/(commands|snapshot|resume|viewed|archive|tree|branch))?$/.exec(
-          path,
-        );
-      if (request.method === 'GET' && match?.[2] === 'tree') {
-        send(response, 200, sessions.tree(String(match[1])));
-        return;
-      }
-      if (request.method === 'GET' && match?.[2] === 'branch') {
-        send(
-          response,
-          200,
-          sessions.preview(
-            String(match[1]),
-            text(url.searchParams.get('entryId'), 'entry ID', 128),
-          ),
-        );
-        return;
-      }
-      if (request.method === 'GET' && match?.[2] === 'snapshot') {
-        send(response, 200, sessions.snapshot(String(match[1])));
-        return;
-      }
-      if (request.method === 'GET' && match && !match[2]) {
-        send(response, 200, sessions.get(String(match[1])));
-        return;
-      }
-      const creating = path === '/sessions';
-      const resuming = match?.[2] === 'resume';
-      const viewing = match?.[2] === 'viewed';
-      const archiving = match?.[2] === 'archive';
-      if (
-        request.method !== 'POST' ||
-        (!creating && !resuming && !viewing && !archiving && match?.[2] !== 'commands')
-      ) {
-        throw new AppError('Route not found', 404);
-      }
-      if (inFlight >= 128) {
-        throw new AppError('Request concurrency limit reached', 429);
-      }
-      inFlight++;
-      counted = true;
-      const raw = await body(request);
-      requestId = text(raw.requestId, 'request ID', 128);
-      if (usedRequests.has(requestId)) {
-        throw new AppError(
-          'Request ID already used; inspect state instead of replaying',
-          409,
-          'unknown',
-        );
-      }
-      if (usedRequests.size >= 100_000) {
-        throw new AppError('Request ID capacity reached; restart the relay', 503);
-      }
-      usedRequests.add(requestId);
-      if (archiving) {
-        if (typeof raw.archived !== 'boolean') {
-          throw new AppError('Invalid session archive state', 400);
-        }
-        sessions.setArchived(String(match?.[1]), raw.archived);
-        send(response, 200, {
-          requestId,
-          outcome: 'acknowledged',
-          data: { archived: raw.archived },
-        });
-        return;
-      }
-      if (viewing) {
-        const completionId = text(raw.completionId, 'completion ID', 128);
-        if (!/^[a-f0-9-]{36}$/.test(completionId)) {
-          throw new AppError('Invalid completion ID', 400);
-        }
-        const readState = sessions.markViewed(String(match?.[1]), completionId);
-        send(response, 200, { requestId, outcome: 'acknowledged', data: { readState } });
-        return;
-      }
-      if (creating || resuming) {
-        const id = resuming ? String(match?.[1]) : undefined;
-        const projectId = id ? sessions.get(id).projectId : text(raw.projectId, 'project ID', 128);
-        const session = await launches.start(projectId, id, raw.confirmedOffline === true);
-        send(response, 200, { requestId, outcome: 'acknowledged', data: { session } });
-        return;
-      }
-      const id = String(match?.[1]);
-      sessions.get(id);
-      const data = await bridges.command(
-        id,
-        generation(raw.generation),
-        bridgeCommand(raw.command),
-      );
-      send(response, 200, { requestId, outcome: 'acknowledged', data });
+      done(null, object(JSON.parse(body.toString())));
     } catch (error) {
-      const known = error instanceof AppError;
-      if (!response.destroyed && !response.writableEnded) {
-        send(response, known ? error.status : 500, {
-          requestId,
-          error: known ? error.message : 'Internal server failure',
-          outcome: known ? error.outcome : 'unknown',
-        });
-      }
-    } finally {
-      if (counted) {
-        inFlight--;
-      }
+      done(error instanceof AppError ? error : new AppError('Invalid JSON', 400));
     }
+  });
+
+  app.addHook('onRequestAbort', async (request) => {
+    inFlight.delete(request);
+  });
+  app.setErrorHandler((error, request, reply) => {
+    inFlight.delete(request);
+    const known = error instanceof AppError;
+    const parserErrors: Record<string, [number, string]> = {
+      FST_ERR_CTP_BODY_TOO_LARGE: [413, 'Request body too large'],
+      FST_ERR_CTP_INVALID_MEDIA_TYPE: [415, 'Content-Type must be application/json'],
+      FST_ERR_CTP_EMPTY_JSON_BODY: [400, 'Invalid JSON'],
+      FST_ERR_CTP_INVALID_CONTENT_LENGTH: [400, 'Invalid Content-Length'],
+    };
+    const parserError =
+      error instanceof Error && 'code' in error ? parserErrors[String(error.code)] : undefined;
+    reply
+      .header('Cache-Control', 'no-store')
+      .code(known ? error.status : (parserError?.[0] ?? 500))
+      .send({
+        requestId: requestIds.get(request),
+        error: known ? error.message : (parserError?.[1] ?? 'Internal server failure'),
+        outcome: known ? error.outcome : parserError ? 'rejected' : 'unknown',
+      });
+  });
+  app.setNotFoundHandler(() => {
+    throw new AppError('Route not found', 404);
+  });
+
+  function post(
+    path: string,
+    handler: (body: Record<string, unknown>, id: string) => unknown,
+  ): void {
+    app.post(
+      path,
+      {
+        preParsing: async (request, _reply, payload) => {
+          if (inFlight.size >= 128) {
+            throw new AppError('Request concurrency limit reached', 429);
+          }
+          inFlight.add(request);
+          if (request.headers['content-type']?.split(';')[0] !== 'application/json') {
+            throw new AppError('Content-Type must be application/json', 415);
+          }
+          return payload;
+        },
+      },
+      async (request) => {
+        try {
+          const raw = object(request.body);
+          const requestId = text(raw.requestId, 'request ID', 128);
+          requestIds.set(request, requestId);
+          if (usedRequests.has(requestId)) {
+            throw new AppError(
+              'Request ID already used; inspect state instead of replaying',
+              409,
+              'unknown',
+            );
+          }
+          if (usedRequests.size >= 100_000) {
+            throw new AppError('Request ID capacity reached; restart the relay', 503);
+          }
+          usedRequests.add(requestId);
+          const data = await handler(raw, (request.params as { id?: string }).id ?? '');
+          return { requestId, outcome: 'acknowledged', data };
+        } finally {
+          inFlight.delete(request);
+        }
+      },
+    );
   }
 
-  server.once('close', () => sessions.close());
-  server.requestTimeout = 15_000;
-  server.headersTimeout = 10_000;
-  server.maxConnections = 256;
-  return server;
+  registerWebSocketRoutes(app, events, bridges);
+  registerProjectRoutes(app, config);
+  registerSessionRoutes(app, post, sessions, bridges, launches);
+  const frontend: RouteHandlerMethod = async (request, reply) => {
+    if (
+      !(await serveFrontend(
+        new URL(request.url, 'http://localhost').pathname,
+        reply,
+        frontendDirectory,
+      ))
+    ) {
+      throw new AppError('Route not found', 404);
+    }
+    return reply;
+  };
+
+  for (const path of ['/', '/app', '/app/*', '/assets/*', '/display']) {
+    app.get(path, frontend);
+  }
+
+  app.addHook('onClose', async () => sessions.close());
+  app.server.headersTimeout = 10_000;
+  app.server.maxConnections = 256;
+  return app;
 }

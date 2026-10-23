@@ -5,7 +5,6 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { WebSocket } from 'ws';
 import { createApi } from '../dist/src/api/http.js';
-import { attachWebSockets } from '../dist/src/api/websocket.js';
 import { NativeBridges } from '../dist/src/bridge/server.js';
 import { Events } from '../dist/src/events.js';
 import { Launches } from '../dist/src/launches.js';
@@ -82,22 +81,19 @@ test('read API broadcasts shared metadata to both clients and never modifies Pi 
     events,
     store,
   );
-  const server = createApi(
+  const server = await createApi(
     config,
     inventory,
     bridges,
+    events,
     'frontend/dist',
     new Launches(config, inventory, bridges, async () => ''),
   );
-  const closeSockets = attachWebSockets(server, config, events, bridges);
   defer(async () => {
-    closeSockets();
-    server.closeAllConnections();
-    await new Promise((resolve) => server.close(resolve));
+    await server.close();
   });
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
-  config.port = server.address().port;
+  await server.listen({ port: 0, host: '127.0.0.1' });
+  config.port = server.server.address().port;
   const base = `http://127.0.0.1:${config.port}`;
   const id = inventory.list()[0].id;
   assert.equal(hasUnreadCompletion(inventory.list()[0].readState), false);

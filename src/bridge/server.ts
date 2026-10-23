@@ -8,14 +8,12 @@ import {
   readSync,
   realpathSync,
 } from 'node:fs';
-import type { IncomingMessage } from 'node:http';
 import { basename, dirname, isAbsolute, join } from 'node:path';
-import type { Duplex } from 'node:stream';
-import { WebSocket, WebSocketServer } from 'ws';
+import { WebSocket } from 'ws';
 import type { Config } from '../config.js';
 import type { Events } from '../events.js';
 import { emptyView, record } from '../shared/client-state.js';
-import { BRIDGE_LIMIT, type BridgeCommand, bridgeCommand } from '../shared/commands.js';
+import { type BridgeCommand, bridgeCommand } from '../shared/commands.js';
 import { AppError, text } from '../shared/errors.js';
 import { sessionActivity } from '../shared/session-activity.js';
 import { promptTitle, type Session } from '../shared/sessions.js';
@@ -45,11 +43,7 @@ interface NativeSession {
 
 /** An observation/control channel to an already running TUI. Never opens a session writer. */
 export class NativeBridges {
-  private readonly sockets = new WebSocketServer({
-    noServer: true,
-    maxPayload: BRIDGE_LIMIT,
-    perMessageDeflate: false,
-  });
+  private readonly sockets = new Set<WebSocket>();
   private readonly sessions = new Map<string, NativeSession>();
   private readonly config: Config;
   private readonly events: Events;
@@ -63,7 +57,7 @@ export class NativeBridges {
     this.events = events;
     this.timeout = timeout;
     this.heartbeat = setInterval(() => {
-      for (const socket of this.sockets.clients) {
+      for (const socket of this.sockets) {
         if (!this.alive.has(socket)) {
           socket.terminate();
         } else {
@@ -75,15 +69,18 @@ export class NativeBridges {
     this.heartbeat.unref();
   }
 
-  upgrade(request: IncomingMessage, socket: Duplex, head: Buffer): void {
-    if (this.closed || request.headers.origin !== undefined || this.sockets.clients.size >= 32) {
-      socket.end('HTTP/1.1 403 Forbidden\r\nConnection: close\r\n\r\n');
-      return;
+  validateConnection(origin: string | undefined): void {
+    if (this.closed || origin !== undefined || this.sockets.size >= 32) {
+      throw new AppError('Bridge upgrade rejected', 403);
     }
-    this.sockets.handleUpgrade(request, socket, head, (client) => this.connect(client));
   }
 
-  private connect(socket: WebSocket): void {
+  connect(socket: WebSocket): void {
+    if (this.closed || this.sockets.size >= 32) {
+      socket.terminate();
+      return;
+    }
+    this.sockets.add(socket);
     let native: NativeSession | undefined;
     const connectionId = randomUUID();
     const reader = new BridgeReader(() => socket.terminate());
@@ -111,6 +108,7 @@ export class NativeBridges {
       socket.terminate();
     });
     socket.on('close', () => {
+      this.sockets.delete(socket);
       reader.dispose();
       clearTimeout(startup);
       if (native?.socket === socket) {
@@ -418,9 +416,8 @@ export class NativeBridges {
     }
     this.closed = true;
     clearInterval(this.heartbeat);
-    for (const socket of this.sockets.clients) {
+    for (const socket of this.sockets) {
       socket.terminate();
     }
-    this.sockets.close();
   }
 }
