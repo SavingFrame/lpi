@@ -35,6 +35,32 @@ session where HA supports it.
 Tap links use `pim:///?session=<inventory-session-id>` and select that session on the mobile
 app's **currently configured relay**. They never start/resume Pi or change the server address.
 Install a native Pim build to register `pim://`; Expo Go does not register Pim's custom scheme.
-See [mobile notification testing](../mobile/README.md#notification-session-links) for the manual
-HA test and Expo Go link alternative. iOS opens Home Assistant first, then redirects to Pim;
+See [manual mobile testing](#manual-mobile-testing) for the HA test and
+[mobile session links](../mobile/README.md#notification-session-links) for the Expo Go alternative. iOS opens Home Assistant first, then redirects to Pim;
 the first handoff may require confirmation. The action button uses the same handoff.
+
+## Manual mobile testing
+
+After configuring the relay and HA Companion notifications, test this in HA Developer Tools
+using a real inventory ID from Pim's `/sessions` API (not Pi's separate session ID):
+
+```yaml
+action: notify.mobile_app_your_iphone
+data:
+  title: Pim
+  message: Agent finished answering
+  data:
+    url: "pim:///?session=<inventory-session-id>"
+    actions:
+      - action: OPEN_PIM
+        title: Open session
+        uri: "pim:///?session=<inventory-session-id>"
+```
+
+Verify body-tap handoff and the explicit Open session action separately with the phone locked,
+Pim backgrounded, and Pim closed. Also test while another session, settings, or the drawer is open.
+The relay must be reachable when reading the session. iOS Focus and notification settings still
+apply. iOS opens Home Assistant before redirecting to Pim, including when using the action button;
+the first handoff may ask for confirmation. Automatic backend alerts wait ten seconds and are
+suppressed if that completion has been read in either client. No mobile rebuild is needed to
+change this server-side behavior.

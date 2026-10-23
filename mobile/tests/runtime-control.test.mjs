@@ -5,6 +5,55 @@ import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 
+test('header stop dispatches immediately and respects command availability', () => {
+  const require = createRequire(new URL('../package.json', import.meta.url));
+  const RuntimeButton = Symbol('RuntimeButton');
+  const state = { pending: false };
+  let available = true;
+  const stopped = [];
+  const modules = {
+    react: { useSyncExternalStore: (_, getState) => getState() },
+    'react/jsx-runtime': require('react/jsx-runtime'),
+    '../../theme/colors': { colors: { error: 'red' } },
+    './runtime-button': { RuntimeButton },
+  };
+  const exports = {};
+  const { outputText } = ts.transpileModule(
+    readFileSync(new URL('../src/features/sessions/stop.tsx', import.meta.url), 'utf8'),
+    { compilerOptions: { jsx: ts.JsxEmit.ReactJSX, module: ts.ModuleKind.CommonJS } },
+  );
+  runInNewContext(outputText, {
+    exports,
+    require: (name) => {
+      assert.ok(Object.hasOwn(modules, name), `Unexpected import: ${name}`);
+      return modules[name];
+    },
+  });
+  const messages = {
+    commands: {
+      subscribe: () => {},
+      getState: () => state,
+      canStop: (generation) => {
+        assert.equal(generation, 7);
+        return available;
+      },
+    },
+    stopRuntime: (generation) => stopped.push(generation),
+  };
+  const render = (enabled = true) => exports.StopSession({ messages, generation: 7, enabled });
+  const control = render();
+  assert.equal(control.type, RuntimeButton);
+  assert.equal(control.props.disabled, false);
+  control.props.onPress();
+  assert.deepEqual(stopped, [7], 'a single press dispatches without a dialog');
+  assert.equal(render(false).props.disabled, true);
+  available = false;
+  state.pending = true;
+  assert.equal(render().props.disabled, true);
+  assert.equal(render().props.pending, true);
+  assert.equal(render().props.label, 'Stopping runtime');
+});
+
 test('header resume requires confirmation and stays blocked for unknown outcomes', () => {
   const require = createRequire(new URL('../package.json', import.meta.url));
   let state = { status: 'ready', error: null };

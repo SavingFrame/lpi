@@ -17,6 +17,17 @@ runtime-safety constraints live in [AGENTS.md](../AGENTS.md).
 - `desktop/`: Electron shell bundling the existing frontend.
 - `tests/`, `frontend/tests/`, `mobile/tests/`, `desktop/tests/`: isolated tests.
 
+## Shared contract boundaries
+
+`src/shared/` contains browser-safe types, validators, and pure projections. Import contracts
+from there directly, not through server implementations or frontend HTTP helpers. Keep
+filesystem, socket, database, Pi runtime, and UI dependencies out; Pi content/model imports
+must be type-only. Browser-safe extension contracts may live in `src/extension-support/`.
+
+Validate at every network boundary using shared parsers, without sharing mutable runtime
+state. Keep cursor, generation, buffering, and reconnect decisions in transport code.
+`tests/shared-contracts.test.mjs` covers contracts and dependency boundaries after a server build.
+
 ## Build and run
 
 `npm run build` builds the relay and browser UI. `npm run build:server` also type-checks
@@ -34,14 +45,15 @@ For browser development, run the relay separately, then `npm run dev` and open
 - [Native Pi bridge, troubleshooting, and runtime safety](bridge.md)
 - [Browser implementation and behavior](frontend.md)
 - [Shared client behavior](../src/client/README.md)
-- [Desktop setup and development](../desktop/README.md)
-- [Mobile setup and development](../mobile/README.md)
+- [Desktop setup](../desktop/README.md) and [development](desktop-development.md)
+- [Mobile setup](../mobile/README.md) and [development](mobile-development.md)
 
 ## Validation
 
 Use `npm run check` for lint, formatting, and import organization, and
 `npm run typecheck` for TypeScript checks. Neither runs tests.
-Use the focused test commands in [AGENTS.md](../AGENTS.md) for the affected surface;
+Use the [test guide](../tests/README.md) to select suites and follow
+[AGENTS.md](../AGENTS.md) for the affected surface;
 native-Pi integration is opt-in.
 
 Pim reads Pi history without opening another runtime. Its SQLite database stores relay

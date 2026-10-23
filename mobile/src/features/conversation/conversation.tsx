@@ -69,7 +69,6 @@ export function Conversation({
               messages={client.messages(session.id, session.projectId)}
               generation={connection.snapshot.session.generation}
               enabled={visible && !picking && connection.status === 'ready'}
-              onOpen={setConfirmingRuntime}
             />
           ) : null,
         )

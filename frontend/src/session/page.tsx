@@ -15,7 +15,6 @@ import { emptyView } from '../../../src/shared/client-state';
 import { previewBranch, projects } from '../api';
 import { Welcome } from '../app';
 import { launches, live, queryClient } from '../client';
-import { ConfirmButton } from '../components/confirm-button';
 import { Button } from '../components/ui/button';
 import { LaunchSession } from '../launch-session';
 import { ReadCompletion } from '../read-completion';
@@ -216,18 +215,16 @@ function SessionPane({
               />
             )}
             {session?.connection === 'connected' && snapshot?.state.managedRuntime === true && (
-              <ConfirmButton
-                key={session.generation}
+              <Button
+                type="button"
                 variant="outline"
                 size="sm"
                 disabled={!commands.canStop(session.generation)}
-                confirmLabel="Stop"
-                destructive
-                onConfirm={() => void commands.stopRuntime(session.generation)}
+                onClick={() => void commands.stopRuntime(session.generation)}
               >
                 <Power aria-hidden="true" />
                 Stop runtime
-              </ConfirmButton>
+              </Button>
             )}
             {session?.connection === 'disconnected' &&
               session.projectId === projectId &&

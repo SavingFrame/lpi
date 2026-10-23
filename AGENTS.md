@@ -47,11 +47,13 @@ Adapted from <https://github.com/earendil-works/pi/blob/main/AGENTS.md> for this
 
 ## Test Scope and Maintenance
 
-- Keep `node:test`. Do not introduce another test framework without a demonstrated need.
-- Test observable behavior and meaningful contracts, not incidental implementation details. Avoid repeating generic guard matrices across features or asserting exact markup unless that markup is the contract.
+- This is a pet project. Prefer a small, high-value test suite over exhaustive coverage. Do not add tests automatically for every change.
+- Add focused tests for meaningful regressions, non-trivial behavior, or risks involving session files, command delivery, persistence, or security. Small presentation and low-risk settings changes can use manual verification; state what was actually checked.
+- Keep `node:test`. Do not introduce another test framework or build a fake React/native runtime just to inspect component props.
+- Test observable behavior, not helper structure, exact markup, library behavior, or every input combination. Prefer representative cases. Test shared behavior once at the controller layer unless a platform adapter adds a distinct risk.
 - Preserve safety coverage for duplicate writers, stale generations, unknown command outcomes, no automatic replay, reconnect ordering, and durable read state. Similar assertions at different trust boundaries are not automatically redundant.
-- When touching large test files, consider extracting the affected feature into a smaller file and sharing repeated fixtures. Keep refactors scoped to the task; do not perform mass rewrites or target an arbitrary test count.
-- For layout, scrolling, and browser event ordering, verify behavior in a real browser when relevant. Mocked DOM tests cover controller logic, not actual layout. Keep fake-native coverage distinct from verified real-Pi integration.
+- Read and run only tests relevant to the change. Do not audit, reorganize, expand matrices, or create new harnesses as routine feature work. Keep test maintenance scoped; do not target an arbitrary test count or coverage percentage.
+- Use manual browser/device checks for presentation when practical. Add automated real-layout coverage only for a meaningful regression or risk, not every visual change. Mocked DOM tests do not verify layout; fake-native tests do not verify real-Pi integration.
 - Before removing an existing test, identify whether its behavior is covered elsewhere, obsolete, or no longer required. Ask before removing intentional coverage unless its removal was explicitly requested.
 
 ## Dependencies

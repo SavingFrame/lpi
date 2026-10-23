@@ -1,6 +1,8 @@
 # Test scope
 
-Use `node:test`. Run the smallest relevant files while editing, then final checks after the change stabilizes. `npm test` runs all deterministic relay/frontend tests only when explicitly requested. `npm run test:browser` is a separate opt-in real-layout check. No CI changes or new test dependencies are required.
+Tests use `node:test`. `npm test` runs deterministic relay/frontend tests;
+`npm run test:browser` is a separate opt-in real-layout check.
+See [AGENTS.md](../AGENTS.md#tooling-and-validation) for execution and isolation rules.
 
 ## Select a suite
 
@@ -37,12 +39,16 @@ node --experimental-strip-types --test --test-reporter=spec frontend/tests/live-
 
 Other feature tests remain beside these suites. `bridge-fixture.mjs` owns relay setup, fake native contexts, and extension transport teardown. `live-fixture.mjs` supplies snapshots and mocked browser transport. Neither fixture registers tests on import.
 
-## Maintenance decisions
+## Native integration limits
 
-- The pending command test checks every command as both an initial dispatch and a blocked competitor, without the former command-type cross-product. Unknown-outcome tests still check every command remains blocked.
-- The offline dispatch test also covers availability read before disconnection, replacing a separate duplicate scenario.
-- Prompt and extension HTTP delivery failures share one parameterized no-retry contract. Wrong acknowledgment correlation remains a separate failure path.
-- Markdown tests retain table semantics, alignment and security assertions without depending on exact wrapper nesting or placeholder tags.
-- Native, relay and browser safety assertions remain separate where they protect different trust boundaries. Do not remove them merely because their names look similar.
+Fake native contexts do not establish real-Pi integration. Real-layout browser checks
+complement mocked scroll-controller tests.
 
-A new test should cover a distinct user-visible behavior, contract or regression. Avoid adding cases for library behavior unrelated to Pim's configuration or for every implementation detail. Real-layout coverage complements controller units; fake native contexts do not establish real-Pi integration. The opt-in queue integration test starts both the installed bundled launcher and unbundled native Pi CLI in JSON mode. It symlinks the actual `extensions/pim` folder into the isolated agent directory, verifies that normal global discovery loads its `index.ts` without an explicit bridge path, and runs a source-based queue probe. No extension compilation or host-class injection is used. It loads the real queue adapter, clears queued steering/follow-up messages, verifies they never reach a fake provider, and verifies explicitly requeued replacements do. It uses temporary HOME, settings, working directory and sessions, no credentials, no network provider and no TUI. The opt-in source integration test does not require a build; compiled native unit tests still require `npm run build:server`. Set `PIM_TEST_PI_CLI` to an absolute CLI entry path to also verify a separate/global Pi installation with the same isolation. Real TUI/bridge integration and native-Pi reload, navigation, compaction and dialogs remain unverified.
+The opt-in queue integration test loads the actual source extension through normal global
+discovery in isolated JSON-mode Pi processes. It checks queue clearing and explicit requeueing
+against a fake provider, without credentials or a network provider. It uses temporary HOME,
+settings, working directories, and sessions. No source-extension build is needed; compiled
+native unit tests still require `npm run build:server`.
+
+Set `PIM_TEST_PI_CLI` to an absolute CLI entry path to check a separate/global Pi installation.
+This does not verify native TUI/relay integration, reload, navigation, compaction, or dialogs.

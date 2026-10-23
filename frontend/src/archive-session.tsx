@@ -4,7 +4,6 @@ import { useSyncExternalStore } from 'react';
 import type { InventorySession } from '../../src/shared/sessions';
 import { setArchived } from './api';
 import { live } from './client';
-import { ConfirmButton } from './components/confirm-button';
 import { Button } from './components/ui/button';
 import { useSessionCommands } from './session/use-session-commands';
 
@@ -47,40 +46,23 @@ export function ArchiveSession({
   const Icon = session.archived ? ArchiveRestore : stopping ? Power : Archive;
   return (
     <div className="archive-control">
-      {!stopping ? (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon"
-          disabled={disabled}
-          aria-label={`${label}: ${session.title || 'Untitled session'}`}
-          title={description}
-          onClick={() => mutation.mutate()}
-        >
-          <Icon size={15} aria-hidden="true" />
-        </Button>
-      ) : (
-        <ConfirmButton
-          key={`${session.generation}:${session.connection}`}
-          variant="ghost"
-          size="icon"
-          disabled={disabled}
-          aria-label={`${label}: ${session.title || 'Untitled session'}`}
-          title={description}
-          message={description}
-          confirmLabel={stopping ? 'Stop runtime' : 'Archive'}
-          destructive={stopping}
-          onConfirm={() => {
-            if (stopping) {
-              void commands.stopRuntime(session.generation);
-            } else {
-              mutation.mutate();
-            }
-          }}
-        >
-          <Icon size={15} aria-hidden="true" />
-        </ConfirmButton>
-      )}
+      <Button
+        type="button"
+        variant="ghost"
+        size="icon"
+        disabled={disabled}
+        aria-label={`${label}: ${session.title || 'Untitled session'}`}
+        title={description}
+        onClick={() => {
+          if (stopping) {
+            void commands.stopRuntime(session.generation);
+          } else {
+            mutation.mutate();
+          }
+        }}
+      >
+        <Icon size={15} aria-hidden="true" />
+      </Button>
       {(mutation.error || commands.error || (shutdown && commands.outcome)) && (
         <div className="session-action-notice" role="status">
           <p>{mutation.error?.message || commands.error?.message || commands.outcome}</p>

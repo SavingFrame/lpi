@@ -32,7 +32,6 @@ export function InventoryAction({
           enabled={
             online && session.managedRuntime && command.shutdownGeneration !== session.generation
           }
-          onOpen={() => {}}
         />
       ) : (
         <RuntimeButton

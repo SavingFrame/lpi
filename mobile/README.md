@@ -1,320 +1,123 @@
 # Pim mobile
 
-An iOS-first React Native + Expo app using Tamagui for the existing Pim relay.
+An iOS-first app for following and controlling your native Pi sessions from your phone.
+It connects to an existing Pim relay. Pi and your conversation files stay on the relay host.
 
-**Status: conversation and core message controls implemented.** Connection setup, a combined project/session drawer,
-persistent server/selection settings, foreground reconnect, and native live/saved
-conversation rendering are implemented. The drawer uses flat session rows with dates and
-compact status indicators. Conversations support Markdown, horizontally scrolling code and
-tables and visible compact tool groups with per-call details. Thinking is hidden. Typechecking, mocked transport tests, and an iOS
-JavaScript/Hermes bundle export pass. The workspace now targets SDK 57 to match the
-user's physical-device Expo Go. Previous connection-screen startup was verified in Expo Go
-58.0.5 with Xcode 27.1 and Node 22.23.3; SDK 57 device startup remains unverified. The user confirmed operation on a new iPhone 17
-simulator (iOS 27.0) after the old iOS 17 device ignored system/app input. Simulator
-screenshots and remote taps verify the drawer, tool detail expansion,
-paired arguments/output, and vertical transcript scrolling against the configured relay.
-The user reports physical-device validation complete and confirms the initial message controls
-work on their phone. The simplified inline Send/Stop button still needs device interaction
-validation. Read acknowledgments have isolated controller coverage. Custom native builds and real-Pi integration remain
-unverified.
+The app currently runs through Expo Go or a local native build. No App Store release or
+prebuilt installer is available.
 
-## Run
+## Features
 
-From the repository root, using Node.js 22.19+:
+- Browse live and saved conversations by project, with activity and unread indicators.
+- Archive and restore sessions across clients.
+- Read streaming Markdown, code, tables, images, and expandable tool details. Thinking is hidden.
+- View image and interactive HTML artifacts, including CDN-backed charts when online.
+- Send text and images, steer running agents, and stop a response.
+- Create, resume, and stop Pim-managed runtimes.
+- Choose models and thinking levels, and answer supported Ask User Question prompts inline.
+- Keep text drafts and relay settings on your device.
+- Open sessions from optional Home Assistant completion notifications.
 
-```sh
-npm ci --ignore-scripts
-npm run start --workspace @pim/mobile
-```
+## Run with Expo Go
 
-Start the relay separately using the [root setup](../README.md). Open the app with a
-matching Expo Go SDK 57 installation, or a compatible development build. Use a trusted
-network for both Pim and Expo's development server. No EAS project, signing account, or
-cloud service is configured.
-
-For a physical iPhone, start Metro with `npm run start --workspace @pim/mobile -- --go --lan`
-and scan its QR code with Camera, or open its `exp://<computer-LAN-IP>:8081` URL in Safari.
-Allow Expo Go local-network access. Saving source files on the Metro host triggers Fast
-Refresh; edits on another computer must be synced there first. After changing SDKs, install
-dependencies again and restart Metro with `--clear`. No paid Apple account is needed for
-an already-compatible Expo Go client.
-
-On a Mac with Xcode and an iOS simulator, `npm run ios --workspace @pim/mobile` starts
-Expo and requests the simulator. Expo Go simulator startup has been verified. Xcode 27
-uses Device Hub instead of `Simulator.app`. If Expo does not focus the simulator window,
-use `xcrun simctl list devices` to find its UDID, then open
-`devices://device/open?id=<simulator-udid>` with macOS `open`. Android configuration exists,
-but Android validation remains deferred. There is no mobile web target.
-
-## Native iOS builds
-
-The SDK 57 bundled native template still starts React Native in `AppDelegate`. Pim's
-`plugins/with-ios-scene-lifecycle.cjs` prebuild plugin adopts Expo's scene lifecycle for
-Xcode 27 / iOS 27: the app delegate provides the React Native factory, and Expo's scene
-delegate creates the window and forwards lifecycle and deep-link events. The plugin also
-registers the scene configuration in Info.plist. It fails if an upstream template changes
-incompatibly, so review it when upgrading Expo. Native build and device validation are
-separate from the template regression test.
-
-On the Mac, run `npx expo prebuild --platform ios` from `mobile/`, then open
-`ios/Pim.xcworkspace`. Configure your signing team in Xcode and select your phone. Use the
-Release run configuration to bundle JavaScript without Metro. A free Personal Team needs
-signing renewal every seven days and cannot enable remote push notifications. Avoid
-`prebuild --clean` on a configured project unless you intend to recreate native settings.
-
-## Notification session links
-
-The root route accepts `?session=<inventory-session-id>`, for example
-`pim:///?session=11111111-1111-1111-1111-111111111111`. It opens history on the device's
-configured relay after settings/inventory hydration, handles foreground links, and keeps pending
-targets through suspension or failed refreshes. Missing sessions show an error rather than opening
-another conversation. Links close settings/the drawer and do not send prompts, resume runtimes,
-or acknowledge a completion until the normal visible/following read conditions hold.
-
-A native build registers the existing `pim` scheme, including on free Personal Team builds.
-HA Companion receives the push, so Pim needs no push entitlement or paid developer membership.
-Signing renewal still applies. Expo Go cannot handle `pim://`; for manual development testing,
-use `exp://<metro-host>:8081/--/?session=<inventory-session-id>` instead, with Metro running and
-reachable. This tests development navigation, not standalone cold-launch behavior. The relay's
-automatic notifications target native Pim, not Expo Go.
-
-After configuring the relay and HA Companion notifications, test this in HA Developer Tools
-using a real inventory ID from Pim's `/sessions` API (not Pi's separate session ID):
-
-```yaml
-action: notify.mobile_app_your_iphone
-data:
-  title: Pim
-  message: Agent finished answering
-  data:
-    url: "pim:///?session=<inventory-session-id>"
-    actions:
-      - action: OPEN_PIM
-        title: Open session
-        uri: "pim:///?session=<inventory-session-id>"
-```
-
-Verify body-tap handoff and the explicit Open session action separately with the phone locked,
-Pim backgrounded, and Pim closed. Also test while another session, settings, or the drawer is open.
-The relay must be reachable when reading the session. iOS Focus and notification settings still
-apply. iOS opens Home Assistant before redirecting to Pim, including when using the action button;
-the first handoff may ask for confirmation. Automatic backend alerts wait ten seconds and are
-suppressed if that completion has been read in either client. No mobile rebuild is needed to
-change this server-side behavior.
-
-## Prepared SSH Mac
+You need Node.js **22.19 or newer**, a running [Pim relay](../README.md#install-and-run),
+and an Expo Go installation compatible with **Expo SDK 57**. Keep both the relay and Expo's
+development server on a trusted network. No paid Apple developer account is needed for Expo Go.
 
 From the repository root:
 
 ```sh
-bash .pi/skills/ios-macos/scripts/ios-mac.sh run
-bash .pi/skills/ios-macos/scripts/ios-mac.sh screenshot
-bash .pi/skills/ios-macos/scripts/ios-mac.sh logs
+npm ci --ignore-scripts
+npm run start --workspace @pim/mobile -- --go --lan
 ```
 
-`run` syncs source to the existing test directory, starts or reuses the correct Metro,
-and opens Pim on the current simulator. Separate commands: `status`, `sync`, `start`,
-`open`. The Bash helper lives beside the project skill and uses the Mac's existing Node
-only for JSON parsing. Screenshots are copied to a local path for inspection. It does not provision
-macOS, download toolchains, erase devices, or install npm dependencies. Update remote
-dependencies explicitly if manifests/lockfile change. It refuses ambiguous simulator
-selection and unrelated servers on port 8081. Source sync excludes environment files and
-generated output, without deleting destination files.
+Scan the QR code with the iPhone Camera, or open `exp://<computer-LAN-IP>:8081` in Safari.
+Allow Expo Go local-network access. The computer running Expo must be reachable from your phone.
+After changing SDKs, reinstall dependencies and restart Metro with `--clear`.
 
-Defaults target `user@192.168.100.209` and the existing private Node/Expo installation.
-Override with `PIM_IOS_SSH`, `PIM_IOS_DIR`, `PIM_IOS_HOST`, or `PIM_IOS_DEVICE` (UDID).
-The project-only [iOS testing skill](../.pi/skills/ios-macos/SKILL.md) records the setup,
-commands, and known Device Hub/input issues.
+For simulator setup and source development, see [mobile development](../docs/mobile-development.md).
 
-## Current behavior
+## Connect to your relay
 
-- Conversation is the main screen, without a tab bar.
-- Tap Projects or swipe from the leftmost 24 points to open the drawer. The narrow edge
-  gesture is intended to leave content scrolling available; device behavior is unverified.
-- Projects collapse, older sessions expand, and active/unread/selected sessions remain
-  visible outside the recent window. Selecting a session closes the drawer.
-- Server settings are secondary. Server URLs and selected session IDs use AsyncStorage,
-  scoped by normalized relay origin. A saved selection is restored only if available.
-- Foreground connections use shared HTTP validation and snapshot/event synchronization.
-  Suspension closes the client transport, not Pi. Late inventory responses are ignored.
-- Conversations show user messages, assistant Markdown/partials, and collapsible system
-  details. All thinking content is hidden, including empty thinking blocks. Empty assistant
-  text does not create blank rows.
-- Tool groups are always visible as compact rows under a small count/status heading.
-  Rows show a truncated monospace command/path/search/script preview and status icons:
-  a green check for completion, a red cross for errors, a native spinner while running,
-  and an outlined minus for missing results. Accessibility labels retain status text.
-  Only per-call arguments/output are collapsed. Calls and results pair by ID, and hidden
-  thinking does not split groups. User messages and ordinary assistant responses separate
-  groups.
-  Arguments and output stay inspectable, including orphan results, live partial output,
-  and errors. Missing results are not treated as successful completion; active tools are
-  not duplicated in a separate footer.
-- Code and tables scroll horizontally. Valid embedded conversation images render inline;
-  unavailable/invalid images retain a placeholder. Raw HTML is displayed as text, and only
-  HTTP(S)/mail links open.
-- Explicit `show` results render saved images and HTML as borderless visual replies outside
-  tool groups. Frames fit their content up to 20,000px and use the mobile theme and typography;
-  the conversation owns scrolling. Small overlay controls provide expansion and source inspection,
-  without a banner, repeated summary, or warning footer. Summaries remain accessibility/terminal
-  fallbacks. HTML runs in a sandboxed iframe inside an incognito WebView. HTTP(S) CDN scripts,
-  styles and fonts are allowed; prefer HTTPS because platform transport rules still apply.
-  External images, fetch/XHR/WebSocket connections, navigation, file access, cookies and storage
-  remain restricted. CDN-backed visuals need network access. The native callback accepts
-  only bounded size reports, never agent actions. Artifacts use the shared persisted contract;
-  normal Markdown never becomes executable HTML. Mobile file export is not implemented.
-  Native WebView interaction/isolation remains unverified. Custom native
-  builds must be rebuilt after installing the WebView dependency; compatible Expo Go
-  already includes its native module.
-- The compact header shows the session title and live/saved/offline state. Server settings
-  and refresh live in the drawer. Session rows include dates, activity, and unread markers.
-- The transcript uses an inverted native list with the latest content at offset zero and
-  a 12-point trailing gap. Native visible-position anchoring preserves older reading positions.
-  Following stays active across streaming and keyboard/composer resizing, pauses when scrolling
-  back or inspecting details, and resumes through Latest or scrolling to the bottom.
-  Short histories use their natural content height so keyboard resizing cannot anchor blank
-  space. An isolated iPhone 17 simulator fixture reproduced the blank transcript before this
-  fix and verified messages remain visible with the keyboard open and closed afterward.
-  Controller tests cover follow/read eligibility; long-transcript anchoring, gestures, and
-  physical-device keyboard behavior still need validation.
-- A multiline composer persists server/session-scoped drafts on this device. Send uses
-  prompt while idle and steer while running. One button at the right of the input sends
-  text/images, switches to Stop when Pi is running and the draft is empty, and shows a disabled
-  spinner while submitting. Stop requests cancellation without clearing queued messages
-  or dismissing native dialogs. Draft saving is silent; storage failures show a small icon
-  with an on-demand retry dialog. The composer remains editable while a request is pending;
-  acceptance preserves newer edits.
-- Connected, Pim-managed sessions show a power icon in the top-right header to stop the runtime. A destructive
-  confirmation explains that active work stops but saved history stays. Stop shares the
-  composer command lane and rejects confirmations for an older runtime generation.
-  Acknowledgment means shutdown was requested, not that exit is confirmed. Unmanaged
-  terminal sessions do not show this control. Native interaction and real-Pi shutdown
-  remain unverified.
-- Shared durable command guards block dispatch until hydration, persist before sending,
-  and recheck connectivity/generation after storage writes. Rejected requests retain the
-  draft. Unknown outcomes block new commands across app restarts until explicit review;
-  neither review nor reconnect resends anything. Draft storage errors expose explicit retry.
-- Loaded completions are acknowledged only while synchronized, foregrounded, following
-  the bottom, and outside the drawer/settings. Read failures expose explicit retry.
-- The + button opens the system photo picker for screenshots/photos, with a fixed-height
-  thumbnail strip above the input and removal controls that stay tappable with the keyboard
-  open. Keyboard avoidance accounts for the outer safe-area top inset. Image-only messages are supported. Up to four PNG/JPEG/GIF/WebP
-  images may total 4 MiB; larger/unsupported selections show an error without changing
-  the draft. Picker output is checked by its bytes rather than the original asset MIME.
-  Unsent images remain in memory across session switches but do not survive app restarts;
-  only text drafts and command guards are persisted. Selection never sends automatically.
-  No camera, microphone, or broad photo-library permission is requested by this flow.
-  Read acknowledgments pause while the picker is open. Native picker interactions and
-  end-to-end image delivery still need device validation.
-- Each project has a + button for creating a fresh native Pi session through the relay.
-  The acknowledged session is selected and the drawer closes unless selection changed while
-  waiting. A shared durable launch lane blocks duplicate requests and survives app restarts.
-  Unknown outcomes require runtime inspection and explicit review; review never retries.
-  Creation UI and real-Pi launching still need device/integration validation.
-- Saved conversations show a green Resume runtime power button in the same top-right header
-  position as Stop runtime. It is enabled only when synchronized and requires explicit confirmation
-  that no Pi process still uses the file. Resume keeps server-side reservation and external-writer
-  protections, uses its own durable lane, and refreshes the same conversation after acknowledgment.
-  Unknown resume outcomes require inspection and explicit review. Reconnect never resumes.
-- Ask User Question prompts appear directly in the scrolling chat, with single/multiple
-  selections, custom text, per-question/global notes, Markdown previews, submission, and
-  explicit cancellation. No questionnaire sheet needs opening. Drafts are memory-only;
-  unmounting or bridge generation changes discard them. Answers share the composer command
-  lane and require the native extension verdict; unknown outcomes block new commands without
-  replay. Completed questions and recorded answers, including terminal answers, remain inline
-  as read-only cards. Unsupported results retain the normal tool display. Isolated rendering
-  and transport tests pass; native interaction and real-Pi integration remain unverified.
-- One pill inside the composer, beside the attachment button and below the text input,
-  shows the current model and a color-coded thinking level with text. It opens a bottom
-  sheet containing supported thinking levels and searchable model selection, with Pi scoped
-  models first and search across provider, ID, and name. The sheet stays open across changes
-  so both settings can be edited. Changes share the durable command lane and require
-  synchronized, connected, idle Pi with no queued messages or dialogs. Read acknowledgments
-  pause while a settings sheet is open. Native interaction and real-Pi integration remain
-  unverified.
+In the app's server settings, enter the full relay origin, for example:
 
-## Connection and runtime
+```text
+http://192.168.1.20:3141
+```
 
-Enter a full relay origin, for example `http://192.168.1.20:3141` or an HTTPS Tailscale URL.
-Paths, credentials, query parameters, and fragments are rejected. `localhost` on a phone
-refers to that phone, not the relay computer.
+`localhost` on your phone refers to the phone, not your computer. Do not include paths,
+credentials, query parameters, or fragments.
 
-Add the exact relay origin to Pim's configured `origins`, including its port. Allowed
-Hosts are derived from those URLs. Native HTTP/WebSocket requests use their normal
-platform networking; no Host/Origin checks are disabled or spoofed. Actual iOS networking,
-permissions, and LAN/Tailscale interoperability remain unverified.
+Configure the relay to listen on a reachable address and add that exact relay URL, including
+its port, to `origins` in `pim.config.json`. Restart the relay after changing its configuration.
+Prefer HTTPS, especially for qualified Tailscale hostnames. Some HTTP hostnames may be blocked
+by iOS transport policy; certificate validation is not bypassed.
 
-The iOS config declares a local-network usage description and the local-network ATS
-exception (`NSAllowsLocalNetworking`). It does not enable `NSAllowsArbitraryLoads` or
-bypass TLS verification. Prefer HTTPS, particularly for qualified Tailscale hostnames;
-arbitrary HTTP hostnames may still be blocked by platform transport policy. These config
-settings apply to a native app build, not to an already-installed Expo Go binary.
+**Pim has no application authentication. Anyone who can reach the relay can control connected
+agents. Keep it behind trusted LAN, Tailscale, or tunnel access controls.**
 
-Pim trusts reachable LAN/Tailscale clients. There is no application authentication. Anyone
-who can reach Pim can control connected agents. Keep it private. Native Pi stays on the
-host and is the only agent runtime and conversation-file writer. The app neither runs Pi
-nor manages JSONL files. Disconnection never authorizes another writer.
+## Using the app
 
-## Dependencies and layout
+Open **Projects**, or swipe from the left edge, to select a conversation. Server settings and
+refresh are in the drawer. Use a project's **+** button to create a new native Pi session.
 
-`mobile/` is an npm workspace using the root lockfile. Dependencies are exactly pinned:
+The composer sends a prompt while idle and steers while the agent is running. With an empty
+draft during a run, its button becomes **Stop**, which requests response cancellation without
+clearing queues or dismissing native dialogs. Tap the model/thinking pill to change settings
+while Pi is idle with no queued messages or dialogs.
 
-| Foundation | Version |
-| --- | --- |
-| Expo / Expo Router | 57.0.31 / 57.0.29 |
-| React / React Native | 19.2.3 / 0.86.3 |
-| Tamagui / config | 3.1.2 |
-| AsyncStorage | 2.2.0 |
-| Expo ImagePicker | 57.0.20 |
-| React Native WebView | 13.16.1 |
-| Drawer layout | 4.2.12 |
-| Gesture Handler / Reanimated / Worklets | 2.32.0 / 4.5.1 / 0.10.1 |
+The attachment **+** opens the photo picker. Up to four PNG, JPEG, GIF, or WebP images may total
+4 MiB per message. Image-only messages are supported with an image-capable model. Text drafts
+survive app restarts; unsent images do not.
 
-Expo's published SDK dependency matrix supplies native package versions. Mobile uses React
-and React DOM 19.2.3, while the browser stays on 19.3.0. Expo's monorepo autolinking resolver
-keeps the mobile bundle on one React copy; an exported source map confirms this. Mobile has
-its own TypeScript 6.0.3 while root tooling retains TypeScript 5.9.3. Expo's default Metro
-workspace support loads shared source without custom resolver aliases. Root overrides keep
-Expo, Expo Font, React Native, its Metro config, Gesture Handler, Reanimated, and Worklets
-on the SDK 57 versions across transitive peer dependencies. Tamagui uses its standard runtime, system
-fonts, explicit native style props, and no optimizing compiler plugin.
+The header power button stops a connected Pim-managed runtime **without confirmation**.
+This interrupts active work but keeps saved history. Externally managed runtimes must be stopped
+in their terminal. Saved sessions offer **Resume runtime**, which requires confirmation that no
+other Pi process is using the file. A disconnected session may still be running.
 
-- `src/app/`: Expo Router entry and provider shell.
-- `src/features/`: connection form, grouped drawer, conversation preview.
-- `src/lib/`: native storage/network construction and read-only lifecycle binding.
-- `src/theme/`: mobile presentation colors.
-- `tests/`: isolated `node:test` transport/lifecycle fixtures, with no native imports.
-- `../src/client/`: shared browser/mobile behavior, already consumed by the browser.
+Closing or backgrounding the app does not stop Pi. Reconnection does not automatically resend
+commands or resume runtimes. If a command's outcome is unknown, inspect the runtime before
+explicitly reviewing the warning. Review does not resend the command.
 
-Markdown uses the exactly pinned `marked` 18.0.11 lexer with native Text/View rendering,
-not a WebView. Only explicit HTML artifacts use a WebView. Transcript and drawer layout use explicit React Native styles rather than
-Tamagui's default button/text presentation; Tamagui remains the app's provider/form foundation.
+## Native iOS builds
 
-The mobile composer and read acknowledgments use the shared mutation guards, durable
-drafts, and read-completion controller. Mobile extension rendering is registered explicitly
-in `src/extensions/index.tsx`; Ask uses the shared questionnaire draft helpers and native
-Markdown renderer, without browser components or CSS.
-
-## Validation and known limitations
+You need a Mac with Xcode and an Apple signing team. No EAS project or cloud build service is
+configured. From `mobile/`:
 
 ```sh
-npm run check
-npm run typecheck --workspace @pim/mobile
-npm exec --workspace @pim/mobile -- expo install --check
-npm run test --workspace @pim/mobile
-npm run bundle:ios --workspace @pim/mobile
+npx expo prebuild --platform ios
 ```
 
-`bundle:ios` exports JavaScript/assets to ignored `mobile/dist/`. This is **not** an iOS
-native build. Tests use injected storage and transports, never real credentials, sessions,
-user settings, or model calls. Gesture feel, layout, text selection, long-list scrolling,
-background recovery, native persistence, and actual networking require device validation.
+Open `ios/Pim.xcworkspace` in Xcode, configure your signing team, and select your phone.
+Use the **Release** run configuration to bundle JavaScript without Metro. A free Personal Team
+requires signing renewal every seven days and cannot enable remote push notifications.
+Avoid `prebuild --clean` unless you intend to recreate native settings.
 
-The current Tamagui release emits Metro package-export fallback warnings. Export and
-Expo Go startup, drawer taps, tool detail expansion, and vertical transcript scrolling
-have been checked on the simulator. Edge gestures, horizontal code scrolling, text selection,
-and physical-device behavior still need validation. After moving to SDK 57, the dependency
-audit reports 124 entries (2 moderate, 122 high). This is not a security-cleared dependency
-set; no forced audit fixes or unrelated major changes were applied. Keep development
-tooling private and review upstream fixes before distribution. No claim of production
-readiness is made.
+Custom native builds remain unverified. See [native lifecycle details](../docs/mobile-development.md#native-ios-lifecycle)
+when changing Expo or the generated iOS project.
+
+## Notification session links
+
+Optional alerts use the Home Assistant Companion app, so Pim needs no push entitlement or
+paid Apple membership. See [notification setup](../docs/notifications.md).
+
+A native Pim build registers links such as `pim:///?session=<inventory-session-id>`.
+They open history on the app's currently configured relay, without starting Pi or switching
+servers. Missing sessions show an error. iOS opens Home Assistant first, then redirects to Pim;
+the first handoff may require confirmation.
+
+Expo Go cannot handle `pim://`. For development, use
+`exp://<metro-host>:8081/--/?session=<inventory-session-id>` while Metro is reachable.
+Automatic relay notifications target native Pim, not Expo Go. See the
+[manual notification checks](../docs/notifications.md#manual-mobile-testing).
+
+## Limitations
+
+- iOS is the primary target. Android configuration exists but is unvalidated; there is no mobile web target.
+- Some native interactions, networking scenarios, custom builds, and full native-Pi integration
+  still require validation. Do not treat simulator or mocked-test coverage as production readiness.
+- Unsupported Pi dialogs still require the terminal. HTML artifact file export is not implemented.
+- Dependency audits have reported unresolved vulnerabilities. Keep development tooling private
+  and review current dependency security before distribution.
+
+For implementation, testing, and repository layout, see [mobile development](../docs/mobile-development.md).

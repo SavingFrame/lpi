@@ -2,20 +2,6 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { linkUrl, markdownTokens, messageBlocks } from '../src/features/conversation/content.ts';
 
-test('conversation Markdown preserves headings, nested formatting, lists, tables, and code', () => {
-  const tokens = markdownTokens(
-    '# Title\n\nA **bold** [link](https://example.com).\n\n- one\n- two\n\n```ts\nconst x = 1;\n```\n\n| A | B |\n| - | - |\n| 1 | 2 |',
-  );
-  assert.equal(tokens[0].type, 'heading');
-  const paragraph = tokens.find((token) => token.type === 'paragraph');
-  assert.ok(paragraph.tokens.some((token) => token.type === 'strong'));
-  assert.ok(paragraph.tokens.some((token) => token.type === 'link'));
-  assert.equal(tokens.find((token) => token.type === 'list').items.length, 2);
-  assert.equal(tokens.find((token) => token.type === 'code').text, 'const x = 1;');
-  assert.equal(tokens.find((token) => token.type === 'table').rows.length, 1);
-  assert.doesNotThrow(() => markdownTokens('Partial **bold\n\n```ts\nunfinished'));
-});
-
 test('only explicit web and mail links are actionable, with no embedded HTML execution', () => {
   assert.equal(linkUrl('https://example.com'), 'https://example.com/');
   assert.equal(linkUrl('mailto:test@example.com'), 'mailto:test@example.com');
