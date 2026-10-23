@@ -101,6 +101,22 @@ test('network binding defaults to all IPv4 interfaces and accepts explicit IP ad
   }
 });
 
+test('desktop origin is explicit and cannot authorize arbitrary custom schemes', (t) => {
+  const { load } = setup(t);
+  const origins = ['http://127.0.0.1:3141', 'pim-app://app'];
+  assert.deepEqual(load(['~/Projects'], { origins }).origins, origins);
+  for (const origin of [
+    'null',
+    'pim-app://other',
+    'pim-app://app/',
+    'pim-app://app:123',
+    'file://app',
+    'pim-app://user@app',
+  ]) {
+    assert.throws(() => load(['~/Projects'], { origins: [origin] }));
+  }
+});
+
 test('Home Assistant is opt-in and accepts only a credential-free origin and mobile notification service', (t) => {
   const { load } = setup(t);
   assert.equal(load(['~/Projects']).homeAssistant, undefined);

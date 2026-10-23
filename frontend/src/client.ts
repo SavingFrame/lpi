@@ -4,6 +4,7 @@ import { SessionDrafts } from '../../src/client/drafts';
 import { LaunchController } from '../../src/client/launches';
 import type { InventorySession } from '../../src/shared/sessions';
 import { launch, operate } from './api';
+import { relayServer } from './connection';
 import { LiveSession } from './live';
 import { browserStorage } from './storage';
 
@@ -31,7 +32,7 @@ export function sessionCommands(id: string, projectId: string): SessionCommands 
   let commands = commandControllers.get(id);
   if (!commands) {
     commands = new SessionCommands(id, projectId, {
-      server: window.location.origin,
+      server: relayServer ?? window.location.origin,
       connection: live.getState,
       runtime: () =>
         queryClient
@@ -52,13 +53,13 @@ export function sessionCommands(id: string, projectId: string): SessionCommands 
 }
 
 export const drafts = new SessionDrafts({
-  server: window.location.origin,
+  server: relayServer ?? window.location.origin,
   storage: browserStorage,
   persistImages: false,
 });
 
 export const launches = new LaunchController({
-  server: window.location.origin,
+  server: relayServer ?? window.location.origin,
   storage: browserStorage,
   dispatch: launch,
   eligible: () => true,

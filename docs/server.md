@@ -8,7 +8,7 @@ Pim discovers saved sessions and routes browser commands into connected native P
 - `piSessionRoots`: saved JSONL roots, default `["~/.pi/agent/sessions"]`. Custom storage requires explicit roots. Missing directories are ignored. Set `[]` to disable saved-file discovery.
 - `host`: IPv4 or IPv6 bind address, default `0.0.0.0` (all IPv4 interfaces). Use `127.0.0.1` for loopback-only access.
 - `port`: defaults to 3141.
-- `origins`: exact allowed HTTP(S) browser origins, including every LAN/Tailscale URL you use. Their authorities also form the Host allowlist, alongside localhost and IPv4/IPv6 loopback with the configured port. The default empty list denies Origin-bearing requests.
+- `origins`: exact allowed HTTP(S) browser origins, including every LAN/Tailscale URL you use, plus the exact `pim-app://app` origin for the bundled desktop UI. Only HTTP(S) authorities contribute to the Host allowlist, alongside localhost and IPv4/IPv6 loopback with the configured port. Custom origins do not grant HTTP hosts; opaque `null` origins are rejected. The default empty list denies Origin-bearing requests.
 
 Roots are not a filesystem sandbox. Project trust and agent configuration belong to native Pi.
 

@@ -88,7 +88,7 @@ Pim has three parts:
 
 - **Server:** runs on your machine and connects your Pi sessions to your clients.
 - **Pi extension:** runs inside each native Pi session, sends updates to the server, and receives commands from it.
-- **Clients:** the web frontend and iOS app connect to the same server. You can follow the same sessions from multiple devices. The iOS app supports core message controls and fresh-session creation.
+- **Clients:** the web frontend, Electron development shell, and iOS app connect to the same server. You can follow the same sessions from multiple devices. The iOS app supports core message controls and fresh-session creation.
 
 ```text
 Pi + extension ─┐                  ┌─ Web browser
@@ -108,6 +108,7 @@ The agent always runs in Pi, not in the server or clients. Closing a client or t
 - `src/extension-support/`: explicit extension contracts and native/browser adapters.
 - `frontend/src/`: browser UI and platform adapters.
 - `mobile/src/`: Expo app, native UI, and platform adapters. See [mobile setup](mobile/README.md).
+- `desktop/`: Electron app bundling the existing frontend. See [desktop setup](desktop/README.md).
 - `tests/`, `frontend/tests/`, `mobile/tests/`: isolated tests for each surface.
 - `AGENTS.md`: development rules and runtime-safety constraints.
 
@@ -116,6 +117,15 @@ completion/read and archive metadata, not conversations. Disconnects never autho
 second writer, and reconnects never replay mutations automatically. Managed resume checks
 tmux reservations; external writers cannot be reliably detected and require explicit
 offline confirmation. Real native-Pi integration remains unverified.
+
+## Desktop development
+
+Start the relay separately, then run `npm run desktop:start` to build and open the bundled
+frontend in Electron. The UI loads locally at `pim-app://app/`; only API/WebSocket traffic goes to
+the relay at `http://127.0.0.1:3141` (override with `PIM_DESKTOP_SERVER`). Add `pim-app://app` to
+existing relay configurations' allowed origins. `npm run desktop:dev` uses Vite HMR instead.
+Neither command starts Pi or owns agent lifetime. See [desktop setup and security limits](desktop/README.md).
+Tabs, native notifications, and production packaging are not implemented yet.
 
 ## Pi extensions
 

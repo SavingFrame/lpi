@@ -3,6 +3,7 @@ import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import { isIP } from 'node:net';
 import { homedir } from 'node:os';
 import { basename, isAbsolute, join, resolve } from 'node:path';
+import { DESKTOP_ORIGIN } from './shared/desktop.js';
 import { object, text } from './shared/errors.js';
 import type { Project } from './shared/sessions.js';
 
@@ -94,8 +95,11 @@ export function loadConfig(path: string, homeDirectory = homedir()): Config {
     throw new Error('Invalid origins');
   }
   for (const origin of origins) {
-    if (new URL(origin).origin !== origin || !/^https?:/.test(origin)) {
-      throw new Error('Origins must be exact HTTP(S) origins');
+    if (
+      origin !== DESKTOP_ORIGIN &&
+      (new URL(origin).origin !== origin || !/^https?:/.test(origin))
+    ) {
+      throw new Error(`Origins must be exact HTTP(S) origins or ${DESKTOP_ORIGIN}`);
     }
   }
   const sessionRoots = raw.piSessionRoots ?? [join(homeDirectory, '.pi', 'agent', 'sessions')];

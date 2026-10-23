@@ -1,10 +1,11 @@
 import { v4 as uuid } from 'uuid';
 import { RelayApi } from '../../src/client/api.ts';
+import { relayServer } from './connection.ts';
 
 export { ApiError } from '../../src/client/api.ts';
 
 const api = new RelayApi({
-  fetch: (path, request) => fetch(path, request),
+  fetch: (path, request) => fetch(relayServer ? new URL(path, relayServer) : path, request),
   requestId: () => uuid(),
 });
 

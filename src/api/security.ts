@@ -8,7 +8,9 @@ export function validateRequest(request: IncomingMessage, config: Config, prefli
     `127.0.0.1:${config.port}`,
     `localhost:${config.port}`,
     `[::1]:${config.port}`,
-    ...config.origins.map((origin) => new URL(origin).host),
+    ...config.origins
+      .filter((origin) => /^https?:/.test(origin))
+      .map((origin) => new URL(origin).host),
   ]);
   if (!host || !allowedHosts.has(host)) {
     throw new AppError('Host rejected', 403);

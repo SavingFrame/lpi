@@ -1,5 +1,6 @@
 import { type EventSocket, LiveSession as SharedLiveSession } from '../../src/client/live.ts';
 import { inspect } from './api.ts';
+import { relayServer } from './connection.ts';
 
 export type { LiveState } from '../../src/client/live.ts';
 
@@ -10,7 +11,7 @@ export class LiveSession extends SharedLiveSession {
       {
         inspect,
         openSocket: () => {
-          const url = new URL('/events', window.location.href);
+          const url = new URL('/events', relayServer ?? window.location.href);
           url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
           const native = new WebSocket(url);
           const socket: EventSocket = {

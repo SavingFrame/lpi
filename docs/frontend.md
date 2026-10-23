@@ -15,6 +15,12 @@ For development, start the compiled server and run `npm run dev`. Open `http://1
 
 Browser/API authentication is not enabled. Pim trusts reachable home LAN/Tailscale clients; network access control belongs to deployment. Add each browser URL to `origins` in the server configuration. Host/Origin checks, JSON content-type requirements, and production content security policy remain enforced. Do not expose Pim publicly.
 
+The [Electron app](../desktop/README.md) bundles this same frontend under a private local
+protocol. `frontend/src/connection.ts` reads relay-address metadata supplied by the desktop
+launcher, so HTTP/WebSocket requests and durable guards use the configured relay rather than
+the local UI origin. Browser pages without that metadata retain relative same-origin behavior.
+The relay must explicitly allow `pim-app://app` for bundled desktop clients.
+
 ## UI components
 
 The interface uses Tailwind CSS v4 through its Vite plugin, locally owned shadcn/ui components (New York style), and Lucide icons. Shared components live in `frontend/src/components/ui`; `frontend/src/lib/utils.ts` merges utility classes. `frontend/src/style.css` is the stylesheet entry point. Ordered imports under `frontend/src/styles/` separate theme/base, shell/sidebar, session layout, transcript, composer, model/thinking controls, and responsive overrides. Component rules keep their existing cascade order.

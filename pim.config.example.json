@@ -1,7 +1,12 @@
 {
   "host": "0.0.0.0",
   "port": 3141,
-  "origins": ["http://127.0.0.1:3141", "http://127.0.0.1:5173", "http://localhost:5173"],
+  "origins": [
+    "http://127.0.0.1:3141",
+    "http://127.0.0.1:5173",
+    "http://localhost:5173",
+    "pim-app://app"
+  ],
   "projectRoots": ["~/Projects"],
   "piSessionRoots": ["~/.pi/agent/sessions"]
 }
