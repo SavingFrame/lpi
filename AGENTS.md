@@ -10,7 +10,7 @@ Adapted from <https://github.com/earendil-works/pi/blob/main/AGENTS.md> for this
 - A lost connection never authorizes launching another writer. Saved-session discovery is read-only.
 - Browser create/resume launches native Pi through the dedicated Pim tmux socket. Keep real-Pi integration status and external-writer detection limits explicit.
 - Share browser/mobile behavior in `src/client/` through platform adapters. Keep it independent of UI frameworks, DOM, filesystem, database, and Pi runtime dependencies. Contracts live in `src/shared/`; extension-specific support lives in `src/extension-support/`.
-- See the repository map in `README.md` for entry points. Keep platform presentation in `frontend/` and `mobile/`.
+- See the repository map in `docs/development.md` for entry points. Keep platform presentation in `frontend/` and `mobile/`.
 
 ## Communication
 
@@ -71,7 +71,9 @@ Adapted from <https://github.com/earendil-works/pi/blob/main/AGENTS.md> for this
 
 ## Documentation
 
-- Keep `AGENTS.md` focused on durable development rules and READMEs on essential setup, architecture, important paths, and user-facing behavior.
+- Keep the root `README.md` public-facing: features, prerequisites, installation, extension setup, high-level architecture, and essential safety limits. Link to detailed guides instead of embedding them.
+- Keep configuration/API references, implementation details, repository maps, and contributor workflows in `docs/` or the relevant component documentation. Keep `AGENTS.md` focused on durable development rules.
+- Do not add per-task implementation summaries, test-result histories, or machine-specific validation diaries to the root README.
 - Update documentation only when those facts change. Do not maintain permanent task plans, implementation diaries, or per-task test histories.
 - Distinguish verified behavior from unverified integration where it affects safe use.
 - When using external reference instructions, adapt only relevant rules. Do not copy pi-monorepo paths or workflows that do not exist here.
