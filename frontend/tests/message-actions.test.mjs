@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { emptyView } from '../../src/shared/client-state.ts';
-import { messageActionTargets, messageActionText } from '../src/transcript-state.ts';
+import {
+  messageActionTargets,
+  messageActionText,
+} from '../src/session/transcript/transcript-state.ts';
 
 const message = (role, content) => ({ role, content, timestamp: 1 });
 

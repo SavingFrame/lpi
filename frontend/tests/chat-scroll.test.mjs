@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { chatScroll } from '../src/chat-scroll.ts';
+import { chatScroll } from '../src/session/scroll/chat-scroll.ts';
 
 function setup(t) {
   let resize;

@@ -54,8 +54,8 @@ remain unverified.
 
 Pending questions render through this module's `web.tsx`, registered explicitly in
 `src/extension-support/web.tsx`. Persisted answers are parsed by
-`history.ts` (re-exported by `frontend/src/ask-history.ts`) and rendered by `frontend/src/ask-history-card.tsx`, wired
-explicitly into `frontend/src/transcript.tsx` with the normal raw tool fallback. Both
+`history.ts` (re-exported by `frontend/src/session/transcript/tools/ask-history.ts`) and rendered by `frontend/src/session/transcript/tools/ask-history-card.tsx`, wired
+explicitly into `frontend/src/session/transcript/transcript.tsx` with the normal raw tool fallback. Both
 preview surfaces use `frontend/src/components/safe-markdown.ts`. This per-extension
 integration is intentional; adding another extension does not require a generic UI
 schema or renderer registry.

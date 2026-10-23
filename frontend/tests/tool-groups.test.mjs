@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { emptyView } from '../../src/shared/client-state.ts';
-import { transcriptEntries, transcriptState } from '../src/transcript-state.ts';
+import { transcriptEntries, transcriptState } from '../src/session/transcript/transcript-state.ts';
 
 const call = (id, name = 'read') => ({ type: 'toolCall', id, name, arguments: { path: id } });
 const assistant = (...content) => ({ role: 'assistant', timestamp: 1, content });

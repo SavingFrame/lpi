@@ -3,7 +3,7 @@ import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
 import { LaunchController } from '../../src/client/launches.ts';
 import { clientStorageKey } from '../../src/client/storage.ts';
-import { ApiError } from '../src/api.ts';
+import { ApiError } from '../src/client/api.ts';
 
 async function setup() {
   const values = new Map();

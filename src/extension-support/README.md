@@ -67,7 +67,7 @@ Pi from loading React or CSS. Shared contracts must remain browser-safe.
 Support is intentionally implemented one extension at a time, not through a universal
 UI schema or automatic plugin discovery. Pending interactions use the three explicit
 registration files above. Persisted tool-result rendering may also need a dedicated
-frontend parser/component and explicit wiring in `frontend/src/transcript.tsx`, as Ask
+frontend parser/component and explicit wiring in `frontend/src/session/transcript/transcript.tsx`, as Ask
 currently uses `ask-history.ts` and `ask-history-card.tsx`. Document both the pending UI
 and history-rendering entry points in the extension's README. Keep the normal raw tool
 fallback when persisted results are missing or unsupported.

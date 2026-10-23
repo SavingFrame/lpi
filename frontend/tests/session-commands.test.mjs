@@ -3,7 +3,7 @@ import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
 import { SessionCommands } from '../../src/client/commands.ts';
 import { clientStorageKey } from '../../src/client/storage.ts';
-import { ApiError } from '../src/api.ts';
+import { ApiError } from '../src/client/api.ts';
 
 const id = '11111111-1111-1111-1111-111111111111';
 const key = clientStorageKey('test-server', 'command', id);

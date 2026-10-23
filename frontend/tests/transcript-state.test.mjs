@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { emptyView, reduceEvent } from '../../src/shared/client-state.ts';
-import { transcriptState } from '../src/transcript-state.ts';
+import { transcriptState } from '../src/session/transcript/transcript-state.ts';
 import { partial } from './live-fixture.mjs';
 
 test('native partials replace content authoritatively and settlement clears transient state', () => {

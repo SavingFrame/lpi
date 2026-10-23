@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { askHistory } from '../src/ask-history.ts';
+import { askHistory } from '../src/session/transcript/tools/ask-history.ts';
 
 function tool(details, args = {}) {
   return {

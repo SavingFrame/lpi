@@ -1,7 +1,14 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { answer as askAnswer } from '../../src/extension-support/ask-user-question/tests/fixtures.mjs';
-import { ApiError, markViewed, operate, projects, searchFiles, sessions } from '../src/api.ts';
+import {
+  ApiError,
+  markViewed,
+  operate,
+  projects,
+  searchFiles,
+  sessions,
+} from '../src/client/api.ts';
 import { boundary, id } from './live-fixture.mjs';
 
 test('session inventory validates activity values', async (t) => {

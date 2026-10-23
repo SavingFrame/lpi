@@ -1,8 +1,8 @@
 import { createElement } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { drafts } from '../../src/client';
-import { Composer } from '../../src/session/composer';
+import { drafts } from '../../src/client/controllers';
+import { Composer } from '../../src/session/composer/composer';
 import '../../src/style.css';
 
 void (async () => {

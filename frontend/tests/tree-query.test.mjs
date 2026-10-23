@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { QueryClient, QueryObserver } from '@tanstack/react-query';
-import { sessionTreeQuery } from '../src/tree-query.ts';
+import { sessionTreeQuery } from '../src/session/branches/tree-query.ts';
 
 const savedTree = (sessionId) => ({
   sessionId,

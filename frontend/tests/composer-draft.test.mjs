@@ -6,7 +6,7 @@ import {
   restoreComposerDraft,
   settleComposerDraft,
 } from '../../src/client/drafts.ts';
-import { ApiError } from '../src/api.ts';
+import { ApiError } from '../src/client/api.ts';
 
 const id = '11111111-1111-1111-1111-111111111111';
 const image = { type: 'image', mimeType: 'image/png', data: 'original' };

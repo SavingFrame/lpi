@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { conversationBranchCount, sessionGraph } from '../src/tree-graph.ts';
+import { conversationBranchCount, sessionGraph } from '../src/session/branches/tree-graph.ts';
 
 const node = (id, parentId, kind, preview = id) => ({ id, parentId, kind, preview });
 const tree = {

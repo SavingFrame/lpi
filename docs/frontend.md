@@ -16,11 +16,11 @@ For development, start the compiled server and run `npm run dev`. Open `http://1
 Browser/API authentication is not enabled. Pim trusts reachable home LAN/Tailscale clients; network access control belongs to deployment. Add each browser URL to `origins` in the server configuration. Host/Origin checks, JSON content-type requirements, and production content security policy remain enforced. Do not expose Pim publicly.
 
 The [Electron app](../desktop/README.md) bundles this same frontend under a private local
-protocol. `frontend/src/connection.ts` reads relay-address metadata supplied by the desktop
+protocol. `frontend/src/client/connection.ts` reads relay-address metadata supplied by the desktop
 launcher, so HTTP/WebSocket requests and durable guards use the configured relay rather than
 the local UI origin. Browser pages without that metadata retain relative same-origin behavior.
 The relay must explicitly allow `pim-app://app` for bundled desktop clients.
-`frontend/src/platform.ts` adapts the optional desktop capabilities typed in `src/shared/desktop.ts`
+`frontend/src/client/platform.ts` adapts the optional desktop capabilities typed in `src/shared/desktop.ts`
 without importing Electron. Desktop and browser builds share `frontendConfig()` from
 `frontend/vite.config.ts`; electron-vite supplies the desktop main/preload/renderer pipeline.
 The desktop-only Settings link opens `/app/settings`; its appearance controls use this adapter
@@ -36,17 +36,21 @@ The shadcn configuration is `frontend/components.json`. Run future shadcn CLI co
 
 - `src/shared/`: browser-safe session/project/command/snapshot contracts, HTTP payload parsers, and native-event/status projections. The frontend imports these directly, not through server implementations. Extension-specific contracts stay in `src/extension-support/`.
 - `src/client/`: shared transport, synchronization, server-scoped mutation/draft persistence, inventory projections, and read-completion controllers. See [client behavior](../src/client/README.md).
-- `frontend/src/api.ts`, `live.ts`, `storage.ts`: browser transport construction, socket event adaptation, and tab-scoped storage.
-- `frontend/src/app.tsx`: application shell and welcome view.
-- `frontend/src/session/tree.tsx`, `tree-graph.ts`, `tree-query.ts`: selected-session tree fetching, projected conversation-tip counting, nested branch groups, symmetric branch collapse controls, role-colored rows, and saved-entry browsing. Sidebar observers use the same query with fetching disabled.
-- `frontend/src/session-branches.tsx`, `branch-state.ts`: cached sidebar branches, full-tree ordering, linear-path collapse, active markers, and structured user-message draft restoration.
-- `frontend/src/session/page.tsx`: selected-session layout and live subscription. `session/branch-navigation.ts` holds single-use click intents and guarded direct navigation; preview URLs alone never dispatch commands.
-- `frontend/src/session/composer.tsx`: shared draft subscription, attachments, send modes, and shortcuts. `src/client/drafts.ts` hydrates/persists server-scoped drafts and settles acceptance without clearing newer edits or losing rejected/unknown submissions. A per-server registry in `client.ts` preserves current draft state across navigation; storage failures surface an explicit retry.
+- `frontend/src/main.tsx`: browser bootstrap and provider mounting. `style.css` is the stylesheet entry point; feature code lives in directories.
+- `frontend/src/client/`: browser transport construction, socket event adaptation, platform capabilities, and tab-scoped storage. `controllers.ts` wires tab-wide query, command, draft, and launch controllers. Framework-independent behavior belongs in repository-root `src/client/`, not here.
+- `frontend/src/app/`: router, application shell, welcome view, and desktop settings.
+- `frontend/src/navigation/`: session search, project/sidebar presentation, launch/archive actions, and sidebar projections.
+- `frontend/src/components/`: reusable presentation primitives, Markdown policy, deferred content, and windowing. Feature-specific components stay with their feature.
+- `frontend/src/session/branches/tree.tsx`, `tree-graph.ts`, `tree-query.ts`: selected-session tree fetching, projected conversation-tip counting, nested branch groups, symmetric branch collapse controls, role-colored rows, and saved-entry browsing. Sidebar observers use the same query with fetching disabled.
+- `frontend/src/session/branches/session-branches.tsx`, `branch-state.ts`: cached sidebar branches, full-tree ordering, linear-path collapse, active markers, and structured user-message draft restoration.
+- `frontend/src/session/page.tsx`: selected-session layout and live subscription. `session/branches/use-branch-navigation.ts` binds preview queries, navigation intents, and draft restoration to the page lifecycle. `session/branches/branch-navigation.ts` holds single-use click intents and guarded direct navigation; preview URLs alone never dispatch commands.
+- `frontend/src/session/composer/composer.tsx`: shared draft subscription, attachments, send modes, and shortcuts. `src/client/drafts.ts` hydrates/persists server-scoped drafts and settles acceptance without clearing newer edits or losing rejected/unknown submissions. A per-server registry in `frontend/src/client/controllers.ts` preserves current draft state across navigation; storage failures surface an explicit retry.
 - `src/client/commands.ts`: framework-independent command controller. Composer submissions, settings, runtime controls, and extension answers share one pending/uncertain guard and typed command path. It waits for storage hydration and checks session/project connectivity and generation again after persisting uncertainty. Commands never retry automatically.
 - `frontend/src/session/use-session-commands.ts`: React subscription and snapshot/inventory refresh wiring for that controller.
-- `frontend/src/session/use-chat-scroll.ts`: React lifecycle binding for the existing scroll controller.
-- `src/client/launches.ts`: framework-independent launch controller, instantiated tab-wide in `frontend/src/client.ts`. Fresh-session buttons share one pending/uncertain guard across projects; each resume ID has its own guard. The controller persists before dispatch, never retries automatically, and requires explicit review of uncertain outcomes. `launch-session.tsx` owns confirmation, selection, and navigation.
-- `src/client/read-completion.ts`: eligibility selection from the loaded snapshot, requiring synchronization, visibility, and following the transcript bottom. Its controller tracks attempted IDs, isolates late verdicts, and offers explicit eligible retry after failure. `frontend/src/read-completion.tsx` supplies browser visibility and React lifecycle bindings.
+- `frontend/src/session/scroll/`: scroll-following controller and its React lifecycle binding.
+- `frontend/src/session/transcript/`: transcript projection and message grouping, message actions, and recursive message/tool rendering. `tools/` owns tool-specific views and file previews; `display/` owns sandboxed display artifacts and their theme.
+- `src/client/launches.ts`: framework-independent launch controller, instantiated tab-wide in `frontend/src/client/controllers.ts`. Fresh-session buttons share one pending/uncertain guard across projects; each resume ID has its own guard. The controller persists before dispatch, never retries automatically, and requires explicit review of uncertain outcomes. `frontend/src/navigation/launch-session.tsx` owns confirmation, selection, and navigation.
+- `src/client/read-completion.ts`: eligibility selection from the loaded snapshot, requiring synchronization, visibility, and following the transcript bottom. Its controller tracks attempted IDs, isolates late verdicts, and offers explicit eligible retry after failure. `frontend/src/session/read-completion.tsx` supplies browser visibility and React lifecycle bindings.
 - `frontend/src/components/safe-markdown.ts`: shared, fixed Markdown rendering policy for conversation text, Ask history, and pending questionnaire previews.
 
 ## Behavior

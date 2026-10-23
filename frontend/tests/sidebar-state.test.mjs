@@ -10,7 +10,7 @@ import {
 } from '../../src/client/inventory.ts';
 import { relativeTime } from '../../src/client/relative-time.ts';
 import { hasUnreadCompletion } from '../../src/shared/session-read-state.ts';
-import { projectColor, visibleProjects } from '../src/sidebar-state.ts';
+import { projectColor, visibleProjects } from '../src/navigation/sidebar-state.ts';
 
 const projects = [
   { id: 'a', name: 'same', directory: '/projects/a' },

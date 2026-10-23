@@ -1,5 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { sessionCommands } from '../client';
+import { sessionCommands } from '../client/controllers';
 
 export function useSessionCommands(id: string, projectId: string) {
   const [commands] = useState(() => sessionCommands(id, projectId));

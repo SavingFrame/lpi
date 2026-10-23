@@ -1,6 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { branchRows, draftForBranch, fullTreeRows, visibleTreeRows } from '../src/branch-state.ts';
+import {
+  branchRows,
+  draftForBranch,
+  fullTreeRows,
+  visibleTreeRows,
+} from '../src/session/branches/branch-state.ts';
 
 const node = (id, parentId, kind, preview = '', label) => ({
   id,

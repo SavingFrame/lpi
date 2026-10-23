@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { emptyView, reduceEvent } from '../../src/shared/client-state.ts';
-import { transcriptState } from '../src/transcript-state.ts';
-import { writePreview } from '../src/write-preview.ts';
+import { writePreview } from '../src/session/transcript/tools/write-preview.ts';
+import { transcriptState } from '../src/session/transcript/transcript-state.ts';
 
 test('saved and live writes preview requested content independently of execution status', () => {
   const args = { path: 'src/example.ts', content: 'const value = 1;\n' };

@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { fileReference, referencePath, slashSuggestions } from '../src/session/composer-input.ts';
+import {
+  fileReference,
+  referencePath,
+  slashSuggestions,
+} from '../src/session/composer/composer-input.ts';
 
 test('slash menu contains Pim actions and native commands, with no interception of ordinary text', () => {
   const commands = [{ name: 'skill:review', description: 'Review code', source: 'skill' }];

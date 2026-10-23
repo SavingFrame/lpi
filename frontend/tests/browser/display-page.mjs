@@ -2,7 +2,7 @@ import { createElement } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { emptyView } from '../../../src/shared/client-state.ts';
-import { Transcript } from '../../src/transcript';
+import { Transcript } from '../../src/session/transcript/transcript';
 import '../../src/style.css';
 
 const check = (value, message) => {

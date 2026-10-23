@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { emptyView, reduceEvent } from '../../src/shared/client-state.ts';
-import { editDiff } from '../src/edit-diff.ts';
-import { transcriptState } from '../src/transcript-state.ts';
+import { editDiff } from '../src/session/transcript/tools/edit-diff.ts';
+import { transcriptState } from '../src/session/transcript/transcript-state.ts';
 
 export const patch =
   '--- src/example.ts\n+++ src/example.ts\n@@ -1,2 +1,2 @@\n-const value = 1;\n+const value = 2;\n export { value };\n';

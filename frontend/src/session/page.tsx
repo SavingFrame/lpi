@@ -1,28 +1,20 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Power, RefreshCw } from 'lucide-react';
-import {
-  useCallback,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react';
-import type { ComposerDraft } from '../../../src/client/drafts';
+import { useLayoutEffect, useState, useSyncExternalStore } from 'react';
 import { ExtensionPanels } from '../../../src/extension-support/web';
 import { emptyView } from '../../../src/shared/client-state';
-import { previewBranch, projects } from '../api';
-import { Welcome } from '../app';
-import { launches, live, queryClient } from '../client';
+import { Welcome } from '../app/welcome';
+import { projects } from '../client/api';
+import { launches, live, queryClient } from '../client/controllers';
 import { Button } from '../components/ui/button';
-import { LaunchSession } from '../launch-session';
-import { ReadCompletion } from '../read-completion';
-import { Transcript } from '../transcript';
-import { branchAction, branchSelections, navigateBranch } from './branch-navigation';
-import { Composer } from './composer';
-import { SessionTree } from './tree';
-import { useChatScroll } from './use-chat-scroll';
+import { LaunchSession } from '../navigation/launch-session';
+import { SessionTree } from './branches/tree';
+import { useBranchNavigation } from './branches/use-branch-navigation';
+import { Composer } from './composer/composer';
+import { ReadCompletion } from './read-completion';
+import { useChatScroll } from './scroll/use-chat-scroll';
+import { Transcript } from './transcript/transcript';
 import { useSessionCommands } from './use-session-commands';
 
 export function SessionPage() {
@@ -53,31 +45,6 @@ function SessionPane({
   const navigate = useNavigate();
   const [treeOpen, setTreeOpen] = useState(false);
   const [treeWide, setTreeWide] = useState(false);
-  const [restoredDraft, setRestoredDraft] = useState<ComposerDraft | null>(null);
-  const [navigationPending, setNavigationPending] = useState(false);
-  const [navigationError, setNavigationError] = useState<string | null>(null);
-  const selectionRequest = useSyncExternalStore(
-    branchSelections.subscribe,
-    branchSelections.getState,
-  );
-  const selection = useRef({ branch, active: false });
-  useEffect(() => {
-    setNavigationPending(false);
-    setNavigationError(null);
-    const current = { branch, active: true };
-    selection.current = current;
-    return () => {
-      current.active = false;
-      queueMicrotask(() => {
-        if (
-          current.branch &&
-          (!selection.current.active || selection.current.branch !== current.branch)
-        ) {
-          branchSelections.discard(id, current.branch);
-        }
-      });
-    };
-  }, [branch, id]);
   const { pane, following, follow } = useChatScroll();
   const connection = useSyncExternalStore(live.subscribe, live.getState);
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
@@ -92,85 +59,8 @@ function SessionPane({
   }, [id]);
   const snapshot = connection.snapshot?.session.id === id ? connection.snapshot : null;
   const session = snapshot?.session;
-  const preview = useQuery({
-    queryKey: ['branch', id, branch],
-    queryFn: ({ signal }) => previewBranch(id, branch ?? '', signal),
-    enabled: Boolean(branch),
-    retry: false,
-  });
-  const selectBranch = useCallback(
-    (entryId?: string) => {
-      if (entryId) {
-        branchSelections.request(
-          id,
-          entryId,
-          branchAction(live.getState(), id, projectId, entryId, commands.available()),
-        );
-      }
-      return navigate({
-        to: '/app/projects/$projectId/sessions/$sessionId',
-        params: { projectId, sessionId: id },
-        search: entryId ? { branch: entryId } : {},
-      });
-    },
-    [id, projectId, commands.available, navigate],
-  );
-  useEffect(() => {
-    if (!branch || selectionRequest?.sessionId !== id || selectionRequest.entryId !== branch) {
-      return;
-    }
-    // Defer consuming click intent until StrictMode effect setup/cleanup has completed.
-    queueMicrotask(() => {
-      if (!selection.current.active || selection.current.branch !== branch) {
-        return;
-      }
-      const intent = branchSelections.take(id, branch);
-      if (!intent) {
-        return;
-      }
-      const selected = selection.current;
-      const current = () =>
-        selected.active && selected === selection.current && branchSelections.isLatest(intent);
-      setNavigationPending(true);
-      setNavigationError(null);
-      void navigateBranch(intent, projectId, {
-        connection: live.getState,
-        available: commands.available,
-        current,
-        preview: (sessionId, entryId) =>
-          queryClient.fetchQuery({
-            queryKey: ['branch', sessionId, entryId],
-            queryFn: ({ signal }) => previewBranch(sessionId, entryId, signal),
-            retry: false,
-          }),
-        submit: commands.submit,
-      })
-        .then((result) => {
-          if (!current() || (result.type !== 'current' && result.type !== 'switched')) {
-            return;
-          }
-          if (result.type === 'switched' && result.draft) {
-            setRestoredDraft(result.draft);
-          }
-          void navigate({
-            to: '/app/projects/$projectId/sessions/$sessionId',
-            params: { projectId, sessionId: id },
-            search: {},
-            replace: true,
-          });
-        })
-        .catch((error: unknown) => {
-          if (current()) {
-            setNavigationError(error instanceof Error ? error.message : String(error));
-          }
-        })
-        .finally(() => {
-          if (current()) {
-            setNavigationPending(false);
-          }
-        });
-    });
-  }, [branch, id, projectId, selectionRequest, commands.available, commands.submit, navigate]);
+  const { preview, selectBranch, restoredDraft, navigationPending, navigationError } =
+    useBranchNavigation(id, projectId, branch, commands);
   return (
     <div
       ref={pane}

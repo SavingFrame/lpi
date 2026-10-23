@@ -14,7 +14,7 @@ test('Chromium scroll following, reader control, disclosures and cleanup', {
 }, async (t) => {
   const { root, home, defer } = fixture(t);
   const controller = stripTypeScriptTypes(
-    readFileSync(new URL('../../src/chat-scroll.ts', import.meta.url), 'utf8'),
+    readFileSync(new URL('../../src/session/scroll/chat-scroll.ts', import.meta.url), 'utf8'),
   );
   const page = readFileSync(new URL('./chat-scroll-page.mjs', import.meta.url), 'utf8');
   const result = Promise.withResolvers();

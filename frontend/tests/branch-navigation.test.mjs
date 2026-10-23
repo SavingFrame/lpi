@@ -2,14 +2,14 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { SessionCommands } from '../../src/client/commands.ts';
 import { emptyView } from '../../src/shared/client-state.ts';
-import { ApiError } from '../src/api.ts';
+import { ApiError } from '../src/client/api.ts';
 import {
   BranchSelections,
   branchAction,
   branchSelections,
   navigateBranch,
   requestBranchSelection,
-} from '../src/session/branch-navigation.ts';
+} from '../src/session/branches/branch-navigation.ts';
 
 const id = '11111111-1111-1111-1111-111111111111';
 const intent = { sessionId: id, entryId: 'target', action: 'switch' };

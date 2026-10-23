@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { createElement } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
-import { Composer } from '../../src/session/composer.tsx';
+import { Composer } from '../../src/session/composer/composer.tsx';
 import '../../src/styles/composer.css';
 
 try {
