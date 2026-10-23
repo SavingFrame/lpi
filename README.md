@@ -169,6 +169,10 @@ Manual names are preserved, including names assigned during generation. Unnamed 
 use their original first user message on the next user run. Image-only messages wait for text.
 A durable attempt marker prevents repeated calls after reload/resume, even if generation fails.
 Missing models, failed requests, and invalid titles leave the normal fallback unchanged.
+Timestamped text diagnostics are appended to `~/.pi/agent/auto-title.log` (or the agent directory
+selected by `PI_CODING_AGENT_DIR`). Logs include session IDs, model, elapsed time, failures,
+cancellation and skip reasons, but not prompts or generated titles. Provider error messages are
+included for troubleshooting. Logging failures never interrupt the session.
 The bridge forwards native name changes to connected clients immediately.
 Focused fake-native tests pass; no paid model calls or real-Pi naming integration have been run.
 

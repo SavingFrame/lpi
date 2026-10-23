@@ -1,9 +1,17 @@
 import assert from 'node:assert/strict';
+import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
 import sessionName from '../dist/extensions/session-name/index.js';
 
 function fixture(t, { name, history = [], missingModel = false } = {}) {
+  const agentDir = mkdtempSync(join(tmpdir(), 'pim-session-name-'));
+  const previousAgentDir = process.env.PI_CODING_AGENT_DIR;
+  process.env.PI_CODING_AGENT_DIR = agentDir;
+  t.after(() => rmSync(agentDir, { recursive: true, force: true }));
+  const logPath = join(agentDir, 'auto-title.log');
   const handlers = new Map();
   const entries = [...history];
   const calls = [];
@@ -42,19 +50,30 @@ function fixture(t, { name, history = [], missingModel = false } = {}) {
     },
     appendEntry: (customType, data) => entries.push({ type: 'custom', customType, data }),
   });
+  if (previousAgentDir === undefined) {
+    delete process.env.PI_CODING_AGENT_DIR;
+  } else {
+    process.env.PI_CODING_AGENT_DIR = previousAgentDir;
+  }
   const emit = (type, extra = {}) => handlers.get(type)?.({ type, ...extra }, ctx);
   emit('session_start');
   t.after(() => emit('session_shutdown'));
   return {
     calls,
     names,
+    logPath,
+    logs: () => readFileSync(logPath, 'utf8'),
     entries,
     emit,
     reject,
     prompt: (prompt = 'Fix mobile reconnect') =>
       emit('before_agent_start', { messageType: 'user', prompt }),
     finish: async (text = 'Fix mobile reconnect', stopReason = 'stop') => {
-      resolve({ stopReason, content: [{ type: 'text', text }] });
+      resolve({
+        stopReason,
+        errorMessage: stopReason === 'error' ? 'Unsupported parameter: temperature' : undefined,
+        content: [{ type: 'text', text }],
+      });
       await setImmediate();
     },
     rename: (title) => {
@@ -154,4 +173,47 @@ test('missing model, failed requests and invalid responses keep the fallback wit
     assert.equal(f.calls.length, 1);
     assert.deepEqual(f.names, []);
   }
+});
+
+test('text diagnostics explain outcomes without logging prompts or generated titles', async (t) => {
+  const f = fixture(t);
+  f.prompt('Private prompt content');
+  await f.finish('Private generated title');
+  f.prompt();
+  assert.match(
+    f.logs(),
+    /\d{4}-\d{2}-\d{2}T.* \[session-name\] session=test-session generate:start model=openai-codex\/gpt-6-luna/,
+  );
+  assert.match(f.logs(), /generate:success elapsedMs=\d+/);
+  assert.match(f.logs(), /generate:skipped reason=already-attempted/);
+  assert.doesNotMatch(f.logs(), /Private|generate:cancelled/);
+
+  const missing = fixture(t, { missingModel: true });
+  missing.prompt();
+  assert.match(missing.logs(), /reason=model-not-found/);
+
+  const failed = fixture(t);
+  failed.prompt();
+  await failed.finish('', 'error');
+  assert.match(failed.logs(), /stopReason=error error=Unsupported parameter: temperature/);
+
+  const invalid = fixture(t);
+  invalid.prompt();
+  await invalid.finish('');
+  assert.match(invalid.logs(), /generate:rejected reason=invalid-title characters=0 words=0/);
+
+  const cancelled = fixture(t);
+  cancelled.prompt();
+  cancelled.rename('Manual');
+  await cancelled.finish();
+  assert.match(cancelled.logs(), /generate:cancelled reason=session-name-changed/);
+});
+
+test('unwritable diagnostics do not interfere with naming', async (t) => {
+  const f = fixture(t);
+  // Remove the parent rather than changing permissions, which root can bypass.
+  rmSync(join(f.logPath, '..'), { recursive: true });
+  f.prompt();
+  await f.finish();
+  assert.deepEqual(f.names, ['Fix mobile reconnect']);
 });
