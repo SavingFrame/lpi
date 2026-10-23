@@ -7,14 +7,16 @@
     overflow: hidden;
   }
   .sidebar {
+    display: flex;
+    flex-direction: column;
     background: #141416;
     border-right: 1px solid var(--border);
     padding: 20px 14px;
     min-height: 0;
-    overflow-y: auto;
-    overscroll-behavior: contain;
-    scrollbar-width: thin;
-    scrollbar-color: var(--input) transparent;
+    overflow: hidden;
+  }
+  .sidebar > :not(nav) {
+    flex-shrink: 0;
   }
   .sidebar-resize {
     position: absolute;
@@ -88,7 +90,13 @@
     padding: 0 10px;
   }
   .sidebar nav {
+    flex: 1;
+    min-height: 0;
     margin-top: 18px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--input) transparent;
   }
   :where(.sidebar nav) h2 {
     padding: 0 10px;
@@ -407,7 +415,7 @@
     align-items: center;
     gap: 8px;
     padding: 10px;
-    margin-top: 24px;
+    margin-top: 12px;
     border-radius: 7px;
     color: var(--muted-foreground);
   }
@@ -447,8 +455,11 @@
     min-width: 100px;
   }
   .sidebar footer {
-    margin-top: 28px;
-    padding-top: 16px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 12px;
+    padding-top: 12px;
     border-top: 1px solid var(--border);
   }
   main {

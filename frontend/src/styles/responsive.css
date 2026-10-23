@@ -11,10 +11,14 @@
       border-right: 0;
       border-bottom: 1px solid var(--border);
       padding: 12px;
-      max-height: 32dvh;
+      max-height: max(32dvh, 160px);
     }
     .sidebar nav {
-      margin-top: 16px;
+      margin-top: 8px;
+    }
+    .settings-link {
+      margin-top: 4px;
+      padding-block: 6px;
     }
     .sidebar footer,
     .local-warning {

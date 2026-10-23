@@ -108,7 +108,7 @@ export function Shell() {
             Settings
           </Link>
         )}
-        <footer className="flex items-center gap-2">
+        <footer>
           <Folder size={13} aria-hidden="true" />
           {projectQuery.data?.find((project) => project.id === projectId)?.name ??
             'Select a project'}
