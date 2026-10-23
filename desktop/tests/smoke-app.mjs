@@ -26,6 +26,10 @@ app.once('browser-window-created', (_event, window) => {
     console.log('smoke: window created');
     await once(contents, 'did-finish-load');
     console.log('smoke: frontend loaded');
+    if (process.platform !== 'darwin') {
+      assert.equal(window.isMenuBarAutoHide(), true, 'menu remains accessible with Alt');
+      assert.equal(window.isMenuBarVisible(), false, 'menu bar starts hidden');
+    }
     if (process.env.PIM_SMOKE_OFFLINE === '1') {
       await until(() =>
         contents.executeJavaScript(

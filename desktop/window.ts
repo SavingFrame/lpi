@@ -17,6 +17,7 @@ export function secureSession(session: Session): void {
 export function createWindow(origin: string, session: Session, zoomFactor: number): BrowserWindow {
   const window = new BrowserWindow({
     title: 'Pim',
+    autoHideMenuBar: process.platform !== 'darwin',
     width: 1280,
     height: 900,
     minWidth: 600,
