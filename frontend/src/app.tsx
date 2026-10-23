@@ -1,10 +1,11 @@
 import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useParams } from '@tanstack/react-router';
-import { Folder, Terminal } from 'lucide-react';
+import { Folder, Settings, Terminal } from 'lucide-react';
 import { type CSSProperties, useEffect, useState, useSyncExternalStore } from 'react';
 import { filterSessions, type SessionFilter } from '../../src/client/inventory';
 import { projects, sessions } from './api';
 import { live } from './client';
+import { desktop } from './platform';
 import { SessionSidebar } from './session-sidebar';
 
 export function Shell() {
@@ -97,6 +98,16 @@ export function Shell() {
             online={online}
           />
         </nav>
+        {desktop && (
+          <Link
+            to="/app/settings"
+            className="settings-link"
+            activeProps={{ className: 'selected' }}
+          >
+            <Settings size={15} aria-hidden="true" />
+            Settings
+          </Link>
+        )}
         <footer className="flex items-center gap-2">
           <Folder size={13} aria-hidden="true" />
           {projectQuery.data?.find((project) => project.id === projectId)?.name ??

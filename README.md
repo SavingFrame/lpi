@@ -125,6 +125,8 @@ frontend in Electron. The UI loads locally at `pim-app://app/`; only API/WebSock
 the relay at `http://127.0.0.1:3141` (override with `PIM_DESKTOP_SERVER`). Add `pim-app://app` to
 existing relay configurations' allowed origins. `npm run desktop:dev` uses Vite HMR instead.
 Neither command starts Pi or owns agent lifetime. See [desktop setup and security limits](desktop/README.md).
+Desktop **Settings > Appearance > UI scale** adjusts the whole UI and remembers the scale across
+restarts. Keyboard and View-menu zoom controls use the same preference.
 Tabs, native notifications, and production packaging are not implemented yet.
 
 ## Pi extensions

@@ -51,8 +51,11 @@ npm run desktop:start
 
 This builds the Electron code and frontend, then opens the bundled UI. It does not require
 `frontend/dist` on the relay machine. `npm run build:desktop` builds without launching:
-UI assets go in `dist/desktop/renderer/`, Electron code in `dist/desktop/`, and shared support
-modules in `dist/src/shared/`. Browser builds still use `frontend/dist/`.
+`electron-vite` compiles the main process to `dist/desktop/main/index.js`, bundles the TypeScript
+preload as sandbox-compatible CommonJS at `dist/desktop/preload/index.cjs`, and builds UI assets
+in `dist/desktop/renderer/`. Shared support is bundled into the main process; there is no preload
+copy step. Configuration lives in `desktop/electron.vite.config.ts`. Browser builds still use
+`frontend/dist/` and share the React/Tailwind configuration.
 
 ## Relay selection
 
@@ -68,10 +71,11 @@ Certificates are validated normally. Allow `pim-app://app` on the remote relay t
 HTTPS origin in `origins` so its hostname passes Host validation.
 Quit the existing desktop instance before changing the endpoint.
 
-The local page receives only the configured endpoint through HTML metadata, not a preload or
-IPC bridge. HTTP requests and the event socket connect directly to that endpoint with normal
+The local page receives its relay endpoint through HTML metadata, not through the native IPC
+bridge. HTTP requests and the event socket connect directly to that endpoint with normal
 CORS/Origin checks. Desktop drafts and uncertain-command guards are scoped by the actual relay
-address, not the shared local UI origin. There is no settings screen or automatic server discovery.
+address, not the shared local UI origin. Relay selection is not yet in Settings; there is no
+automatic server discovery.
 
 There is **no application authentication** or desktop login/token flow. Host/Origin checks are
 not authentication. Only connect to a trusted relay behind network/Tailscale policy or a tunnel.
@@ -79,6 +83,19 @@ Do not expose Pim publicly.
 
 If the relay is unavailable, the bundled UI still opens and reports connection/query failures.
 Reconnect does not replay agent commands or start another runtime.
+
+## Appearance settings
+
+Open **Settings** in the desktop sidebar and choose **UI scale** from 75% to 200% in 5% steps.
+The scale affects text, controls, and layout, and applies immediately. **Reset to 100%** restores
+the default. View > Zoom In/Out/Actual Size, Ctrl/Cmd + Plus/Minus/0, and modified-wheel zoom
+use the same preference. It persists across reloads and app restarts in
+`pim-desktop/desktop-settings.json` under Electron's app-data directory, independently of relay
+configuration. Missing or corrupt preferences default to 100%; failed saves report an error.
+
+Settings navigation is desktop-only. The shared settings page uses a narrow typed platform
+adapter; browser users retain normal browser zoom. When migrating from the old custom launcher,
+restart the dev command once to enable electron-vite's main/preload watching.
 
 ## Development
 
@@ -88,20 +105,27 @@ npm run desktop:dev
 PIM_DESKTOP_SERVER=https://your-trusted-relay npm run desktop:dev
 ```
 
-This compiles Electron, starts Vite at `http://127.0.0.1:5173`, waits for it to listen,
-and opens Electron there. Frontend edits use HMR; restart after changing Electron code.
-The launcher injects the same relay configuration into the development page and aligns Vite's
-existing visual/API proxies with it. `PIM_DEV_SERVER` remains the browser-development override;
-for desktop development use `PIM_DESKTOP_SERVER`.
+`electron-vite dev --watch` builds main/preload, starts Vite at `http://127.0.0.1:5173`, and
+launches Electron. Frontend edits use HMR, main-process edits restart Electron, and preload edits
+reload its renderer. These actions leave the relay and Pi running. The main process accepts
+`ELECTRON_RENDERER_URL` only as an exact HTTP loopback origin and never uses it when packaged.
+The desktop config injects the relay endpoint into the dev page and aligns Vite's visual/API
+proxies with it. `PIM_DEV_SERVER` remains the browser-development override; use
+`PIM_DESKTOP_SERVER` for desktop development.
 
-Port 5173 must be available; the launcher never silently changes origins. Closing Electron on
-Linux/Windows or quitting on macOS stops the launcher-owned Vite server. Ctrl+C stops Electron
-and Vite only. On macOS closing the last window keeps the app/Vite running; activation reopens it.
+Port 5173 must be available; the tool never silently selects another port. Set
+`PIM_DESKTOP_DEV_PORT=5174` to use another port explicitly, and add that exact HTTP loopback
+origin to the relay configuration. Closing Electron on Linux/Windows or quitting on macOS stops
+the dev process. Ctrl+C stops Electron and Vite only. On macOS closing the last window keeps the
+app/Vite running; activation reopens it.
 
 ## Security and lifecycle
 
 - Sandboxed, context-isolated renderer; Node integration disabled in pages, workers, and frames.
-- No preload, renderer IPC/native command bridge, or Electron dependency in shared client code.
+- A sandboxed preload exposes only get/set/subscribe UI-scale methods. Main-process IPC checks
+  the exact window, top-level frame, trusted UI URL, and bounded scale before changing preferences.
+  It exposes no raw IPC objects/events, filesystem access, relay commands, or agent controls.
+  Shared client code remains independent of Electron.
 - Web security, CORS, and certificate validation stay enabled.
 - Bundled pages have a CSP allowing local scripts/assets and connections to the selected relay.
   Inline scripts/eval and arbitrary external main-page resources are not enabled.
@@ -133,7 +157,9 @@ handling. The Linux-only smoke test runs real Electron with temporary configurat
 relay without frontend files, no Pi runtimes, and no credentials. It checks bundled React and
 visual rendering, cross-origin REST/preflight/WebSocket access, renderer isolation, navigation
 and redirect blocking, relay survival on close, and local UI loading with the relay stopped.
-It also launches Vite/Electron and checks proxy behavior and signal shutdown. A graphical display
+It checks settings controls, real viewport scaling, keyboard/menu synchronization, invalid IPC
+rejection, and persistence across reload/restart. The electron-vite launch/shutdown subtest uses
+an isolated temporary port so it never interrupts an existing dev app. A graphical display
 and Electron binary are required.
 
 This does not establish real-Pi integration or macOS/Windows behavior. Manual platform checks

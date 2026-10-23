@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { allowedNavigation } from '../../dist/desktop/policy.js';
-import { DESKTOP_ORIGIN, desktopRelayOrigin } from '../../dist/src/shared/desktop.js';
+import { DESKTOP_ORIGIN, desktopRelayOrigin } from '../../src/shared/desktop.ts';
+import { allowedNavigation, desktopDevelopmentOrigin } from '../policy.ts';
 
 test('desktop configuration accepts only an explicit safe relay origin', () => {
   assert.equal(desktopRelayOrigin(), 'http://127.0.0.1:3141');
@@ -19,6 +19,20 @@ test('desktop configuration accepts only an explicit safe relay origin', () => {
     'not a URL',
   ]) {
     assert.throws(() => desktopRelayOrigin(url));
+  }
+});
+
+test('electron-vite renderer URLs stay on an explicit loopback origin', () => {
+  assert.equal(desktopDevelopmentOrigin('http://127.0.0.1:5173'), 'http://127.0.0.1:5173');
+  assert.equal(desktopDevelopmentOrigin('http://127.0.0.1:43210'), 'http://127.0.0.1:43210');
+  for (const url of [
+    'https://external.example',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173/',
+    'http://user@127.0.0.1:5173',
+    'file:///tmp/index.html',
+  ]) {
+    assert.throws(() => desktopDevelopmentOrigin(url));
   }
 });
 

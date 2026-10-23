@@ -1,8 +1,8 @@
 import { readFile, realpath } from 'node:fs/promises';
 import { extname, isAbsolute, relative, resolve } from 'node:path';
-import { DESKTOP_ORIGIN } from '../src/shared/desktop.js';
-import { DISPLAY_CSP } from '../src/shared/display.js';
-import { displayDocument } from '../src/shared/display-document.js';
+import { DESKTOP_ORIGIN } from '../src/shared/desktop.ts';
+import { DISPLAY_CSP } from '../src/shared/display.ts';
+import { displayDocument } from '../src/shared/display-document.ts';
 
 const types: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',

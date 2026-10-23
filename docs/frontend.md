@@ -20,6 +20,11 @@ protocol. `frontend/src/connection.ts` reads relay-address metadata supplied by 
 launcher, so HTTP/WebSocket requests and durable guards use the configured relay rather than
 the local UI origin. Browser pages without that metadata retain relative same-origin behavior.
 The relay must explicitly allow `pim-app://app` for bundled desktop clients.
+`frontend/src/platform.ts` adapts the optional desktop capabilities typed in `src/shared/desktop.ts`
+without importing Electron. Desktop and browser builds share `frontendConfig()` from
+`frontend/vite.config.ts`; electron-vite supplies the desktop main/preload/renderer pipeline.
+The desktop-only Settings link opens `/app/settings`; its appearance controls use this adapter
+for device-local UI scale. Browser clients keep normal browser zoom.
 
 ## UI components
 

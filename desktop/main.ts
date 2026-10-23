@@ -1,22 +1,22 @@
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { app, type BrowserWindow, dialog, Menu, protocol, session } from 'electron';
-import {
-  DESKTOP_DEV_ORIGIN,
-  DESKTOP_ORIGIN,
-  DESKTOP_SCHEME,
-  desktopRelayOrigin,
-} from '../src/shared/desktop.js';
+import { app, type BrowserWindow, dialog, ipcMain, Menu, protocol, session } from 'electron';
+import { DESKTOP_ORIGIN, DESKTOP_SCHEME, desktopRelayOrigin } from '../src/shared/desktop.ts';
+import { allowedNavigation, desktopDevelopmentOrigin } from './policy.ts';
 import { bundledResponse } from './protocol.js';
 import { createWindow, secureSession } from './window.js';
+import { steppedZoom, ZoomSettings } from './zoom.js';
 
 app.setName('Pim');
 app.setPath('userData', join(app.getPath('appData'), 'pim-desktop'));
 
-const development = !app.isPackaged && process.env.PIM_DESKTOP_DEV === '1';
-const origin = development ? DESKTOP_DEV_ORIGIN : DESKTOP_ORIGIN;
+const development = !app.isPackaged && Boolean(process.env.ELECTRON_RENDERER_URL);
+let origin: string;
 let relay: string;
 try {
+  origin = development
+    ? desktopDevelopmentOrigin(process.env.ELECTRON_RENDERER_URL ?? '')
+    : DESKTOP_ORIGIN;
   relay = desktopRelayOrigin(process.env.PIM_DESKTOP_SERVER);
 } catch (error) {
   console.error(error instanceof Error ? error.message : 'Invalid desktop URL');
@@ -38,6 +38,27 @@ if (!primary) {
 
 let quitting = false;
 let window: BrowserWindow | undefined;
+let zoom: ZoomSettings;
+
+function saveZoom(value: unknown): number {
+  const factor = zoom.set(value);
+  if (window && !window.isDestroyed()) {
+    window.webContents.setZoomFactor(factor);
+    window.webContents.send('pim:zoom:changed', factor);
+  }
+  return factor;
+}
+
+function changeZoom(direction: -1 | 0 | 1): void {
+  try {
+    saveZoom(direction === 0 ? 1 : steppedZoom(zoom.factor, direction));
+  } catch {
+    dialog.showErrorBox(
+      'Could not save UI scale',
+      'Check desktop profile permissions and try again.',
+    );
+  }
+}
 app.on('second-instance', () => {
   if (window) {
     if (window.isMinimized()) {
@@ -51,8 +72,22 @@ app.on('second-instance', () => {
 });
 
 async function openWindow(): Promise<void> {
-  const current = createWindow(origin, session.fromPartition('persist:pim'));
+  const current = createWindow(origin, session.fromPartition('persist:pim'), zoom.factor);
   window = current;
+  const contents = current.webContents;
+  contents.setZoomMode('isolated');
+  contents.on('did-finish-load', () => contents.setZoomFactor(zoom.factor));
+  contents.on('zoom-changed', (_event, direction) => changeZoom(direction === 'in' ? 1 : -1));
+  contents.on('before-input-event', (event, input) => {
+    const command = process.platform === 'darwin' ? input.meta : input.control;
+    if (input.type !== 'keyDown' || !command || input.alt) {
+      return;
+    }
+    if (['+', '=', '-', '0'].includes(input.key)) {
+      event.preventDefault();
+      changeZoom(input.key === '0' ? 0 : input.key === '-' ? -1 : 1);
+    }
+  });
   current.on('closed', () => {
     if (window === current) {
       window = undefined;
@@ -111,17 +146,53 @@ process.on('SIGTERM', () => app.quit());
 
 if (primary) {
   void app.whenReady().then(() => {
+    zoom = new ZoomSettings(join(app.getPath('userData'), 'desktop-settings.json'));
+    for (const channel of ['pim:zoom:get', 'pim:zoom:set']) {
+      ipcMain.handle(channel, (event, value: unknown) => {
+        const contents = window?.webContents;
+        if (
+          !contents ||
+          contents.isDestroyed() ||
+          event.sender !== contents ||
+          event.senderFrame !== contents.mainFrame ||
+          !allowedNavigation(event.senderFrame.url, origin, true)
+        ) {
+          throw new Error('UI scale is restricted to the desktop main frame.');
+        }
+        if (channel === 'pim:zoom:get') {
+          return zoom.factor;
+        }
+        try {
+          return saveZoom(value);
+        } catch {
+          throw new Error('Could not save UI scale.');
+        }
+      });
+    }
     const desktopSession = session.fromPartition('persist:pim');
     secureSession(desktopSession);
     desktopSession.protocol.handle(DESKTOP_SCHEME, (request) =>
-      bundledResponse(request, fileURLToPath(new URL('./renderer', import.meta.url)), relay),
+      bundledResponse(request, fileURLToPath(new URL('../renderer', import.meta.url)), relay),
     );
     Menu.setApplicationMenu(
       Menu.buildFromTemplate([
         ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
         { role: 'fileMenu' },
         { role: 'editMenu' },
-        { role: 'viewMenu' },
+        {
+          label: 'View',
+          submenu: [
+            { role: 'reload' },
+            { role: 'forceReload' },
+            { role: 'toggleDevTools' },
+            { type: 'separator' },
+            { label: 'Zoom In', accelerator: 'CommandOrControl+Plus', click: () => changeZoom(1) },
+            { label: 'Zoom Out', accelerator: 'CommandOrControl+-', click: () => changeZoom(-1) },
+            { label: 'Actual Size', accelerator: 'CommandOrControl+0', click: () => changeZoom(0) },
+            { type: 'separator' },
+            { role: 'togglefullscreen' },
+          ],
+        },
         { role: 'windowMenu' },
       ]),
     );

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
+import { createServer } from 'node:net';
 import { join } from 'node:path';
 import test from 'node:test';
 import { setTimeout as delay } from 'node:timers/promises';
@@ -59,9 +60,10 @@ test('real Electron loads the frontend, restricts navigation, and closes without
     XDG_CACHE_HOME: join(home, '.cache'),
     PI_CODING_AGENT_DIR: join(home, '.pi'),
     PIM_DESKTOP_SERVER: origin,
-    PIM_DESKTOP_DEV: '0',
   };
   delete env.ELECTRON_RUN_AS_NODE;
+  delete env.ELECTRON_RENDERER_URL;
+  delete env.ELECTRON_ENTRY;
   const child = spawn(electron, [fileURLToPath(new URL('./smoke-app.mjs', import.meta.url))], {
     env,
     stdio: ['ignore', 'pipe', 'pipe'],
@@ -89,40 +91,69 @@ test('real Electron loads the frontend, restricts navigation, and closes without
   assert.ok(requestMethods.includes('OPTIONS'), 'cross-origin JSON mutations use CORS preflight');
   assert.equal((await fetch(`${origin}/projects`)).status, 200, 'relay survives window close');
 
-  // Launch the actual dev supervisor and renderer against the same isolated relay.
-  const previousConnections = eventConnections;
-  const dev = spawn(process.execPath, ['desktop/dev.mjs'], {
-    env: { ...env, PIM_DEV_SERVER: 'https://unused.invalid' },
-    stdio: ['ignore', 'pipe', 'pipe'],
+  // Reserve an isolated development port instead of interfering with a running app.
+  const probe = createServer();
+  await new Promise((resolve, reject) => {
+    probe.once('error', reject);
+    probe.listen(0, '127.0.0.1', resolve);
   });
-  let devOutput = '';
-  dev.stdout.on('data', (chunk) => {
-    devOutput += chunk;
-  });
-  dev.stderr.on('data', (chunk) => {
-    devOutput += chunk;
-  });
-  defer(() => {
-    if (dev.exitCode === null && dev.signalCode === null) {
-      dev.kill('SIGKILL');
+  const devPort = probe.address().port;
+  await new Promise((resolve) => probe.close(resolve));
+  const devOrigin = `http://127.0.0.1:${devPort}`;
+  config.origins.push(devOrigin);
+  await t.test('electron-vite development launch and shutdown', async () => {
+    const previousConnections = eventConnections;
+    const dev = spawn(
+      process.execPath,
+      [
+        fileURLToPath(
+          new URL('../../node_modules/electron-vite/bin/electron-vite.js', import.meta.url),
+        ),
+        'dev',
+        '--config',
+        'desktop/electron.vite.config.ts',
+        '--watch',
+        '--logLevel',
+        'warn',
+      ],
+      {
+        env: {
+          ...env,
+          PIM_DESKTOP_DEV_PORT: String(devPort),
+          PIM_DEV_SERVER: 'https://unused.invalid',
+        },
+        stdio: ['ignore', 'pipe', 'pipe'],
+      },
+    );
+    let devOutput = '';
+    dev.stdout.on('data', (chunk) => {
+      devOutput += chunk;
+    });
+    dev.stderr.on('data', (chunk) => {
+      devOutput += chunk;
+    });
+    defer(() => {
+      if (dev.exitCode === null && dev.signalCode === null) {
+        dev.kill('SIGKILL');
+      }
+    });
+    for (let i = 0; eventConnections === previousConnections && i < 200; i++) {
+      assert.equal(dev.exitCode, null, devOutput);
+      await delay(50);
     }
+    assert.ok(
+      eventConnections > previousConnections,
+      `Dev renderer connected to relay\n${devOutput}`,
+    );
+    const projects = await fetch(`${devOrigin}/projects`);
+    assert.equal((await projects.json()).projects[0].id, 'test', 'Vite proxy works');
+    const devExit = once(dev, 'exit');
+    dev.kill('SIGTERM');
+    const [devCode] = await devExit;
+    assert.ok(devCode === 0 || devCode === 143, devOutput);
+    await assert.rejects(fetch(devOrigin), 'electron-vite closes Vite');
+    assert.equal((await fetch(`${origin}/projects`)).status, 200, 'relay survives dev shutdown');
   });
-  for (let i = 0; eventConnections === previousConnections && i < 100; i++) {
-    assert.equal(dev.exitCode, null, devOutput);
-    await delay(50);
-  }
-  assert.ok(
-    eventConnections > previousConnections,
-    `Vite renderer connected to relay\n${devOutput}`,
-  );
-  const projects = await fetch('http://127.0.0.1:5173/projects');
-  assert.equal((await projects.json()).projects[0].id, 'test', 'Vite proxy works');
-  const devExit = once(dev, 'exit');
-  dev.kill('SIGTERM');
-  const [devCode] = await devExit;
-  assert.equal(devCode, 0, devOutput);
-  await assert.rejects(fetch('http://127.0.0.1:5173/'), 'launcher closes Vite');
-  assert.equal((await fetch(`${origin}/projects`)).status, 200, 'relay survives dev shutdown');
 
   // Local assets must still render when there is no relay at all.
   closeSockets();

@@ -1,11 +1,9 @@
 import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { setTimeout as delay } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
-import { app, BrowserWindow } from 'electron';
-import { bundledResponse } from '../../dist/desktop/protocol.js';
+import { app, BrowserWindow, Menu } from 'electron';
 import { DESKTOP_ORIGIN, DESKTOP_SCHEME } from '../../dist/src/shared/desktop.js';
-import '../../dist/desktop/main.js';
+import '../../dist/desktop/main/index.js';
 
 const deadline = setTimeout(() => {
   console.error('Desktop smoke timed out');
@@ -35,6 +33,7 @@ app.once('browser-window-created', (_event, window) => {
         ),
       );
       assert.equal(contents.getURL(), `${DESKTOP_ORIGIN}/`);
+      assert.equal(contents.getZoomFactor(), 1.15, 'saved scale restored after app restart');
       console.log('DESKTOP_OFFLINE_OK');
       clearTimeout(deadline);
       window.close();
@@ -63,6 +62,45 @@ app.once('browser-window-created', (_event, window) => {
     );
 
     assert.equal(contents.getURL(), `${DESKTOP_ORIGIN}/`);
+    await contents.executeJavaScript('document.querySelector(\'a[href="/app/settings"]\').click()');
+    await until(() =>
+      contents.executeJavaScript("document.querySelector('#desktop-scale')?.value === '100'"),
+    );
+    const baseWidth = await contents.executeJavaScript('window.innerWidth');
+    await contents.executeJavaScript(`
+      const select = document.querySelector('#desktop-scale');
+      select.value = '125';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    `);
+    await until(() => Math.abs(contents.getZoomFactor() - 1.25) < 0.0001);
+    await until(
+      async () => (await contents.executeJavaScript('window.innerWidth')) < baseWidth * 0.9,
+    );
+    contents.sendInputEvent({ type: 'keyDown', keyCode: '=', modifiers: ['control'] });
+    contents.sendInputEvent({ type: 'keyUp', keyCode: '=', modifiers: ['control'] });
+    await until(() => Math.abs(contents.getZoomFactor() - 1.3) < 0.0001);
+    await until(() =>
+      contents.executeJavaScript("document.querySelector('#desktop-scale')?.value === '130'"),
+    );
+    const viewMenu = Menu.getApplicationMenu().items.find((item) => item.label === 'View');
+    viewMenu.submenu.items.find((item) => item.label === 'Zoom Out').click();
+    await until(() => Math.abs(contents.getZoomFactor() - 1.25) < 0.0001);
+    contents.sendInputEvent({ type: 'keyDown', keyCode: '0', modifiers: ['control'] });
+    contents.sendInputEvent({ type: 'keyUp', keyCode: '0', modifiers: ['control'] });
+    await until(() => Math.abs(contents.getZoomFactor() - 1) < 0.0001);
+    await contents.executeJavaScript('window.pimDesktop.setZoom(1.15)');
+    assert.equal(contents.getZoomFactor(), 1.15);
+    await assert.rejects(contents.executeJavaScript('window.pimDesktop.setZoom(999)'));
+    assert.equal(contents.getZoomFactor(), 1.15, 'invalid IPC does not change scale');
+    const reloaded = once(contents, 'did-finish-load');
+    contents.reload();
+    await reloaded;
+    await until(() =>
+      contents.executeJavaScript("document.querySelector('#desktop-scale')?.value === '115'"),
+    );
+    assert.equal(contents.getZoomFactor(), 1.15, 'scale survives reload');
+    await contents.executeJavaScript("document.querySelector('.brand a').click()");
+    await until(() => contents.getURL() === `${DESKTOP_ORIGIN}/`);
     // Cross-origin API and event-socket traffic has loaded the actual React UI.
     assert.match(await contents.executeJavaScript('document.body.innerText'), /test/);
     const mutation = await contents.executeJavaScript(`
@@ -100,7 +138,7 @@ app.once('browser-window-created', (_event, window) => {
       return (
         inner &&
         (await inner.executeJavaScript(
-          'document.body.textContent.includes("Visual probe") && typeof require === "undefined"',
+          'document.body.textContent.includes("Visual probe") && typeof require === "undefined" && typeof window.pimDesktop === "undefined"',
         ))
       );
     });
@@ -117,16 +155,11 @@ app.once('browser-window-created', (_event, window) => {
     assert.equal(contents.getURL(), `${DESKTOP_ORIGIN}/`);
 
     console.log('smoke: navigation checked');
-    // Keep production asset handling, with one fixture-only HTTP redirect response.
+    // Production handling was exercised above. Only this final navigation uses a redirect fixture.
     contents.session.protocol.unhandle(DESKTOP_SCHEME);
-    contents.session.protocol.handle(DESKTOP_SCHEME, (request) =>
-      new URL(request.url).pathname === '/app/redirect'
-        ? new Response(null, { status: 302, headers: { Location: 'https://outside.invalid/' } })
-        : bundledResponse(
-            request,
-            fileURLToPath(new URL('../../dist/desktop/renderer', import.meta.url)),
-            process.env.PIM_DESKTOP_SERVER,
-          ),
+    contents.session.protocol.handle(
+      DESKTOP_SCHEME,
+      () => new Response(null, { status: 302, headers: { Location: 'https://outside.invalid/' } }),
     );
     const redirected = once(contents, 'will-redirect');
     await contents.executeJavaScript("location.href = '/app/redirect'");

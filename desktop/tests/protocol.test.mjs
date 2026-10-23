@@ -2,8 +2,8 @@ import assert from 'node:assert/strict';
 import { mkdirSync, symlinkSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { bundledResponse } from '../../dist/desktop/protocol.js';
 import { fixture } from '../../tests/helpers.mjs';
+import { bundledResponse } from '../protocol.ts';
 
 test('bundled UI serves local assets, deep links and visuals without forwarding API requests', async (t) => {
   const { root } = fixture(t);

@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { Shell, Welcome } from './app';
 import { queryClient } from './client';
 import { SessionPage } from './session/page';
+import { SettingsPage } from './settings';
 import './style.css';
 
 const root = createRootRoute({ component: Shell });
@@ -24,8 +25,13 @@ const session = createRoute({
   }),
   component: SessionPage,
 });
+const settings = createRoute({
+  getParentRoute: () => root,
+  path: '/app/settings',
+  component: SettingsPage,
+});
 const router = createRouter({
-  routeTree: root.addChildren([index, project, session]),
+  routeTree: root.addChildren([index, project, session, settings]),
   defaultNotFoundComponent: () => <Welcome />,
 });
 

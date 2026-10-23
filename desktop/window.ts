@@ -1,3 +1,4 @@
+import { fileURLToPath } from 'node:url';
 import { BrowserWindow, type Session } from 'electron';
 import { allowedNavigation } from './policy.js';
 
@@ -13,7 +14,7 @@ export function secureSession(session: Session): void {
   });
 }
 
-export function createWindow(origin: string, session: Session): BrowserWindow {
+export function createWindow(origin: string, session: Session, zoomFactor: number): BrowserWindow {
   const window = new BrowserWindow({
     title: 'Pim',
     width: 1280,
@@ -22,6 +23,8 @@ export function createWindow(origin: string, session: Session): BrowserWindow {
     minHeight: 400,
     webPreferences: {
       session,
+      zoomFactor,
+      preload: fileURLToPath(new URL('../preload/index.cjs', import.meta.url)),
       sandbox: true,
       contextIsolation: true,
       nodeIntegration: false,

@@ -1,6 +1,10 @@
 export const DESKTOP_SCHEME = 'pim-app';
 export const DESKTOP_ORIGIN = 'pim-app://app';
-export const DESKTOP_DEV_ORIGIN = 'http://127.0.0.1:5173';
+export interface DesktopPlatform {
+  getZoom(): Promise<number>;
+  setZoom(factor: number): Promise<number>;
+  onZoomChanged(listener: (factor: number) => void): () => void;
+}
 
 /** A relay endpoint, never a UI URL or a URL carrying credentials. */
 export function desktopRelayOrigin(value = 'http://127.0.0.1:3141'): string {
