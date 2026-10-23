@@ -5,7 +5,7 @@ const config: ExpoConfig = {
   slug: 'lpi-mobile',
   scheme: 'lpi',
   version: '0.1.0',
-  icon: '../assets/brand/lpi-app-icon.png',
+  icon: './assets/lpi-app-icon.png',
   backgroundColor: '#24333c',
   orientation: 'portrait',
   userInterfaceStyle: 'dark',
@@ -33,8 +33,8 @@ const config: ExpoConfig = {
   android: {
     package: 'dev.lpi.mobile',
     adaptiveIcon: {
-      foregroundImage: '../assets/brand/lpi-adaptive-foreground.png',
-      monochromeImage: '../assets/brand/lpi-monochrome.png',
+      foregroundImage: './assets/lpi-adaptive-foreground.png',
+      monochromeImage: './assets/lpi-monochrome.png',
       backgroundColor: '#24333c',
     },
   },
