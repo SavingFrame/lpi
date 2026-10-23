@@ -95,7 +95,7 @@ tab. Tabs share one renderer and relay connection. Each session retains its draf
 position when switching tabs. Open tabs and the active tab are restored per relay after restart;
 this only opens views, never starts or resumes runtimes. Scroll positions are kept in memory.
 
-Close a tab with its close button or Ctrl/Cmd+W. Closing a tab never stops its agent. Closing the
+Close a tab with its close button, middle-click, or Ctrl/Cmd+W. Closing a tab never stops its agent. Closing the
 last tab leaves the sidebar available to open another session. Ctrl/Cmd+Shift+W closes the window.
 Notification clicks open or focus the corresponding session tab. Tabs show running, input-needed,
 and disconnected indicators, plus a green dot for an unviewed turn. Idle tabs have no status icon;

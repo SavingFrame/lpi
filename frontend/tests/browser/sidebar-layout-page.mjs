@@ -384,11 +384,17 @@ async function run() {
     doc.querySelectorAll('.session-tab').length === 2,
     'Opening an existing session deduplicates tabs',
   );
-  doc.querySelectorAll('.session-tab-close')[1].click();
+  doc.querySelectorAll('.session-tab-select')[1].dispatchEvent(
+    new frame.contentWindow.MouseEvent('auxclick', {
+      button: 1,
+      bubbles: true,
+      cancelable: true,
+    }),
+  );
   await until(() => doc.querySelectorAll('.session-tab').length === 1);
   check(
     frame.contentWindow.location.pathname === firstPath,
-    'Closing a background tab preserves the active session',
+    'Middle-click closes a background tab without activating it',
   );
   frame.contentWindow.closeSessionTab();
   await until(() => doc.querySelector('.welcome') && !doc.querySelector('.session-tab'));

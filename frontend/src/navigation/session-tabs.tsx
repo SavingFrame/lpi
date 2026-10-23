@@ -123,9 +123,21 @@ export function SessionTabs() {
               : status.label;
         const description = `${label}. ${status.description}${unread ? ' Unviewed turn. This does not imply task success.' : ''}`;
         return (
+          // biome-ignore lint/a11y/noStaticElementInteractions: Middle-click supplements the keyboard-accessible close button.
           <div
             key={tab.sessionId}
             className={`session-tab ${sessionId === tab.sessionId ? 'active' : ''}`}
+            onMouseDown={(event) => {
+              if (event.button === 1) {
+                event.preventDefault();
+              }
+            }}
+            onAuxClick={(event) => {
+              if (event.button === 1) {
+                event.preventDefault();
+                close(tab.sessionId);
+              }
+            }}
           >
             <button
               type="button"
