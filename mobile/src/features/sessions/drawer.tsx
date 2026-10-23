@@ -133,7 +133,7 @@ export function ProjectDrawer({
             {inventory.loading ? 'Loading projects…' : 'No configured projects.'}
           </Text>
         )}
-        {groups.map(({ project, sessions }) => {
+        {groups.map(({ project, configured, sessions }) => {
           const closed = collapsed.has(project.id);
           const all = expanded.has(project.id);
           const visible = visibleSessions(sessions, inventory.selectedId ?? undefined, all);
@@ -162,27 +162,29 @@ export function ProjectDrawer({
                   </Text>
                   <Text style={styles.count}>{sessions.length}</Text>
                 </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel={`New session in ${project.name}`}
-                  accessibilityState={{ disabled: !online || launch.status !== 'ready' }}
-                  disabled={!online || launch.status !== 'ready'}
-                  style={styles.close}
-                  onPress={() => onCreate(project.id)}
-                >
-                  {launch.status === 'pending' ? (
-                    <ActivityIndicator size="small" color={colors.muted} />
-                  ) : (
-                    <Text
-                      style={[
-                        styles.closeText,
-                        (!online || launch.status !== 'ready') && styles.disabled,
-                      ]}
-                    >
-                      +
-                    </Text>
-                  )}
-                </Pressable>
+                {configured && (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`New session in ${project.name}`}
+                    accessibilityState={{ disabled: !online || launch.status !== 'ready' }}
+                    disabled={!online || launch.status !== 'ready'}
+                    style={styles.close}
+                    onPress={() => onCreate(project.id)}
+                  >
+                    {launch.status === 'pending' ? (
+                      <ActivityIndicator size="small" color={colors.muted} />
+                    ) : (
+                      <Text
+                        style={[
+                          styles.closeText,
+                          (!online || launch.status !== 'ready') && styles.disabled,
+                        ]}
+                      >
+                        +
+                      </Text>
+                    )}
+                  </Pressable>
+                )}
               </View>
               {(counts.running > 0 || counts.blocked > 0 || unreadCount > 0) && (
                 <View style={styles.counts}>

@@ -28,6 +28,7 @@ export function Conversation({
   const [confirmingRuntime, setConfirmingRuntime] = useState(false);
   const [choosingSettings, setChoosingSettings] = useState(false);
   const read = useSyncExternalStore(client.reads.subscribe, client.reads.getState);
+  const inventory = useSyncExternalStore(client.subscribe, client.getState);
   const id = session?.id;
   const onFollowing = useCallback((value: boolean) => setFollowing(value), []);
   useEffect(() => {
@@ -48,6 +49,7 @@ export function Conversation({
   return (
     <>
       {session &&
+      inventory.projects.some((project) => project.id === session.projectId) &&
       connection.snapshot?.session.id === session.id &&
       connection.snapshot.session.connection === 'disconnected' ? (
         <ResumeSession

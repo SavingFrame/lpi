@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { emptyView, reduceEvent } from '../../src/shared/client-state.ts';
 import { conversationRows, toolPreview } from '../src/features/conversation/timeline.ts';
 
 const assistant = (content) => ({ role: 'assistant', timestamp: 1, content });
@@ -88,6 +89,70 @@ test('keeps orphan results and missing results visible without pairing by tool n
   assert.equal(rows[0].tools[1].status, 'unknown');
   assert.equal(rows[2].tools[0].status, 'unknown');
   assert.equal(rows[2].tools[1].output, 'unidentified output');
+});
+
+test('live calls retain their group and row identities as streamed calls enter history', () => {
+  const active = [
+    { id: 'a', name: 'read', args: { path: 'first.ts' } },
+    { id: 'b', name: 'read', args: { path: 'second.ts' } },
+  ];
+  const initial = conversationRows([], [active[0]]);
+  const parallel = conversationRows([], active);
+  const streamed = conversationRows([assistant([call('a', 'first.ts')])], active);
+  const saved = conversationRows(
+    [
+      assistant([call('a', 'first.ts'), call('b', 'second.ts')]),
+      result('a', 'first output'),
+      result('b', 'second output'),
+    ],
+    [],
+  );
+  for (const rows of [parallel, streamed, saved]) {
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0].kind, 'tools');
+    assert.equal(rows[0].key, initial[0].key, 'the native list must reuse the group');
+    assert.equal(rows[0].tools[0].key, initial[0].tools[0].key);
+    assert.equal(rows[0].tools[1].key, parallel[0].tools[1].key);
+  }
+  assert.deepEqual(
+    saved[0].tools.map((tool) => tool.status),
+    ['complete', 'complete'],
+  );
+  const orphan = conversationRows([result('a', 'first output')], []);
+  assert.equal(orphan[0].key, initial[0].key, 'late orphan results reuse the live group');
+});
+
+test('parallel progress updates do not reorder live calls or replace the group anchor', () => {
+  let view = emptyView();
+  for (const id of ['a', 'b', 'c']) {
+    view = reduceEvent(view, {
+      type: 'tool_execution_start',
+      toolCallId: id,
+      toolName: 'read',
+      args: { path: `${id}.ts` },
+    });
+  }
+  const initial = conversationRows([], view.tools);
+  const before = view;
+  view = reduceEvent(view, {
+    type: 'tool_execution_update',
+    toolCallId: 'a',
+    toolName: 'read',
+    args: { path: 'a.ts' },
+    partialResult: { text: 'progress' },
+  });
+  assert.deepEqual(
+    view.tools.map((tool) => tool.id),
+    ['a', 'b', 'c'],
+  );
+  assert.equal(before.tools[0].result, undefined, 'the previous state stays immutable');
+  const updated = conversationRows([], view.tools);
+  assert.equal(updated[0].key, initial[0].key);
+  assert.deepEqual(
+    updated[0].tools.map((tool) => tool.key),
+    initial[0].tools.map((tool) => tool.key),
+  );
+  assert.match(updated[0].tools[0].output, /progress/);
 });
 
 test('tool previews show bounded command, path, search, or script hints without changing arguments', () => {

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import {
   closeSync,
   constants,
@@ -143,14 +144,11 @@ export class SessionDiscovery {
             }
             const directory = realpathSync(metadata.cwd);
             const project = projects.find((item) => item.directory === directory);
-            if (!project) {
-              continue;
-            }
             // Paths distinguish copied/forked files even when their header IDs are duplicated.
             const id = piInventoryId(file);
             this.sessions.set(id, {
               id,
-              projectId: project.id,
+              projectId: project?.id ?? createHash('sha256').update(directory).digest('hex'),
               directory,
               file,
               createdAt: metadata.timestamp,

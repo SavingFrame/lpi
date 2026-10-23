@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import {
   closeSync,
   constants,
@@ -261,8 +261,8 @@ export class NativeBridges {
     const cwd = realpathSync(text(identity.cwd, 'native cwd', 4096));
     const project = this.config.projects.find((item) => item.directory === cwd);
     const path = text(identity.file, 'native session file', 4096);
-    if (!project || !isAbsolute(path)) {
-      throw new Error('Native project or file unavailable');
+    if (!isAbsolute(path)) {
+      throw new Error('Native session file must be absolute');
     }
     // New Pi sessions may have a filename before their first message is persisted.
     const file = existsSync(path)
@@ -321,7 +321,7 @@ export class NativeBridges {
         id,
         file,
         directory: cwd,
-        projectId: project.id,
+        projectId: project?.id ?? createHash('sha256').update(cwd).digest('hex'),
         createdAt,
         updatedAt: new Date().toISOString(),
         piSessionId,

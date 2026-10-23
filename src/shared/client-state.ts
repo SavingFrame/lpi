@@ -148,7 +148,10 @@ export function reduceEvent(view: View, event: Record<string, unknown>): View {
         args: event.args,
         result: event.partialResult,
       };
-      next.tools = [...view.tools.filter((item) => item.id !== tool.id), tool];
+      // Progress replaces a call in place. Moving it to the end changes native group anchors.
+      next.tools = view.tools.some((item) => item.id === tool.id)
+        ? view.tools.map((item) => (item.id === tool.id ? tool : item))
+        : [...view.tools, tool];
       break;
     }
     case 'tool_execution_end':

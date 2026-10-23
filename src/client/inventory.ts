@@ -23,7 +23,13 @@ export function filterSessions(
       return false;
     }
     const project = byProject.get(session.projectId);
-    const searchable = [session.title, session.id, project?.name, project?.directory]
+    const searchable = [
+      session.title,
+      session.id,
+      session.directory,
+      project?.name,
+      project?.directory,
+    ]
       .join(' ')
       .toLocaleLowerCase();
     return terms.every((term) => searchable.includes(term));
@@ -37,16 +43,28 @@ export function groupSessions(
   archived = false,
 ) {
   const groups = new Map(
-    projects.map((project) => [project.id, { project, sessions: [] as InventorySession[] }]),
+    projects.map((project) => [
+      project.id,
+      { project, configured: true, sessions: [] as InventorySession[] },
+    ]),
   );
   for (const session of sessions) {
-    const group = groups.get(session.projectId);
-    if (group && session.archived === archived) {
-      group.sessions.push({
-        ...session,
-        activity: online && session.connection === 'connected' ? session.activity : 'unknown',
-      });
+    if (session.archived !== archived) {
+      continue;
     }
+    let group = groups.get(session.projectId);
+    if (!group) {
+      group = {
+        project: { id: session.projectId, name: session.directory, directory: session.directory },
+        configured: false,
+        sessions: [],
+      };
+      groups.set(session.projectId, group);
+    }
+    group.sessions.push({
+      ...session,
+      activity: online && session.connection === 'connected' ? session.activity : 'unknown',
+    });
   }
   return [...groups.values()]
     .map((group) => ({

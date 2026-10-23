@@ -50,7 +50,11 @@ test('discovery uses canonical header cwd, stable path IDs, and never changes or
   seed(join(sessions, 'custom.jsonl'), config.projects[0].directory, 'custom-session-id');
   const before = readFileSync(file);
   const first = new SessionDiscovery([sessions, sessions], config.projects);
-  assert.equal(first.list().length, 3);
+  assert.equal(first.list().length, 4);
+  const unrelated = first.list().find((item) => item.directory === root);
+  assert.ok(unrelated);
+  assert.notEqual(unrelated.projectId, config.projects[0].id);
+  assert.equal(first.inspect(unrelated.id).messages[0].content, 'Existing history');
   assert.equal(first.warnings.length, 0);
   const session = first.list().find((item) => item.file === file);
   assert.equal(session.piSessionId, piId);

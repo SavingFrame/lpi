@@ -69,7 +69,7 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
       } else {
         // History can start after a call or contain results without an ID. Keep them visible.
         addTool({
-          key,
+          key: id ? `tool:${id}` : key,
           id,
           name: String(message.toolName ?? 'Tool output'),
           result: message,
@@ -105,7 +105,7 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
       if (part.type === 'toolCall') {
         flush();
         const tool: ToolEntry = {
-          key: `${key}:tool:${partIndex}`,
+          key: typeof part.id === 'string' ? `tool:${part.id}` : `${key}:tool:${partIndex}`,
           id: typeof part.id === 'string' ? part.id : undefined,
           args: part.arguments,
           name: String(part.name ?? 'Tool'),
@@ -139,7 +139,7 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
       }
     } else {
       addTool({
-        key: `active:${tool.id}`,
+        key: `tool:${tool.id}`,
         id: tool.id,
         args: tool.args,
         name: tool.name,

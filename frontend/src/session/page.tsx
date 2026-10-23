@@ -76,7 +76,9 @@ function SessionPane({
   const connection = useSyncExternalStore(live.subscribe, live.getState);
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
   const projectName =
-    projectQuery.data?.find((project) => project.id === projectId)?.name ?? 'Project';
+    projectQuery.data?.find((project) => project.id === projectId)?.name ??
+    connection.snapshot?.session.directory ??
+    'Project';
   const commands = useSessionCommands(id, projectId);
   useEffect(() => {
     live.select(id);
@@ -215,9 +217,11 @@ function SessionPane({
                 Stop runtime
               </ConfirmButton>
             )}
-            {session?.connection === 'disconnected' && session.projectId === projectId && (
-              <LaunchSession projectId={projectId} resumeId={id} />
-            )}
+            {session?.connection === 'disconnected' &&
+              session.projectId === projectId &&
+              projectQuery.data?.some((project) => project.id === projectId) && (
+                <LaunchSession projectId={projectId} resumeId={id} />
+              )}
             <Button
               type="button"
               variant="outline"

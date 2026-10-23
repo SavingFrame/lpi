@@ -148,6 +148,34 @@ test('search and live/saved filters include idle runtimes without mistaking offl
   assert.equal(filterSessions(items, projects, 'all', 'missing', true).length, 0);
 });
 
+test('unconfigured directories remain visible, searchable and grouped without creation controls', () => {
+  const live = { ...session('outside', 'outside-id', 'idle'), directory: '/tmp/work' };
+  const saved = { ...live, id: 'saved', connection: 'disconnected' };
+  const archived = { ...live, id: 'archived', archived: true };
+  const items = [live, saved, archived];
+  const groups = groupSessions(projects, items, true);
+  const outside = groups.find((group) => group.project.id === live.projectId);
+  assert.equal(outside.configured, false);
+  assert.equal(outside.project.name, '/tmp/work');
+  assert.deepEqual(
+    outside.sessions.map((item) => item.id),
+    ['outside', 'saved'],
+  );
+  assert.ok(
+    groups
+      .filter((group) => group.project.id !== live.projectId)
+      .every((group) => group.configured),
+  );
+  assert.deepEqual(filterSessions(items, projects, 'all', '/tmp/work', true), [live, saved]);
+  assert.deepEqual(filterSessions(items, projects, 'live', '/tmp/work', true), [live]);
+  assert.deepEqual(filterSessions(items, projects, 'saved', '/tmp/work', true), [saved]);
+  assert.deepEqual(
+    groupSessions([], items, true, true)[0].sessions.map((item) => item.id),
+    ['archived'],
+  );
+  assert.equal(groupSessions([], [archived], true).length, 0);
+});
+
 test('project colors remain stable and relative times are compact', () => {
   assert.equal(projectColor('a'), projectColor('a'));
   assert.match(projectColor('a'), /^#[0-9a-f]{6}$/);

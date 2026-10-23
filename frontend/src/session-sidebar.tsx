@@ -73,7 +73,7 @@ export function SessionSidebar({
   if (filtered.length === 0 && (searching || filter !== 'all')) {
     return <p className="project-empty">No matching sessions</p>;
   }
-  return groups.map(({ project, sessions: items }) => {
+  return groups.map(({ project, configured, sessions: items }) => {
     const counts = activityCounts(items);
     const unread = items.filter((session) => hasUnreadCompletion(session.readState)).length;
     if (items.length === 0 && (searching || filter !== 'all')) {
@@ -112,7 +112,7 @@ export function SessionSidebar({
             <span className="project-name">{project.name}</span>
             <span className="project-count">{items.length}</span>
           </button>
-          <LaunchSession projectId={project.id} compact />
+          {configured && <LaunchSession projectId={project.id} compact />}
         </div>
         <div className="project-status">
           {counts.blocked > 0 && (
