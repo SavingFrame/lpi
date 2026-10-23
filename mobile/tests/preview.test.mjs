@@ -23,6 +23,7 @@ test('replaces the empty native list on history arrival, then preserves its iden
     'react-native': { FlatList, Platform: { OS: 'ios' }, StyleSheet: { create: (value) => value } },
     '../../theme/colors': { colors: {} },
     '../../extensions': { MobileQuestion: Symbol('MobileQuestion') },
+    './display': { MobileDisplay: Symbol('MobileDisplay') },
     './markdown': {},
     './scroll': { conversationScroll },
     './timeline': { conversationRows },

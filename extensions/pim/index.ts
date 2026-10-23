@@ -2,6 +2,7 @@ import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-a
 import { NativeCodemodeEdits } from './native/codemode-edits.js';
 import { NativeCommands } from './native/commands.js';
 import { registerImageEntry } from './native/image-entry.js';
+import { registerShow } from './native/show.js';
 import { NativeState } from './native/state.js';
 import { NativeTransport } from './native/transport.js';
 
@@ -12,6 +13,7 @@ export default function nativeBridge(pi: ExtensionAPI): void {
   const commands = new NativeCommands(pi, state);
   const transport = new NativeTransport(state, commands);
   registerImageEntry(pi);
+  registerShow(pi);
 
   function forward(event: Record<string, unknown>, context: ExtensionContext): void {
     try {

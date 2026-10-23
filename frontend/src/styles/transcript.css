@@ -300,4 +300,143 @@
   .tool-group-calls .tool-status {
     margin-left: auto;
   }
+  .display-card {
+    position: relative;
+    min-width: 0;
+    margin: 16px 0;
+    color: var(--foreground);
+  }
+  .display-actions {
+    position: absolute;
+    z-index: 1;
+    top: 4px;
+    right: 4px;
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 120ms;
+  }
+  .display-card:hover .display-actions,
+  .display-actions:focus-within,
+  .display-actions:has(details[open]) {
+    opacity: 1;
+  }
+  .display-actions > button,
+  .display-card .display-options > summary {
+    display: grid;
+    place-items: center;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--background);
+    color: var(--muted-foreground);
+    cursor: pointer;
+    list-style: none;
+  }
+  .display-card .display-options > summary::-webkit-details-marker {
+    display: none;
+  }
+  .display-menu {
+    position: absolute;
+    right: 0;
+    top: 36px;
+    min-width: 180px;
+    padding: 6px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--background);
+    box-shadow: 0 6px 20px rgb(0 0 0 / 25%);
+    font-size: 12px;
+  }
+  .display-menu button,
+  .display-menu a {
+    display: block;
+    width: 100%;
+    padding: 8px;
+    border-radius: 4px;
+    color: var(--foreground);
+    text-align: left;
+    text-decoration: none;
+  }
+  .display-menu button:hover,
+  .display-menu a:hover {
+    background: var(--secondary);
+  }
+  .display-menu small {
+    display: block;
+    padding: 8px;
+    color: var(--muted-foreground);
+    font-size: 11px;
+  }
+  .display-frame {
+    display: block;
+    width: 100%;
+    border: 0;
+    background: transparent;
+  }
+  .display-image {
+    display: block;
+    width: 100%;
+    height: auto;
+    object-fit: contain;
+  }
+  .display-source {
+    max-height: 60vh;
+    margin: 0;
+    white-space: pre;
+  }
+  .display-accessibility {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+  .display-toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+  .display-toolbar button {
+    display: grid;
+    place-items: center;
+    padding: 6px;
+  }
+  .display-dialog {
+    width: min(1400px, 96vw);
+    max-width: 96vw;
+    height: 90dvh;
+    max-height: 90dvh;
+    padding: 0;
+    margin: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    color: var(--foreground);
+    background: var(--background);
+  }
+  .display-dialog[open] {
+    display: flex;
+    flex-direction: column;
+  }
+  .display-dialog::backdrop {
+    background: rgb(0 0 0 / 70%);
+  }
+  .display-dialog-body {
+    flex: 1;
+    min-height: 0;
+    padding: 12px;
+    overflow: auto;
+  }
+  @media (hover: none), (pointer: coarse) {
+    .display-actions {
+      opacity: 1;
+    }
+  }
 }

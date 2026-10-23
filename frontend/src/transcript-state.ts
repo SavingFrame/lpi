@@ -33,7 +33,7 @@ export type TranscriptEntry =
   | { kind: 'tool'; key: string; tool: TranscriptTool }
   | { kind: 'tools'; key: string; tools: { key: string; tool: TranscriptTool }[] };
 
-/** Group ordinary calls across messages. Edits stay standalone and break groups. */
+/** Group ordinary calls across messages. Edits and displays stay standalone. */
 export function transcriptEntries(
   messages: Message[],
   keys: string[],
@@ -123,7 +123,7 @@ export function transcriptEntries(
         continue;
       }
       flush(blockIndex);
-      if (tool.name === 'edit') {
+      if (tool.name === 'edit' || tool.name === 'show') {
         entries.push({ kind: 'tool', key: String(block.id), tool });
         continue;
       }

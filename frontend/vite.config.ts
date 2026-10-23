@@ -15,6 +15,7 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
     proxy: {
+      '/display': { target, changeOrigin: true },
       '/projects': { target, changeOrigin: true },
       '/sessions': { target, changeOrigin: true },
       '/events': { target, changeOrigin: true, ws: true },

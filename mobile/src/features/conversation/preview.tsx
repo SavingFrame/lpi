@@ -13,6 +13,7 @@ import type { LiveState } from '../../../../src/client/live';
 import { MobileQuestion } from '../../extensions';
 import type { MobileMessages } from '../../lib/messages';
 import { colors } from '../../theme/colors';
+import { MobileDisplay } from './display';
 import { CodeBlock, Markdown } from './markdown';
 import { conversationScroll } from './scroll';
 import { type ConversationRow, conversationRows, type ToolEntry } from './timeline';
@@ -139,6 +140,9 @@ function MessageRow({
   row: Exclude<ConversationRow, { kind: 'question' }>;
   onInspect: () => void;
 }) {
+  if (row.kind === 'display') {
+    return <MobileDisplay artifact={row.artifact} onInspect={onInspect} />;
+  }
   if (row.kind === 'tools') {
     const running = row.tools.filter((tool) => tool.status === 'running').length;
     const errors = row.tools.filter((tool) => tool.status === 'error').length;

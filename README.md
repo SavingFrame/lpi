@@ -9,6 +9,7 @@ Pi runs the agent and keeps its normal session files. Pim connects to that same 
 - Browse live and saved sessions, grouped by project.
 - Archive sessions and restore them from the Archived view across browser and mobile.
 - Follow streaming responses, tool activity, and code diffs.
+- View images and interactive HTML artifacts such as charts, diagrams, and calculators.
 - Send prompts, steer running agents, and attach images.
 - Inspect queued steering/follow-up text and clear the native session queue.
 - Use `/compact`, `/new`, discovered extension commands, and `/skill:name` from the composer.

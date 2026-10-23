@@ -1,4 +1,5 @@
 import type { Message, ToolActivity } from '../../../../src/shared/client-state';
+import { type DisplayArtifact, displayArtifact } from '../../../../src/shared/display.ts';
 import { type ContentBlock, messageBlocks } from './content.ts';
 
 export interface ToolEntry {
@@ -16,6 +17,7 @@ export interface ToolEntry {
 export type ConversationRow =
   | { kind: 'message'; key: string; role: string; blocks: ContentBlock[] }
   | { kind: 'tools'; key: string; tools: ToolEntry[] }
+  | { kind: 'display'; key: string; artifact: DisplayArtifact }
   | { kind: 'question'; key: string; tool: ToolEntry };
 
 /** A bounded, single-line hint only. Keep the original arguments untouched for inspection. */
@@ -148,5 +150,29 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
       });
     }
   }
-  return rows;
+  const projected: ConversationRow[] = [];
+  for (const row of rows) {
+    if (row.kind !== 'tools') {
+      projected.push(row);
+      continue;
+    }
+    let tools: ToolEntry[] = [];
+    const flush = () => {
+      if (tools.length) {
+        projected.push({ kind: 'tools', key: tools[0]?.key ?? row.key, tools });
+      }
+      tools = [];
+    };
+    for (const tool of row.tools) {
+      const artifact = displayArtifact(tool.result);
+      if (artifact) {
+        flush();
+        projected.push({ kind: 'display', key: `display:${tool.id ?? tool.key}`, artifact });
+      } else {
+        tools.push(tool);
+      }
+    }
+    flush();
+  }
+  return projected;
 }

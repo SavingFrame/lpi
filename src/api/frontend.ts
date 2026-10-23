@@ -1,6 +1,8 @@
 import { readFile } from 'node:fs/promises';
 import type { ServerResponse } from 'node:http';
 import { extname, resolve, sep } from 'node:path';
+import { DISPLAY_CSP } from '../shared/display.ts';
+import { displayDocument } from '../shared/display-document.ts';
 
 const types: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -14,6 +16,20 @@ export async function serveFrontend(
   response: ServerResponse,
   directory: string,
 ): Promise<boolean> {
+  if (path === '/display') {
+    // Static, sandboxed shell only. Artifact bytes arrive from its parent frame,
+    // never from a file-serving endpoint, URL parameter, or another session writer.
+    response.writeHead(200, {
+      'Content-Type': 'text/html; charset=utf-8',
+      'Cache-Control': 'no-store',
+      'X-Content-Type-Options': 'nosniff',
+      'Referrer-Policy': 'no-referrer',
+      'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+      'Content-Security-Policy': `${DISPLAY_CSP}; sandbox allow-scripts; frame-ancestors 'self'`,
+    });
+    response.end(displayDocument());
+    return true;
+  }
   const page = path === '/' || path === '/app' || path.startsWith('/app/');
   if (!page && !path.startsWith('/assets/')) {
     return false;

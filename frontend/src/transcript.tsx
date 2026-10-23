@@ -2,11 +2,13 @@ import { Check, Copy, GitBranch, LoaderCircle } from 'lucide-react';
 import { Fragment, memo, type ReactNode, useState } from 'react';
 import { imageAttachments } from '../../src/shared/attachments';
 import type { Message, View } from '../../src/shared/client-state';
+import { displayArtifact } from '../../src/shared/display';
 import { AskHistory } from './ask-history-card';
 import { CodemodeBlock } from './codemode-block';
 import { Disclosure } from './components/disclosure';
 import { SafeMarkdown } from './components/safe-markdown';
 import { Button } from './components/ui/button';
+import { DisplayCard } from './display-card';
 import { ToolFileBody } from './tool-file-body';
 import { ToolStatus } from './tool-status';
 import {
@@ -20,6 +22,10 @@ import {
 
 const ToolBlock = memo(
   function ToolBlock({ tool }: { tool: TranscriptTool }) {
+    const artifact = displayArtifact(tool.result);
+    if (artifact) {
+      return <DisplayCard artifact={artifact} />;
+    }
     if (tool.name === 'codemode') {
       return <CodemodeBlock tool={tool} renderOutput={(item) => <MessageBody item={item} />} />;
     }
@@ -298,7 +304,9 @@ export const Transcript = memo(
                   <div key={entry.key}>
                     {item.isError === true && <p className="error">Error</p>}
                     {item.role === 'toolResult' &&
-                    (item.toolName === 'codemode' || item.toolName === 'edit') ? (
+                    (item.toolName === 'codemode' ||
+                      item.toolName === 'edit' ||
+                      item.toolName === 'show') ? (
                       <ToolBlock
                         tool={{
                           name: String(item.toolName),

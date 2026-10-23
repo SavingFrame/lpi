@@ -153,6 +153,19 @@ commands, and known Device Hub/input issues.
 - Code and tables scroll horizontally. Valid embedded conversation images render inline;
   unavailable/invalid images retain a placeholder. Raw HTML is displayed as text, and only
   HTTP(S)/mail links open.
+- Explicit `show` results render saved images and HTML as borderless visual replies outside
+  tool groups. Frames fit their content up to 20,000px and use the mobile theme and typography;
+  the conversation owns scrolling. Small overlay controls provide expansion and source inspection,
+  without a banner, repeated summary, or warning footer. Summaries remain accessibility/terminal
+  fallbacks. HTML runs in a sandboxed iframe inside an incognito WebView. HTTP(S) CDN scripts,
+  styles and fonts are allowed; prefer HTTPS because platform transport rules still apply.
+  External images, fetch/XHR/WebSocket connections, navigation, file access, cookies and storage
+  remain restricted. CDN-backed visuals need network access. The native callback accepts
+  only bounded size reports, never agent actions. Artifacts use the shared persisted contract;
+  normal Markdown never becomes executable HTML. Mobile file export is not implemented.
+  Native WebView interaction/isolation remains unverified. Custom native
+  builds must be rebuilt after installing the WebView dependency; compatible Expo Go
+  already includes its native module.
 - The compact header shows the session title and live/saved/offline state. Server settings
   and refresh live in the drawer. Session rows include dates, activity, and unread markers.
 - The transcript uses an inverted native list with the latest content at offset zero and
@@ -253,6 +266,7 @@ nor manages JSONL files. Disconnection never authorizes another writer.
 | Tamagui / config | 3.1.2 |
 | AsyncStorage | 2.2.0 |
 | Expo ImagePicker | 57.0.20 |
+| React Native WebView | 13.16.1 |
 | Drawer layout | 4.2.12 |
 | Gesture Handler / Reanimated / Worklets | 2.32.0 / 4.5.1 / 0.10.1 |
 
@@ -273,7 +287,7 @@ fonts, explicit native style props, and no optimizing compiler plugin.
 - `../src/client/`: shared browser/mobile behavior, already consumed by the browser.
 
 Markdown uses the exactly pinned `marked` 18.0.11 lexer with native Text/View rendering,
-not a WebView. Transcript and drawer layout use explicit React Native styles rather than
+not a WebView. Only explicit HTML artifacts use a WebView. Transcript and drawer layout use explicit React Native styles rather than
 Tamagui's default button/text presentation; Tamagui remains the app's provider/form foundation.
 
 The mobile composer and read acknowledgments use the shared mutation guards, durable

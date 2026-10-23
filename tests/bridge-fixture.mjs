@@ -110,6 +110,7 @@ export async function setup(t, timeout = 1000, tmux = async () => '') {
 export function fakePi(header, file, entry) {
   const handlers = new Map();
   const commands = new Map();
+  const tools = new Map();
   const renderers = new Map();
   const appended = [];
   const sent = [];
@@ -170,6 +171,7 @@ export function fakePi(header, file, entry) {
     events: bus,
     on: (name, handler) => handlers.set(name, handler),
     registerCommand: (name, command) => commands.set(name, command.handler),
+    registerTool: (tool) => tools.set(tool.name, tool),
     registerEntryRenderer: (name, renderer) => renderers.set(name, renderer),
     appendEntry: (customType, data) => {
       const custom = {
@@ -205,7 +207,19 @@ export function fakePi(header, file, entry) {
   };
   extension(pi);
   const emit = async (type, extra = {}) => handlers.get(type)?.({ type, ...extra }, ctx);
-  return { ctx, emit, bus, commands, renderers, appended, sent, state, notifications, statuses };
+  return {
+    ctx,
+    emit,
+    bus,
+    commands,
+    tools,
+    renderers,
+    appended,
+    sent,
+    state,
+    notifications,
+    statuses,
+  };
 }
 
 // Own the extension transport and environment for one fake-native integration test.

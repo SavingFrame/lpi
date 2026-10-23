@@ -1,6 +1,6 @@
 # Development Rules
 
-Adapted from https://github.com/earendil-works/pi/blob/main/AGENTS.md for this repository.
+Adapted from <https://github.com/earendil-works/pi/blob/main/AGENTS.md> for this repository.
 
 ## Project
 
@@ -22,8 +22,6 @@ Adapted from https://github.com/earendil-works/pi/blob/main/AGENTS.md for this r
 
 ## Code Quality
 
-- Read files in full before editing or making broad changes. Do not rely on search snippets.
-- Use the read tool for file contents and `rg` for searches. Do not use `cat` or `sed` to read files.
 - No `any` unless absolutely necessary. Prefer explicit types and validate external data.
 - Check dependency types and public Pi documentation before using APIs; do not guess.
 - Top-level imports only. No dynamic imports or inline import types.
@@ -50,7 +48,6 @@ Adapted from https://github.com/earendil-works/pi/blob/main/AGENTS.md for this r
 ## Test Scope and Maintenance
 
 - Keep `node:test`. Do not introduce another test framework without a demonstrated need.
-- Bug fixes normally need one focused regression test. Add more only for distinct failure paths; reuse or extend existing coverage when it already exercises the behavior.
 - Test observable behavior and meaningful contracts, not incidental implementation details. Avoid repeating generic guard matrices across features or asserting exact markup unless that markup is the contract.
 - Preserve safety coverage for duplicate writers, stale generations, unknown command outcomes, no automatic replay, reconnect ordering, and durable read state. Similar assertions at different trust boundaries are not automatically redundant.
 - When touching large test files, consider extracting the affected feature into a smaller file and sharing repeated fixtures. Keep refactors scoped to the task; do not perform mass rewrites or target an arbitrary test count.
