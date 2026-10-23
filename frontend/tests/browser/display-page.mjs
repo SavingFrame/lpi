@@ -155,6 +155,7 @@ try {
   click('Close visual');
   check(!host.querySelector('dialog'), 'expanded frame is disposed');
   render([JSON.parse(JSON.stringify(result))]);
+  await waitFor(() => host.querySelector('.display-card'));
   check(
     host.querySelector('.display-card'),
     'orphan saved history renders without the original call',

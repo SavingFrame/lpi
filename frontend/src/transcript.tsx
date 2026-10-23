@@ -5,6 +5,7 @@ import type { Message, View } from '../../src/shared/client-state';
 import { displayArtifact } from '../../src/shared/display';
 import { AskHistory } from './ask-history-card';
 import { CodemodeBlock } from './codemode-block';
+import { DeferredContent } from './components/deferred-content';
 import { Disclosure } from './components/disclosure';
 import { SafeMarkdown } from './components/safe-markdown';
 import { Button } from './components/ui/button';
@@ -24,7 +25,11 @@ const ToolBlock = memo(
   function ToolBlock({ tool }: { tool: TranscriptTool }) {
     const artifact = displayArtifact(tool.result);
     if (artifact) {
-      return <DisplayCard artifact={artifact} />;
+      return (
+        <DeferredContent label={artifact.title}>
+          {() => <DisplayCard artifact={artifact} />}
+        </DeferredContent>
+      );
     }
     if (tool.name === 'codemode') {
       return <CodemodeBlock tool={tool} renderOutput={(item) => <MessageBody item={item} />} />;

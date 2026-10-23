@@ -1,11 +1,20 @@
 import { File, FileDiff } from '@pierre/diffs/react';
 import { type ReactNode, useMemo, useState } from 'react';
+import { DeferredContent } from './components/deferred-content';
 import { Disclosure } from './components/disclosure';
 import { editDiff } from './edit-diff';
 import type { TranscriptTool } from './transcript-state';
 import { writePreview } from './write-preview';
 
 export function ToolFileBody({ tool, children }: { tool: TranscriptTool; children: ReactNode }) {
+  return (
+    <DeferredContent label={`${tool.name} output`}>
+      {() => <FilePreview tool={tool}>{children}</FilePreview>}
+    </DeferredContent>
+  );
+}
+
+function FilePreview({ tool, children }: { tool: TranscriptTool; children: ReactNode }) {
   const fileDiff = useMemo(() => editDiff(tool), [tool]);
   const file = useMemo(() => writePreview(tool), [tool]);
   const [style, setStyle] = useState<'unified' | 'split'>('unified');

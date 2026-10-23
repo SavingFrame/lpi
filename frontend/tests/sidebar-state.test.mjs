@@ -4,11 +4,13 @@ import {
   activityCounts,
   filterSessions,
   groupSessions,
+  indexSessions,
+  searchSessions,
   visibleSessions,
 } from '../../src/client/inventory.ts';
 import { relativeTime } from '../../src/client/relative-time.ts';
 import { hasUnreadCompletion } from '../../src/shared/session-read-state.ts';
-import { projectColor } from '../src/sidebar-state.ts';
+import { projectColor, visibleProjects } from '../src/sidebar-state.ts';
 
 const projects = [
   { id: 'a', name: 'same', directory: '/projects/a' },
@@ -174,6 +176,49 @@ test('unconfigured directories remain visible, searchable and grouped without cr
     ['archived'],
   );
   assert.equal(groupSessions([], [archived], true).length, 0);
+});
+
+test('one indexed search returns matching counts and preserves session references', () => {
+  const live = { ...session('live', 'a', 'idle'), title: 'Review API' };
+  const saved = { ...live, id: 'saved', connection: 'disconnected' };
+  const archived = { ...saved, id: 'archived', archived: true };
+  const index = indexSessions([live, saved, archived], projects);
+  const matches = searchSessions(index, 'REVIEW /projects/a', true);
+  assert.deepEqual(matches, {
+    all: [live, saved],
+    live: [live],
+    saved: [saved],
+    archived: [archived],
+  });
+  assert.equal(matches.live[0], live);
+  assert.equal(searchSessions(index, 'review', false).live.length, 0);
+  assert.equal(searchSessions(index, 'missing', true).all.length, 0);
+});
+
+test('recent projects retain pinned, selected, connected and unread projects outside the limit', () => {
+  const items = [
+    { ...session('recent', 'a', 'unknown'), connection: 'disconnected' },
+    session('connected', 'b', 'idle', '2025-01-01T00:00:00Z'),
+    {
+      ...session('selected', 'outside', 'unknown'),
+      directory: '/projects/outside',
+      connection: 'disconnected',
+    },
+    {
+      ...session('unread', 'unread-project', 'unknown'),
+      directory: '/projects/unread',
+      connection: 'disconnected',
+      readState: { completionId: 'turn', viewedCompletionId: null },
+    },
+  ];
+  const groups = groupSessions(projects, items, true);
+  const visible = visibleProjects(groups, 'selected', new Set(['empty']), false, 1);
+  assert.deepEqual(
+    new Set(visible.map((group) => group.project.id)),
+    new Set(['a', 'b', 'outside', 'unread-project', 'empty']),
+  );
+  assert.equal(visibleProjects(groups, undefined, new Set(), true), groups);
+  assert.equal(groupSessions(projects, items, true)[0].sessions[0], items[0]);
 });
 
 test('project colors remain stable and relative times are compact', () => {

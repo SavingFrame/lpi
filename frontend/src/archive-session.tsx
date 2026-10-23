@@ -1,7 +1,9 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Archive, ArchiveRestore, Power } from 'lucide-react';
+import { useSyncExternalStore } from 'react';
 import type { InventorySession } from '../../src/shared/sessions';
 import { setArchived } from './api';
+import { live } from './client';
 import { ConfirmButton } from './components/confirm-button';
 import { Button } from './components/ui/button';
 import { useSessionCommands } from './session/use-session-commands';
@@ -36,11 +38,12 @@ export function ArchiveSession({
       : session.archived
         ? 'Restore this session to the normal list.'
         : 'Hide this session from the normal list. History and drafts stay unchanged.';
+  const canStop = useSyncExternalStore(
+    live.subscribe,
+    () => stopping && commands.canStop(session.generation),
+  );
   const disabled =
-    !online ||
-    mutation.isPending ||
-    external ||
-    (stopping && (!commands.canStop(session.generation) || shutdown));
+    !online || mutation.isPending || external || (stopping && (!canStop || shutdown));
   const Icon = session.archived ? ArchiveRestore : stopping ? Power : Archive;
   return (
     <div className="archive-control">

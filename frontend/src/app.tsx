@@ -2,25 +2,29 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useParams } from '@tanstack/react-router';
 import { Folder, Settings, Terminal } from 'lucide-react';
 import { type CSSProperties, useEffect, useState, useSyncExternalStore } from 'react';
-import { filterSessions, type SessionFilter } from '../../src/client/inventory';
-import { projects, sessions } from './api';
+import { projects } from './api';
 import { live } from './client';
 import { desktop } from './platform';
-import { SessionSidebar } from './session-sidebar';
+import { SessionNavigation } from './session-navigation';
+
+function ConnectionStatus() {
+  const status = useSyncExternalStore(live.subscribe, () => live.getState().status);
+  const online = status === 'ready' || status === 'syncing';
+  return (
+    <p className={`connection ${online ? 'ready' : status}`} role="status">
+      {online ? 'connected' : status}
+    </p>
+  );
+}
 
 export function Shell() {
-  const [filter, setFilter] = useState<SessionFilter>('all');
-  const [search, setSearch] = useState('');
   const [width, setWidth] = useState(360);
   const { projectId, sessionId } = useParams({ strict: false });
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
-  const sessionQuery = useQuery({
-    queryKey: ['sessions'],
-    queryFn: sessions,
+  const online = useSyncExternalStore(live.subscribe, () => {
+    const status = live.getState().status;
+    return status === 'ready' || status === 'syncing';
   });
-  const status = useSyncExternalStore(live.subscribe, () => live.getState().status);
-  const online = status === 'ready' || status === 'syncing';
-  const filters = ['all', 'live', 'saved', 'archived'] as const;
   useEffect(() => {
     live.connect();
     return live.disconnect;
@@ -36,68 +40,16 @@ export function Shell() {
             pim<span>native Pi relay</span>
           </Link>
         </div>
-        <p className={`connection ${status}`} role="status">
-          {status}
-        </p>
+        <ConnectionStatus />
         <p className="local-warning">Local access. No authentication.</p>
         {projectQuery.error && <p className="error">{projectQuery.error.message}</p>}
-        {sessionQuery.error && <p className="error">{sessionQuery.error.message}</p>}
         {projectQuery.isPending && <p className="muted">Loading projects…</p>}
         {projectQuery.data?.length === 0 && (
           <p className="muted">
             No project folders found. Add a folder under a configured root, then restart the server.
           </p>
         )}
-        <nav aria-label="Sessions by project">
-          <label className="session-search">
-            <span className="sr-only">Search sessions</span>
-            <input
-              type="search"
-              placeholder="Search sessions or projects…"
-              value={search}
-              onChange={(event) => setSearch(event.target.value)}
-            />
-          </label>
-          <fieldset className="session-visibility" aria-label="Session visibility">
-            {filters.map((item) => (
-              <button
-                key={item}
-                type="button"
-                aria-pressed={filter === item}
-                onClick={() => setFilter(item)}
-              >
-                {item === 'all'
-                  ? 'All'
-                  : item === 'live'
-                    ? 'Live'
-                    : item === 'saved'
-                      ? 'Saved'
-                      : 'Archived'}
-                <span>
-                  {
-                    filterSessions(
-                      sessionQuery.data ?? [],
-                      projectQuery.data ?? [],
-                      item,
-                      search,
-                      online,
-                    ).length
-                  }
-                </span>
-              </button>
-            ))}
-          </fieldset>
-          <h2 className="eyebrow">Projects</h2>
-          {sessionQuery.isPending && <p className="muted">Loading sessions…</p>}
-          <SessionSidebar
-            projects={projectQuery.data ?? []}
-            sessions={sessionQuery.data ?? []}
-            selectedId={sessionId}
-            filter={filter}
-            search={search}
-            online={online}
-          />
-        </nav>
+        <SessionNavigation selectedId={sessionId} online={online} />
         {desktop && (
           <Link
             to="/app/settings"

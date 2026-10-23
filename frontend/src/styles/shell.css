@@ -170,6 +170,41 @@
   .project-group {
     margin-bottom: 16px;
   }
+  .windowed-list {
+    position: relative;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+    overflow-anchor: none;
+  }
+  .windowed-row {
+    position: absolute;
+    left: 0;
+    right: 0;
+    display: flow-root;
+  }
+  .windowed-row .project-group {
+    margin: 12px 0 4px;
+  }
+  .project-scope {
+    display: block;
+    padding: 6px 8px;
+    margin-bottom: 6px;
+    font-size: 11px;
+    color: var(--muted-foreground);
+  }
+  .project-header > .project-actions {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .project-pin {
+    padding: 5px;
+    color: var(--muted-foreground);
+  }
+  .project-pin[aria-pressed="true"] {
+    color: var(--foreground);
+  }
   .project-header {
     display: grid;
     grid-template-columns: minmax(0, 1fr) auto;

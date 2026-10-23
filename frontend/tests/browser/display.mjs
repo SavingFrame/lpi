@@ -7,6 +7,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
+import Fastify from 'fastify';
 import { build } from 'vite';
 import { serveFrontend } from '../../../src/api/frontend.ts';
 import { fixture } from '../../../tests/helpers.mjs';
@@ -79,31 +80,22 @@ test('Chromium allows cross-origin chart assets while isolating saved visual rep
   );
   const result = Promise.withResolvers();
   const leaks = [];
-  const server = createServer(async (request, response) => {
-    if (request.url.startsWith('/leak')) {
-      leaks.push(request.url);
-      response.end('unexpected network access');
-      return;
-    }
-    if (request.url === '/result' && request.method === 'POST') {
-      const chunks = [];
-      for await (const chunk of request) {
-        chunks.push(chunk);
-      }
-      result.resolve(JSON.parse(Buffer.concat(chunks).toString()));
-      response.end('ok');
-      return;
-    }
+  const server = Fastify();
+  server.all('/leak', async (request) => {
+    leaks.push(request.url);
+    return 'unexpected network access';
+  });
+  server.post('/result', async (request) => {
+    result.resolve(JSON.parse(request.body));
+    return 'ok';
+  });
+  server.get('/*', async (request, response) => {
     if (!(await serveFrontend(request.url, response, directory))) {
-      response.writeHead(404).end();
+      response.code(404).send();
     }
   });
-  defer(async () => {
-    server.closeAllConnections();
-    await new Promise((resolve) => server.close(resolve));
-  });
-  server.listen(0, '127.0.0.1');
-  await once(server, 'listening');
+  defer(() => server.close());
+  await server.listen({ port: 0, host: '127.0.0.1' });
   const browser = spawn(
     process.env.CHROMIUM_BIN || 'chromium',
     [
@@ -114,7 +106,7 @@ test('Chromium allows cross-origin chart assets while isolating saved visual rep
       '--no-first-run',
       '--no-default-browser-check',
       `--user-data-dir=${root}/chromium`,
-      `http://127.0.0.1:${server.address().port}/`,
+      `http://127.0.0.1:${server.server.address().port}/`,
     ],
     {
       detached: true,

@@ -21,7 +21,11 @@ Pi runs the agent and keeps its normal session files. Pim connects to that same 
 
 The browser sidebar is wider and resizable by dragging its right edge (or focusing the edge and
 using Left/Right arrows; Home resets). Search session titles or project paths and filter by
-**All**, **Live**, **Saved**, or **Archived**. Create sessions with each project's **+** button.
+**All**, **Live**, **Saved**, or **Archived**. By default, the sidebar shows ten recent projects
+plus pinned projects and projects with connected, selected, or unread sessions. Pins are remembered
+locally per relay. **All projects** includes older and empty projects; search and filters always
+cover the full inventory. Only nearby list rows mount, including during search. Create sessions
+with each project's **+** button.
 
 Live Pim-managed sessions show **Stop runtime** instead of Archive. Stopping requires confirmation
 and interrupts active work, but never archives automatically. Stop externally managed Pi in its

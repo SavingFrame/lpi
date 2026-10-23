@@ -8,8 +8,9 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { build } from 'vite';
 import { fixture } from '../../../tests/helpers.mjs';
+import { boundary } from '../live-fixture.mjs';
 
-test('settings remain visible while long project lists scroll in desktop and compact layouts', {
+test('windowed sidebar search, project controls and settings work in desktop and compact layouts', {
   timeout: 30000,
 }, async (t) => {
   const { root, home, defer } = fixture(t);
@@ -31,16 +32,55 @@ test('settings remain visible while long project lists scroll in desktop and com
         onZoomChanged: () => () => {}
       };
     }
+    const headerFixture = new URLSearchParams(location.search).has('header');
     window.WebSocket = class {
-      readyState = 0;
+      readyState = headerFixture ? 1 : 0;
+      constructor() {
+        if (headerFixture) {
+          setTimeout(() => this.onmessage?.({ data: JSON.stringify({ type: 'connected', epoch: 'server-one', cursor: 0 }) }), 0);
+        }
+      }
       close() { this.readyState = 3; }
     };
+    if (headerFixture) {
+      const originalFetch = window.fetch;
+      const pending = [];
+      window.releaseSnapshots = () => pending.splice(0).forEach(resolve => resolve());
+      window.fetch = async (url, options) => {
+        if (window.holdSnapshots && String(url).endsWith('/snapshot')) {
+          await new Promise(resolve => pending.push(resolve));
+        }
+        return originalFetch(url, options);
+      };
+    }
   </script>`;
   const projects = Array.from({ length: 80 }, (_, index) => ({
     id: String(index),
     name: `Project ${index + 1}`,
-    directory: `/fixture/project-${index + 1}`,
+    directory: `/fixture/project-${String(index + 1).padStart(3, '0')}`,
   }));
+  const sessions = projects.flatMap((project, projectIndex) =>
+    Array.from({ length: 15 }, (_, index) => ({
+      id: `11111111-1111-1111-1111-${String(projectIndex * 15 + index).padStart(12, '0')}`,
+      projectId: project.id,
+      directory: project.directory,
+      file: `${project.directory}/${index}.jsonl`,
+      piSessionId: `native-${projectIndex}-${index}`,
+      title: `Session ${projectIndex}-${index} with a variable length title for row measurement`,
+      createdAt: '2026-01-01T00:00:00Z',
+      connection: 'disconnected',
+      generation: 1,
+      activity: 'unknown',
+      archived: false,
+      managedRuntime: false,
+      readState: { completionId: null, viewedCompletionId: null },
+    })),
+  );
+  const snapshot = boundary(0, sessions[0].id);
+  snapshot.session = { ...sessions[0], connection: 'connected' };
+  snapshot.state.sessionName =
+    'A long session title that wraps on compact layouts without moving during synchronization';
+  snapshot.state.managedRuntime = true;
   const result = Promise.withResolvers();
   const types = { '.js': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm' };
   const server = createServer(async (request, response) => {
@@ -60,7 +100,22 @@ test('settings remain visible while long project lists scroll in desktop and com
       response.end(page);
     } else if (path === '/projects' || path === '/sessions') {
       response.setHeader('Content-Type', 'application/json');
-      response.end(JSON.stringify(path === '/projects' ? { projects } : { sessions: [] }));
+      response.end(JSON.stringify(path === '/projects' ? { projects } : { sessions }));
+    } else if (path.endsWith('/snapshot') || path.endsWith('/tree')) {
+      response.setHeader('Content-Type', 'application/json');
+      response.end(
+        JSON.stringify(
+          path.endsWith('/snapshot')
+            ? snapshot
+            : {
+                sessionId: snapshot.session.id,
+                generation: snapshot.session.generation,
+                connected: true,
+                activeLeafId: null,
+                nodes: [],
+              },
+        ),
+      );
     } else if (path.startsWith('/assets/')) {
       try {
         response.setHeader('Content-Type', types[extname(path)] ?? 'application/octet-stream');

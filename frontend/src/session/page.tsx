@@ -1,7 +1,14 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
 import { Power, RefreshCw } from 'lucide-react';
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import type { ComposerDraft } from '../../../src/client/drafts';
 import { ExtensionPanels } from '../../../src/extension-support/web';
 import { emptyView } from '../../../src/shared/client-state';
@@ -80,7 +87,7 @@ function SessionPane({
     connection.snapshot?.session.directory ??
     'Project';
   const commands = useSessionCommands(id, projectId);
-  useEffect(() => {
+  useLayoutEffect(() => {
     live.select(id);
     return () => live.select(null);
   }, [id]);
@@ -172,7 +179,7 @@ function SessionPane({
     >
       <div className="session-topbar">
         <header className="session-header">
-          <div>
+          <div className="session-heading">
             <p className="eyebrow">
               {projectName} / {id.slice(0, 8)}
             </p>
@@ -181,7 +188,7 @@ function SessionPane({
                 ? snapshot.state.sessionName
                 : 'Pi session'}
             </h1>
-            <p className="muted">
+            <p className="session-header-status muted">
               {session?.connection ?? 'Loading'}
               {snapshot?.view.compacting
                 ? ' · compacting'
@@ -190,6 +197,11 @@ function SessionPane({
                   : session?.connection === 'connected'
                     ? ' · idle'
                     : ''}
+              <span role="status">
+                {connection.status === 'syncing' && snapshot && !connection.error
+                  ? ' · Updating…'
+                  : ''}
+              </span>
             </p>
           </div>
           <div className="controls">

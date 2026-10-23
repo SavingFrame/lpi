@@ -26,6 +26,8 @@ export interface LiveState {
 export class LiveSession {
   private current: LiveState = { status: 'connecting', snapshot: null, error: null };
   private readonly listeners = new Set<() => void>();
+  private readonly snapshots = new Map<string, Snapshot>();
+  private readonly stale = new Set<string>();
   private socket: EventSocket | null = null;
   private reconnect: ReturnType<typeof setTimeout> | undefined;
   private retry: ReturnType<typeof setTimeout> | undefined;
@@ -57,6 +59,19 @@ export class LiveSession {
 
   private update(state: LiveState): void {
     this.current = state;
+    if (state.status === 'ready' && state.snapshot) {
+      const id = state.snapshot.session.id;
+      this.snapshots.delete(id);
+      this.snapshots.set(id, state.snapshot);
+      this.stale.delete(id);
+      if (this.snapshots.size > 8) {
+        const oldest = this.snapshots.keys().next().value;
+        if (oldest !== undefined) {
+          this.snapshots.delete(oldest);
+          this.stale.delete(oldest);
+        }
+      }
+    }
     for (const listener of this.listeners) {
       listener();
     }
@@ -87,6 +102,9 @@ export class LiveSession {
           ) {
             throw new Error('Invalid connection boundary');
           }
+          // Revalidate all history after reconnecting, including same-epoch event gaps.
+          this.snapshots.clear();
+          this.stale.clear();
           this.epoch = raw.epoch;
           this.cursor = raw.cursor;
           this.attempt = 0;
@@ -127,6 +145,9 @@ export class LiveSession {
           );
         }
         if (item.sessionId !== this.id) {
+          // Inactive snapshots are display-only; any activity requires revalidation.
+          this.snapshots.delete(item.sessionId);
+          this.stale.delete(item.sessionId);
           return;
         }
         if (this.buffer) {
@@ -172,7 +193,26 @@ export class LiveSession {
     }
     this.id = id;
     this.cancelSnapshot();
-    this.update({ ...this.current, snapshot: null, error: null });
+    const snapshot = id ? (this.snapshots.get(id) ?? null) : null;
+    if (snapshot && id) {
+      this.snapshots.delete(id);
+      this.snapshots.set(id, snapshot);
+    }
+    if (
+      snapshot?.session.connection === 'disconnected' &&
+      snapshot.epoch === this.epoch &&
+      !this.stale.has(snapshot.session.id) &&
+      this.socket?.readyState === 1
+    ) {
+      this.update({ status: 'ready', snapshot, error: null });
+      return;
+    }
+    this.update({
+      ...this.current,
+      status: this.epoch && this.socket?.readyState === 1 ? 'syncing' : this.current.status,
+      snapshot,
+      error: null,
+    });
     this.refresh();
   };
 
@@ -194,6 +234,10 @@ export class LiveSession {
       return;
     }
     const id = this.id;
+    // Keep display history during refresh, but never treat interrupted saved state as ready.
+    if (this.snapshots.has(id)) {
+      this.stale.add(id);
+    }
     const epoch = this.epoch;
     const version = this.version;
     this.buffer = [];

@@ -10,30 +10,51 @@ export function filterSessions(
   query: string,
   online: boolean,
 ): InventorySession[] {
-  const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  return searchSessions(indexSessions(sessions, projects), query, online)[filter];
+}
+
+/** Build once per inventory update, not once per keystroke and filter count. */
+export function indexSessions(sessions: InventorySession[], projects: Project[]) {
   const byProject = new Map(projects.map((project) => [project.id, project]));
-  return sessions.filter((session) => {
-    if (session.archived !== (filter === 'archived')) {
-      return false;
-    }
-    if (filter === 'live' && (!online || session.connection !== 'connected')) {
-      return false;
-    }
-    if (filter === 'saved' && session.connection !== 'disconnected') {
-      return false;
-    }
+  return sessions.map((session) => {
     const project = byProject.get(session.projectId);
-    const searchable = [
-      session.title,
-      session.id,
-      session.directory,
-      project?.name,
-      project?.directory,
-    ]
-      .join(' ')
-      .toLocaleLowerCase();
-    return terms.every((term) => searchable.includes(term));
+    return {
+      session,
+      text: [session.title, session.id, session.directory, project?.name, project?.directory]
+        .join(' ')
+        .toLocaleLowerCase(),
+    };
   });
+}
+
+export function searchSessions(
+  index: ReturnType<typeof indexSessions>,
+  query: string,
+  online: boolean,
+): Record<SessionFilter, InventorySession[]> {
+  const terms = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
+  const result: Record<SessionFilter, InventorySession[]> = {
+    all: [],
+    live: [],
+    saved: [],
+    archived: [],
+  };
+  for (const { session, text } of index) {
+    if (!terms.every((term) => text.includes(term))) {
+      continue;
+    }
+    if (session.archived) {
+      result.archived.push(session);
+    } else {
+      result.all.push(session);
+      if (session.connection === 'disconnected') {
+        result.saved.push(session);
+      } else if (online) {
+        result.live.push(session);
+      }
+    }
+  }
+  return result;
 }
 
 export function groupSessions(
@@ -61,10 +82,8 @@ export function groupSessions(
       };
       groups.set(session.projectId, group);
     }
-    group.sessions.push({
-      ...session,
-      activity: online && session.connection === 'connected' ? session.activity : 'unknown',
-    });
+    const activity = online && session.connection === 'connected' ? session.activity : 'unknown';
+    group.sessions.push(activity === session.activity ? session : { ...session, activity });
   }
   return [...groups.values()]
     .map((group) => ({

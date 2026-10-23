@@ -69,6 +69,7 @@ try {
     ],
   };
   render([mixed, toolResult]);
+  await waitFor(() => host.querySelector('.edit-diff'));
   const editBlock = host.querySelector('.edit-diff').closest('.tool-block');
   check(editBlock.open, 'successful edits start open');
   check(!editBlock.closest('.tool-group'), 'edits are outside generic tool groups');
@@ -127,6 +128,7 @@ try {
     { ...toolResult, isError: true, content: [{ type: 'text', text: 'No unique match' }] },
   ]);
   check(host.querySelector('.tool-block').open, 'failed edit starts open');
+  await waitFor(() => host.textContent.includes('No unique match'));
   check(host.textContent.includes('No unique match'), 'failed edit exposes its error');
   check(!host.querySelector('diffs-container'), 'failed edit has no applied diff');
   render([]);
@@ -190,6 +192,32 @@ try {
   render([...nestedMessages]);
   check(!nestedEdit.open, 'manual nested edit collapse survives transcript updates');
   root.unmount();
+  const deferredHost = document.createElement('main');
+  deferredHost.style.cssText = 'height:300px;overflow:auto';
+  document.body.replaceChildren(deferredHost);
+  const deferredRoot = createRoot(deferredHost);
+  flushSync(() =>
+    deferredRoot.render(
+      createElement(
+        'div',
+        null,
+        createElement('div', { style: { height: 3000 } }),
+        createElement(Transcript, { view: { ...emptyView(), messages: [message, toolResult] } }),
+      ),
+    ),
+  );
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  check(!deferredHost.querySelector('diffs-container'), 'offscreen diffs are not mounted');
+  deferredHost.scrollTop = deferredHost.scrollHeight;
+  await waitFor(() => deferredHost.querySelector('diffs-container'));
+  const deferredViewer = deferredHost.querySelector('diffs-container');
+  deferredHost.scrollTop = 0;
+  await new Promise((resolve) => setTimeout(resolve, 100));
+  check(
+    deferredHost.querySelector('diffs-container') === deferredViewer,
+    'visited diffs retain their state offscreen',
+  );
+  deferredRoot.unmount();
   check(
     violations.length === 0,
     `viewer must not violate production CSP: ${violations.join(', ')}`,

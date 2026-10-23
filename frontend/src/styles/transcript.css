@@ -17,6 +17,8 @@
     margin-bottom: 12px;
   }
   .message {
+    content-visibility: auto;
+    contain-intrinsic-size: auto 300px;
     padding: 24px 0;
     overflow-wrap: anywhere;
   }
@@ -299,6 +301,13 @@
   }
   .tool-group-calls .tool-status {
     margin-left: auto;
+  }
+  .deferred-preview {
+    min-height: 160px;
+    display: flex;
+    align-items: center;
+    color: var(--muted-foreground);
+    font-size: 12px;
   }
   .display-card {
     position: relative;

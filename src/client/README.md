@@ -9,6 +9,12 @@ filesystem, database, or Pi runtime dependencies belong here.
   cursor recovery. Inject socket construction and snapshot loading. Lifecycle adapters
   call `disconnect()` when suspending and `connect()` when returning; neither method
   dispatches commands or launches Pi. Disconnected history stays visible but not ready.
+  The eight most recently viewed snapshots stay in memory for immediate session switching.
+  Cached live history stays visible but read-only until a fresh snapshot and buffered events
+  synchronize, including when a refresh is interrupted and the session is selected again.
+  Cached saved sessions are ready without fetching again while the socket stays connected.
+  Events for inactive sessions invalidate their caches; reconnecting clears all caches.
+  Manual refresh always fetches fresh state. Background sessions are not projected live.
 - `commands.ts`: one protected command lane per session, including extension answers.
 - `launches.ts`: one shared fresh-launch lane and individual saved-session resume lanes.
 - `mutation-guard.ts`: storage hydration, synchronous in-memory exclusion, persistence
@@ -16,8 +22,8 @@ filesystem, database, or Pi runtime dependencies belong here.
 - `storage.ts`: sync/async storage contract, serialized per-key operations, and scoped keys.
 - `drafts.ts`: server/session-scoped async draft hydration, ordered persistence, branch
   suggestions, and acceptance settlement that preserves newer text and attachment edits.
-- `inventory.ts`: project grouping, recency ordering, offline activity, activity counts,
-  and recent/selected/active/unread session visibility.
+- `inventory.ts`: indexed search with single-pass filter results, project grouping, recency
+  ordering, offline activity, activity counts, and recent/selected/active/unread session visibility.
 - `read-completion.ts`: loaded-completion eligibility and one-attempt acknowledgment with
   explicit retry, lifecycle gating, and isolation of late verdicts.
 
