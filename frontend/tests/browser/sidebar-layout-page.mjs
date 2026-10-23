@@ -182,6 +182,7 @@ async function run() {
       `Project list has usable height: ${context}, nav=${navigation.clientHeight}, sidebar=${sidebar.clientHeight}, children=${Array.from(sidebar.children, (child) => `${child.className}:${child.getBoundingClientRect().height}`).join(',')}`,
     );
     if (!desktop) {
+      check(!frameDocument.querySelector('.session-tabs'), 'Browser does not show session tabs');
       check(settings, 'Browser must expose shared keyboard settings');
       frame.remove();
       continue;
@@ -334,6 +335,80 @@ async function run() {
     }
     frame.remove();
   }
+  const frame = document.createElement('iframe');
+  frame.style.cssText = 'border:0;width:1280px;height:800px;display:block';
+  frame.src = '/';
+  document.body.replaceChildren(frame);
+  await until(() => frame.contentDocument?.querySelectorAll('.session-link').length > 1);
+  const doc = frame.contentDocument;
+  const links = [...doc.querySelectorAll('.session-link')].slice(0, 2);
+  const firstPath = new URL(links[0].href).pathname;
+  const secondPath = new URL(links[1].href).pathname;
+  links[0].click();
+  await until(() => doc.querySelectorAll('.session-tab').length === 1);
+  await until(() => doc.querySelector('[data-message-composer]'));
+  const editor = doc.querySelector('[data-message-composer]');
+  const setValue = Object.getOwnPropertyDescriptor(
+    frame.contentWindow.HTMLTextAreaElement.prototype,
+    'value',
+  ).set;
+  setValue.call(editor, 'Keep this unsent tab draft');
+  editor.dispatchEvent(new frame.contentWindow.Event('input', { bubbles: true }));
+  links[1].click();
+  await until(() => doc.querySelectorAll('.session-tab').length === 2);
+  await until(() => frame.contentWindow.location.pathname === secondPath);
+  check(
+    doc.querySelector('.session-tab-status.status-unknown') &&
+      doc.querySelector('.session-tab-select').title.includes('Disconnected'),
+    'Disconnected tabs expose a muted status indicator and tooltip',
+  );
+  const backgroundClose = doc.querySelector('.session-tab-close');
+  check(
+    frame.contentWindow.getComputedStyle(backgroundClose).opacity ===
+      (frame.contentWindow.matchMedia('(hover: none)').matches ? '1' : '0'),
+    'Inactive tab close button is hidden on hover-capable devices',
+  );
+  backgroundClose.focus();
+  check(
+    frame.contentWindow.getComputedStyle(backgroundClose).opacity === '1',
+    'Keyboard focus reveals the inactive tab close button',
+  );
+  doc.querySelector('.session-tab-select').click();
+  await until(() => frame.contentWindow.location.pathname === firstPath);
+  await until(
+    () => doc.querySelector('[data-message-composer]')?.value === 'Keep this unsent tab draft',
+  );
+  links[0].click();
+  await new Promise((resolve) => setTimeout(resolve, 50));
+  check(
+    doc.querySelectorAll('.session-tab').length === 2,
+    'Opening an existing session deduplicates tabs',
+  );
+  doc.querySelectorAll('.session-tab-close')[1].click();
+  await until(() => doc.querySelectorAll('.session-tab').length === 1);
+  check(
+    frame.contentWindow.location.pathname === firstPath,
+    'Closing a background tab preserves the active session',
+  );
+  frame.contentWindow.closeSessionTab();
+  await until(() => doc.querySelector('.welcome') && !doc.querySelector('.session-tab'));
+  check(doc.querySelector('.sidebar'), 'Closing the final tab leaves the session sidebar');
+  const tabs = [firstPath, secondPath].map((path) => ({
+    projectId: 'a'.repeat(64),
+    sessionId: path.split('/').at(-1),
+  }));
+  frame.contentWindow.localStorage.setItem(
+    `lpi:desktop-tabs:v1:${frame.contentWindow.location.origin}`,
+    JSON.stringify({ tabs, active: tabs[1].sessionId }),
+  );
+  frame.contentWindow.location.reload();
+  await until(() => frame.contentWindow.location.pathname.endsWith(tabs[1].sessionId));
+  await until(() => frame.contentDocument.querySelectorAll('.session-tab').length === 2);
+  check(
+    frame.contentDocument.querySelectorAll('.session-tab')[1].classList.contains('active'),
+    'Restart restores the working set and active tab',
+  );
+  frame.remove();
 }
 
 run().then(

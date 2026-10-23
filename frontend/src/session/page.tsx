@@ -45,8 +45,9 @@ function SessionPane({
   const navigate = useNavigate();
   const [treeOpen, setTreeOpen] = useState(false);
   const [treeWide, setTreeWide] = useState(false);
-  const { pane, following, follow } = useChatScroll();
   const connection = useSyncExternalStore(live.subscribe, live.getState);
+  const snapshot = connection.snapshot?.session.id === id ? connection.snapshot : null;
+  const { pane, following, follow } = useChatScroll(id, Boolean(snapshot));
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
   const projectName =
     projectQuery.data?.find((project) => project.id === projectId)?.name ??
@@ -57,7 +58,6 @@ function SessionPane({
     live.select(id);
     return () => live.select(null);
   }, [id]);
-  const snapshot = connection.snapshot?.session.id === id ? connection.snapshot : null;
   const session = snapshot?.session;
   const { preview, selectBranch, restoredDraft, navigationPending, navigationError } =
     useBranchNavigation(id, projectId, branch, commands);

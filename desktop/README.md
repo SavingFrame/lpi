@@ -88,6 +88,20 @@ Ctrl+Shift+P opens the command palette. Ctrl+, opens Settings.
 Preferences are saved on this device. See [keyboard navigation](../docs/frontend.md#keyboard-navigation)
 for all defaults and scope rules. Native menu and operating-system shortcuts may take precedence.
 
+## Session tabs
+
+Opening or creating a session opens and activates a tab. Opening it again focuses the existing
+tab. Tabs share one renderer and relay connection. Each session retains its draft and scroll
+position when switching tabs. Open tabs and the active tab are restored per relay after restart;
+this only opens views, never starts or resumes runtimes. Scroll positions are kept in memory.
+
+Close a tab with its close button or Ctrl/Cmd+W. Closing a tab never stops its agent. Closing the
+last tab leaves the sidebar available to open another session. Ctrl/Cmd+Shift+W closes the window.
+Notification clicks open or focus the corresponding session tab. Tabs show running, input-needed,
+and disconnected indicators, plus a green dot for an unviewed turn. Idle tabs have no status icon;
+hover for status details. Inactive close buttons appear on hover or keyboard focus.
+The browser UI is unchanged.
+
 ## Notifications
 
 While the window is unfocused, native desktop notifications report finished turns, input
@@ -103,7 +117,7 @@ window stops notifications even though the app remains running.
 
 ## Limitations
 
-- Tabs, deep links, installers, signing, and auto-updates are not implemented.
+- Deep links, installers, signing, and auto-updates are not implemented.
 - External links and popups are currently blocked rather than opened in your browser.
 - Files use the native Save As flow and never open automatically.
 - macOS/Windows behavior and real-Pi integration remain unverified by the Linux smoke tests.

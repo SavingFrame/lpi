@@ -251,7 +251,19 @@ if (primary) {
     Menu.setApplicationMenu(
       Menu.buildFromTemplate([
         ...(process.platform === 'darwin' ? [{ role: 'appMenu' as const }] : []),
-        { role: 'fileMenu' },
+        {
+          label: 'File',
+          submenu: [
+            {
+              label: 'Close Tab',
+              accelerator: 'CommandOrControl+W',
+              click: () => window?.webContents.send('lpi:tab:close'),
+            },
+            { type: 'separator' },
+            { label: 'Close Window', role: 'close', accelerator: 'CommandOrControl+Shift+W' },
+            ...(process.platform !== 'darwin' ? [{ role: 'quit' as const }] : []),
+          ],
+        },
         { role: 'editMenu' },
         {
           label: 'View',

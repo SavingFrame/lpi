@@ -4,6 +4,11 @@ import { type DesktopPlatform, isDesktopNotification } from '../src/shared/deskt
 // Expose narrow desktop controls, never IPC objects, events, or arbitrary channels.
 if (window.top === window) {
   const platform: DesktopPlatform = {
+    onCloseTab: (listener) => {
+      const close = () => listener();
+      ipcRenderer.on('lpi:tab:close', close);
+      return () => ipcRenderer.removeListener('lpi:tab:close', close);
+    },
     notify: (notification) => ipcRenderer.invoke('lpi:notify', notification),
     onNotificationClicked: (listener) => {
       const clicked = (_event: IpcRendererEvent, value: unknown) => {

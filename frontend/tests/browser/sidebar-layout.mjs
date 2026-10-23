@@ -30,6 +30,10 @@ test('windowed sidebar search, project controls and settings work in desktop and
         getZoom: async () => 1,
         setZoom: async value => value,
         onZoomChanged: () => () => {},
+        onCloseTab: listener => {
+          window.closeSessionTab = listener;
+          return () => { window.closeSessionTab = undefined; };
+        },
         notify: async () => {},
         onNotificationClicked: () => () => {}
       };

@@ -21,6 +21,10 @@ address, not the shared local UI origin. Relay selection is not yet in Settings;
 automatic server discovery.
 
 The shared settings page uses a typed platform adapter; browser users retain browser zoom.
+Desktop session tabs live in `frontend/src/navigation/session-tabs.tsx`. The route selects one
+session at a time through the existing shared client. Relay-scoped local storage saves the tab
+set and active session; restoration never launches runtimes. The native Close Tab menu sends a
+narrow preload event to the UI instead of closing the window.
 
 ## Development
 
@@ -47,7 +51,7 @@ app/Vite running; activation reopens it.
 ## Security and lifecycle
 
 - Sandboxed, context-isolated renderer; Node integration disabled in pages, workers, and frames.
-- A sandboxed preload exposes get/set/subscribe UI-scale methods and bounded notification
+- A sandboxed preload exposes a close-tab subscription, get/set/subscribe UI-scale methods, and bounded notification
   delivery/click methods. Main-process IPC checks the exact window, top-level frame, trusted UI
   URL, and validated payloads. Native alerts are suppressed while the window is focused.
   It exposes no raw IPC objects/events, filesystem access, relay commands, or agent controls.
@@ -92,5 +96,5 @@ and Electron binary are required.
 This does not establish real-Pi integration or macOS/Windows behavior. Manual platform checks
 should include window reopening, app quit, downloads, attachment/paste, and development HMR.
 Native notification delivery and click behavior require manual OS checks.
-Tabs, external-link UX, deep links, installers, signing, auto-updates,
+External-link UX, deep links, installers, signing, auto-updates,
 and production distribution remain separate work. Bundling the UI is not an installer.

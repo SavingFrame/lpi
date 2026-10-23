@@ -28,6 +28,7 @@ export function isDesktopNotification(value: unknown): value is DesktopNotificat
 }
 
 export interface DesktopPlatform {
+  onCloseTab(listener: () => void): () => void;
   notify(notification: DesktopNotification): Promise<void>;
   onNotificationClicked(listener: (notification: DesktopNotification) => void): () => void;
   getZoom(): Promise<number>;

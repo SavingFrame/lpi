@@ -8,6 +8,7 @@ import { desktop } from '../client/platform';
 import { KeyboardProvider } from '../keyboard/keyboard';
 import { KeyboardNavigation } from '../keyboard/navigation';
 import { SessionNavigation } from '../navigation/session-navigation';
+import { SessionTabs } from '../navigation/session-tabs';
 
 function ConnectionStatus() {
   const status = useSyncExternalStore(live.subscribe, () => live.getState().status);
@@ -108,9 +109,18 @@ function ShellContent() {
           }
         }}
       />
-      <main tabIndex={-1} aria-label="Conversation">
-        <Outlet />
-      </main>
+      {desktop ? (
+        <div className="desktop-workspace">
+          <SessionTabs />
+          <main tabIndex={-1} aria-label="Conversation">
+            <Outlet />
+          </main>
+        </div>
+      ) : (
+        <main tabIndex={-1} aria-label="Conversation">
+          <Outlet />
+        </main>
+      )}
     </div>
   );
 }

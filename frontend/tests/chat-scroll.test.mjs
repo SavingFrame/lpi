@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import { chatScroll } from '../src/session/scroll/chat-scroll.ts';
 
-function setup(t) {
+function setup(t, restored) {
   let resize;
   let disconnected = false;
   const observed = [];
@@ -30,9 +30,14 @@ function setup(t) {
   });
   const content = {};
   let following;
-  const controller = chatScroll(viewport, content, (value) => {
-    following = value;
-  });
+  const controller = chatScroll(
+    viewport,
+    content,
+    (value) => {
+      following = value;
+    },
+    restored,
+  );
   return {
     viewport,
     content,
@@ -58,6 +63,19 @@ function setup(t) {
 // Node has no native DOM. Keep the stand-ins local to this test process.
 globalThis.ResizeObserver = class {};
 globalThis.Element = class {};
+
+test('restores a paused tab position without following new content', (t) => {
+  const state = setup(t, { top: 700, following: false });
+  assert.equal(state.viewport.scrollTop, 700);
+  assert.equal(state.following(), false);
+  state.viewport.scrollHeight += 500;
+  state.resize();
+  assert.equal(state.viewport.scrollTop, 700);
+  state.scroll(900);
+  assert.deepEqual(state.controller.position(), { top: 900, following: false });
+  state.controller.follow();
+  assert.deepEqual(state.controller.position(), { top: 2000, following: true });
+});
 
 test('starts at the bottom and follows content and viewport resizing', (t) => {
   const state = setup(t);

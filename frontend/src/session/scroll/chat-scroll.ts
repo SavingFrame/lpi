@@ -2,8 +2,9 @@ export function chatScroll(
   viewport: HTMLElement,
   content: HTMLElement,
   onFollowingChange: (following: boolean) => void,
+  restored?: { top: number; following: boolean },
 ) {
-  let following = true;
+  let following = restored?.following ?? true;
   let previousTop = viewport.scrollTop;
   let previousHeight = viewport.scrollHeight;
   let previousClientHeight = viewport.clientHeight;
@@ -44,9 +45,16 @@ export function chatScroll(
   viewport.addEventListener('scroll', onScroll, { passive: true });
   observer.observe(content);
   observer.observe(viewport);
-  follow();
+  if (restored && !restored.following) {
+    viewport.scrollTop = restored.top;
+    previousTop = viewport.scrollTop;
+    onFollowingChange(false);
+  } else {
+    follow();
+  }
   return {
     follow,
+    position: () => ({ top: previousTop, following }),
     disconnect: () => {
       viewport.removeEventListener('click', onClick, { capture: true });
       viewport.removeEventListener('scroll', onScroll);

@@ -72,10 +72,17 @@ test('preload exposes narrow desktop methods, strips IPC events and removes subs
   assert.deepEqual(Object.keys(bridge).sort(), [
     'getZoom',
     'notify',
+    'onCloseTab',
     'onNotificationClicked',
     'onZoomChanged',
     'setZoom',
   ]);
+  const closed = [];
+  const stopClosing = bridge.onCloseTab((...args) => closed.push(args));
+  callback({ secret: 'must not reach renderer' });
+  assert.deepEqual(closed, [[]]);
+  stopClosing();
+  assert.equal(callback, undefined);
   assert.equal(await bridge.getZoom(), 1.25);
   await bridge.setZoom(1.5);
   assert.deepEqual(calls, [['lpi:zoom:get'], ['lpi:zoom:set', 1.5]]);

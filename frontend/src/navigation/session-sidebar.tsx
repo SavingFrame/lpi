@@ -3,11 +3,9 @@ import {
   CheckCheck,
   CheckCircle2,
   ChevronDown,
-  Circle,
   Folder,
   GitFork,
   LoaderCircle,
-  LockKeyhole,
   MessageCircleQuestion,
   Pin,
 } from 'lucide-react';
@@ -19,7 +17,6 @@ import {
   visibleSessions,
 } from '../../../src/client/inventory';
 import { relativeTime } from '../../../src/client/relative-time';
-import type { SessionActivity } from '../../../src/shared/session-activity';
 import { hasUnreadCompletion } from '../../../src/shared/session-read-state';
 import type { InventorySession, Project } from '../../../src/shared/sessions';
 import { relayServer } from '../client/connection';
@@ -28,22 +25,8 @@ import { type WindowedItem, WindowedList } from '../components/windowed-list';
 import { SessionBranches, SessionBranchToggle } from '../session/branches/session-branches';
 import { ArchiveSession } from './archive-session';
 import { LaunchSession } from './launch-session';
+import { statuses } from './session-status';
 import { projectColor, visibleProjects } from './sidebar-state';
-
-const statuses = {
-  running: { label: 'Running', icon: LoaderCircle, description: 'Pi is working or compacting.' },
-  blocked: {
-    label: 'Needs input',
-    icon: MessageCircleQuestion,
-    description: 'Pi is waiting for input in the browser or terminal.',
-  },
-  idle: { label: 'Idle', icon: Circle, description: 'Connected and waiting for work.' },
-  unknown: {
-    label: 'Saved',
-    icon: LockKeyhole,
-    description: 'Read-only. Live activity is unavailable; Pi may still be running.',
-  },
-} satisfies Record<SessionActivity, { label: string; icon: typeof Circle; description: string }>;
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
