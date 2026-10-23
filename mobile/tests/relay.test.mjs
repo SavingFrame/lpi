@@ -3,6 +3,7 @@ import test from 'node:test';
 import { setImmediate } from 'node:timers/promises';
 import { clientStorageKey } from '../../src/client/storage.ts';
 import { emptyView } from '../../src/shared/client-state.ts';
+import { linkedSessionId, sessionLink } from '../../src/shared/session-link.ts';
 import { MobileRelay } from '../src/lib/relay.ts';
 import { eventsUrl, relayOrigin } from '../src/lib/server.ts';
 
@@ -255,6 +256,61 @@ test('restores an available selected session and loads through shared synchroniz
   assert.equal(client.live.getState().status, 'ready');
   assert.equal(client.live.getState().snapshot.session.id, id);
   assert.ok(requests.every((request) => new URL(request.url).origin === client.origin));
+});
+
+test('notification target wins over cold-start saved selection and survives suspension', async (t) => {
+  const target = '33333333-3333-3333-3333-333333333333';
+  assert.equal(linkedSessionId(new URL(sessionLink(target)).searchParams.get('session')), target);
+  for (const value of [undefined, [target], '../session', `${target}&server=evil`]) {
+    assert.equal(linkedSessionId(value), null);
+  }
+  const key = clientStorageKey('http://relay-one:3141', 'selection', 'session');
+  const fixture = setup(t, undefined, new Map([[key, id]]));
+  const gate = Promise.withResolvers();
+  fixture.storage.getItem = () => gate.promise;
+  const starting = fixture.client.start();
+  fixture.client.openSession(target);
+  assert.equal(fixture.requests.length, 0, 'subscribe before loading the notification target');
+  gate.resolve(id);
+  await starting;
+  fixture.connected();
+  fixture.client.stop();
+  await fixture.inventory();
+  assert.equal(fixture.client.getState().selectedId, null);
+  await fixture.client.start();
+  fixture.connected();
+  await fixture.inventory([session, { ...session, id: target, connection: 'disconnected' }]);
+  assert.equal(fixture.client.getState().selectedId, target);
+  assert.equal(fixture.values.get(key), target);
+  assert.ok(
+    fixture.requests.some((request) => request.url.endsWith(`/sessions/${target}/snapshot`)),
+  );
+  assert.ok(fixture.requests.every((request) => request.request.method === 'GET'));
+});
+
+test('warm notification navigation uses latest target and missing sessions never fall back', async (t) => {
+  const fixture = setup(t);
+  await fixture.client.start();
+  fixture.connected();
+  await fixture.inventory();
+  await fixture.client.select(id);
+  const target = '33333333-3333-3333-3333-333333333333';
+  fixture.client.openSession(target);
+  const stale = fixture.requests.filter((request) => request.url.endsWith('/sessions')).at(-1);
+  const staleProjects = fixture.requests
+    .filter((request) => request.url.endsWith('/projects'))
+    .at(-1);
+  fixture.client.openSession(id);
+  await fixture.inventory();
+  stale.resolve(Response.json({ sessions: [{ ...session, id: target }] }));
+  staleProjects.resolve(Response.json({ projects: [project] }));
+  await setImmediate();
+  assert.equal(fixture.client.getState().selectedId, id);
+  fixture.client.openSession(target);
+  await fixture.inventory();
+  assert.equal(fixture.client.getState().selectedId, null);
+  assert.match(fixture.client.getState().error, /unavailable/);
+  assert.ok(fixture.requests.every((request) => request.request.method === 'GET'));
 });
 
 test('missing saved selection is not replaced by an arbitrary session', async (t) => {

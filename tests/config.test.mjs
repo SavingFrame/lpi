@@ -101,6 +101,27 @@ test('network binding defaults to all IPv4 interfaces and accepts explicit IP ad
   }
 });
 
+test('Home Assistant is opt-in and accepts only a credential-free origin and mobile notification service', (t) => {
+  const { load } = setup(t);
+  assert.equal(load(['~/Projects']).homeAssistant, undefined);
+  const homeAssistant = { url: 'https://ha.example/', service: 'mobile_app_test_iphone' };
+  assert.deepEqual(load(['~/Projects'], { homeAssistant }).homeAssistant, {
+    ...homeAssistant,
+    url: 'https://ha.example',
+  });
+  for (const invalid of [
+    null,
+    { ...homeAssistant, url: 'https://user:token@ha.example' },
+    { ...homeAssistant, url: 'https://ha.example/api' },
+    { ...homeAssistant, url: 'https://ha.example/?token=secret' },
+    { ...homeAssistant, url: 'file:///tmp/ha' },
+    { ...homeAssistant, service: 'notify.mobile_app_phone' },
+    { ...homeAssistant, service: '../turn_on' },
+  ]) {
+    assert.throws(() => load(['~/Projects'], { homeAssistant: invalid }));
+  }
+});
+
 test('invalid roots and the old explicit project schema fail with configuration errors', (t) => {
   const { projects, load } = setup(t);
   assert.throws(() => load([]), /at least one project root/);

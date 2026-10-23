@@ -6,6 +6,12 @@ import { basename, isAbsolute, join, resolve } from 'node:path';
 import { object, text } from './shared/errors.js';
 import type { Project } from './shared/sessions.js';
 
+export interface HomeAssistantConfig {
+  url: string;
+  /** notify.mobile_app_* action name without the notify. prefix. */
+  service: string;
+}
+
 export interface Config {
   host: string;
   port: number;
@@ -13,6 +19,7 @@ export interface Config {
   projectRoots: string[];
   piSessionRoots: string[];
   projects: Project[];
+  homeAssistant?: HomeAssistantConfig;
 }
 
 export function loadConfig(path: string, homeDirectory = homedir()): Config {
@@ -121,6 +128,26 @@ export function loadConfig(path: string, homeDirectory = homedir()): Config {
       }
     }
   }
+  let homeAssistant: HomeAssistantConfig | undefined;
+  if (raw.homeAssistant !== undefined) {
+    const settings = object(raw.homeAssistant);
+    const url = new URL(text(settings.url, 'Home Assistant URL', 2048));
+    if (
+      !['http:', 'https:'].includes(url.protocol) ||
+      url.username ||
+      url.password ||
+      url.search ||
+      url.hash ||
+      url.pathname !== '/'
+    ) {
+      throw new Error('Home Assistant URL must be an HTTP(S) origin without credentials');
+    }
+    const service = text(settings.service, 'Home Assistant notification service', 256);
+    if (!/^mobile_app_[a-z0-9_]+$/.test(service)) {
+      throw new Error('Home Assistant service must be a mobile_app_* notification service');
+    }
+    homeAssistant = { url: url.origin, service };
+  }
   return {
     host,
     port,
@@ -128,5 +155,6 @@ export function loadConfig(path: string, homeDirectory = homedir()): Config {
     projectRoots: [...roots].sort(),
     piSessionRoots: [...piSessionRoots].sort(),
     projects,
+    ...(homeAssistant ? { homeAssistant } : {}),
   };
 }

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, AppState, Modal } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Button, Text, YStack } from 'tamagui';
+import { linkedSessionId } from '../../src/shared/session-link';
 import { ConnectionForm } from './features/connection/form';
 import { SessionShell } from './features/sessions/shell';
 import { createRelay, nativeStorage, serverPreferenceKey } from './lib/native';
@@ -9,7 +10,13 @@ import type { MobileRelay } from './lib/relay';
 import { relayOrigin } from './lib/server';
 import { colors } from './theme/colors';
 
-export function MobileApp() {
+export function MobileApp({
+  sessionLink,
+  onSessionLinkConsumed,
+}: {
+  sessionLink?: string | string[];
+  onSessionLinkConsumed: () => void;
+}) {
   const clients = useRef(new Map<string, MobileRelay>());
   const [client, setClient] = useState<MobileRelay | null>(null);
   const [booting, setBooting] = useState(true);
@@ -54,6 +61,23 @@ export function MobileApp() {
       current = false;
     };
   }, [getClient]);
+
+  useEffect(() => {
+    if (booting || sessionLink === undefined) {
+      return;
+    }
+    const id = linkedSessionId(sessionLink);
+    if (!id) {
+      setError('Invalid session notification link.');
+      onSessionLinkConsumed();
+    } else if (client) {
+      setSettings(false);
+      setError(null);
+      client.openSession(id);
+      onSessionLinkConsumed();
+    }
+    // Without a configured relay, keep the request until connection setup completes.
+  }, [booting, client, sessionLink, onSessionLinkConsumed]);
 
   useEffect(() => {
     if (!client) {
@@ -101,6 +125,7 @@ export function MobileApp() {
           key={client.origin}
           client={client}
           visible={!settings}
+          sessionLink={sessionLink}
           onSettings={() => setSettings(true)}
         />
       ) : (

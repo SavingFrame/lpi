@@ -8,6 +8,7 @@ import {
   clientStorageKey,
   serializedStorage,
 } from '../../../src/client/storage.ts';
+import { linkedSessionId } from '../../../src/shared/session-link.ts';
 import type { InventorySession, Project } from '../../../src/shared/sessions.ts';
 import { MobileMessages } from './messages.ts';
 import { eventsUrl, relayOrigin } from './server.ts';
@@ -50,6 +51,7 @@ export class MobileRelay {
   private inventoryVersion = 0;
   private restored = false;
   private savedId: string | null = null;
+  private pendingSessionId: string | null = null;
 
   constructor(server: string, environment: RelayEnvironment) {
     this.origin = relayOrigin(server);
@@ -260,11 +262,22 @@ export class MobileRelay {
       if (!this.active || version !== this.inventoryVersion) {
         return;
       }
-      const candidate = this.current.selectedId ?? this.savedId;
+      const requested = this.pendingSessionId;
+      const candidate = requested ?? this.current.selectedId ?? this.savedId;
       const selectedId = sessions.some((session) => session.id === candidate) ? candidate : null;
       this.savedId = null;
-      this.update({ projects, sessions, selectedId, loading: false, error: null });
+      this.pendingSessionId = null;
+      this.update({
+        projects,
+        sessions,
+        selectedId,
+        loading: false,
+        error: requested && !selectedId ? 'Linked session is unavailable on this relay.' : null,
+      });
       this.live.select(selectedId);
+      if (requested && selectedId) {
+        await this.select(selectedId);
+      }
     } catch (error) {
       if (this.active && version === this.inventoryVersion) {
         this.update({ ...this.current, loading: false, error: String(error) });
@@ -272,10 +285,27 @@ export class MobileRelay {
     }
   };
 
+  /** Keep a notification target through cold-start hydration, reconnects, and offline refreshes. */
+  openSession = (id: string): void => {
+    if (!linkedSessionId(id)) {
+      return;
+    }
+    this.pendingSessionId = id;
+    // Hide the old selection immediately, so its completion cannot be acknowledged on this tap.
+    this.update({ ...this.current, selectedId: null });
+    this.live.select(null);
+    // During hydration/reconnect, wait for the subscribed connection boundary to refresh.
+    if (this.live.getState().status === 'ready') {
+      void this.refresh();
+    }
+  };
+
   select = async (id: string): Promise<void> => {
     if (!this.current.sessions.some((session) => session.id === id)) {
       return;
     }
+    this.pendingSessionId = null;
+    this.savedId = null;
     this.update({ ...this.current, selectedId: id });
     this.live.select(id);
     try {

@@ -1,4 +1,4 @@
-import { useState, useSyncExternalStore } from 'react';
+import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -20,14 +20,21 @@ export function SessionShell({
   client,
   onSettings,
   visible,
+  sessionLink,
 }: {
   client: MobileRelay;
   onSettings: () => void;
   visible: boolean;
+  sessionLink?: string | string[];
 }) {
   const inventory = useSyncExternalStore(client.subscribe, client.getState);
   const connection = useSyncExternalStore(client.live.subscribe, client.live.getState);
   const [open, setOpen] = useState(false);
+  useEffect(() => {
+    if (sessionLink !== undefined) {
+      setOpen(false);
+    }
+  }, [sessionLink]);
   const { width } = useWindowDimensions();
   // The drawer's local layout excludes the outer safe area's screen-space top inset.
   const insets = useSafeAreaInsets();

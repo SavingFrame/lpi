@@ -62,6 +62,46 @@ Release run configuration to bundle JavaScript without Metro. A free Personal Te
 signing renewal every seven days and cannot enable remote push notifications. Avoid
 `prebuild --clean` on a configured project unless you intend to recreate native settings.
 
+## Notification session links
+
+The root route accepts `?session=<inventory-session-id>`, for example
+`pim:///?session=11111111-1111-1111-1111-111111111111`. It opens history on the device's
+configured relay after settings/inventory hydration, handles foreground links, and keeps pending
+targets through suspension or failed refreshes. Missing sessions show an error rather than opening
+another conversation. Links close settings/the drawer and do not send prompts, resume runtimes,
+or acknowledge a completion until the normal visible/following read conditions hold.
+
+A native build registers the existing `pim` scheme, including on free Personal Team builds.
+HA Companion receives the push, so Pim needs no push entitlement or paid developer membership.
+Signing renewal still applies. Expo Go cannot handle `pim://`; for manual development testing,
+use `exp://<metro-host>:8081/--/?session=<inventory-session-id>` instead, with Metro running and
+reachable. This tests development navigation, not standalone cold-launch behavior. The relay's
+automatic notifications target native Pim, not Expo Go.
+
+After configuring the relay and HA Companion notifications, test this in HA Developer Tools
+using a real inventory ID from Pim's `/sessions` API (not Pi's separate session ID):
+
+```yaml
+action: notify.mobile_app_your_iphone
+data:
+  title: Pim
+  message: Agent finished answering
+  data:
+    url: "pim:///?session=<inventory-session-id>"
+    actions:
+      - action: OPEN_PIM
+        title: Open session
+        uri: "pim:///?session=<inventory-session-id>"
+```
+
+Verify body-tap handoff and the explicit Open session action separately with the phone locked,
+Pim backgrounded, and Pim closed. Also test while another session, settings, or the drawer is open.
+The relay must be reachable when reading the session. iOS Focus and notification settings still
+apply. iOS opens Home Assistant before redirecting to Pim, including when using the action button;
+the first handoff may ask for confirmation. Automatic backend alerts wait ten seconds and are
+suppressed if that completion has been read in either client. No mobile rebuild is needed to
+change this server-side behavior.
+
 ## Prepared SSH Mac
 
 From the repository root:
