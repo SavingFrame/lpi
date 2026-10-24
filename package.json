@@ -8,6 +8,9 @@
   ],
   "overrides": {
     "@react-native/metro-config": "0.86.3",
+    "@tailwindcss/node": {
+      "lightningcss": "1.33.0"
+    },
     "expo": "57.0.31",
     "expo-font": "57.0.4",
     "react-native": "0.86.3",
