@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'node:url';
-import { BrowserWindow, type Session } from 'electron';
+import { BrowserWindow, type Session, shell } from 'electron';
 import appIcon from '../assets/brand/lpi-icon.png?asset';
-import { allowedNavigation } from './policy.js';
+import { allowedExternalUrl, allowedNavigation } from './policy.js';
 
 /** Apply once to the dedicated desktop session, before creating a renderer. */
 export function secureSession(session: Session): void {
@@ -40,16 +40,24 @@ export function createWindow(origin: string, session: Session, zoomFactor: numbe
     },
   });
   const contents = window.webContents;
-  contents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  contents.on('will-attach-webview', (event) => event.preventDefault());
-  contents.on('will-navigate', (event) => {
-    if (!allowedNavigation(event.url, origin, true)) {
-      event.preventDefault();
+  const openExternal = (url: string): void => {
+    if (allowedExternalUrl(url) && !allowedNavigation(url, origin, true)) {
+      void shell.openExternal(url).catch((error: unknown) => {
+        console.error('Could not open external link:', error);
+      });
     }
+  };
+  contents.setWindowOpenHandler(({ url }) => {
+    openExternal(url);
+    return { action: 'deny' };
   });
+  contents.on('will-attach-webview', (event) => event.preventDefault());
   contents.on('will-frame-navigate', (event) => {
     if (!allowedNavigation(event.url, origin, event.isMainFrame)) {
       event.preventDefault();
+      if (event.isMainFrame) {
+        openExternal(event.url);
+      }
     }
   });
   contents.on('will-redirect', (event) => {

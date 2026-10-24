@@ -1,6 +1,8 @@
 import { record } from '../shared/client-state.ts';
 import type { BridgeCommand } from '../shared/commands.ts';
+import { type ProjectDiff, projectDiff } from '../shared/project-diff.ts';
 import { type ProjectFileSearch, projectFileSearch } from '../shared/project-files.ts';
+import { type UsageSnapshot, usageSnapshot } from '../shared/provider-usage.ts';
 import { readState, type SessionReadState } from '../shared/session-read-state.ts';
 import {
   type BranchPreview,
@@ -107,12 +109,22 @@ export class RelayApi {
     }
   }
 
+  async usage(signal?: AbortSignal): Promise<UsageSnapshot> {
+    return usageSnapshot(await this.request('/usage', undefined, signal));
+  }
+
   async projects(signal?: AbortSignal): Promise<Project[]> {
     const raw = record(await this.request('/projects', undefined, signal));
     if (!Array.isArray(raw.projects)) {
       throw new Error('Invalid projects');
     }
     return raw.projects.map(project);
+  }
+
+  async diff(projectId: string, signal?: AbortSignal): Promise<ProjectDiff> {
+    return projectDiff(
+      await this.request(`/projects/${encodeURIComponent(projectId)}/diff`, undefined, signal),
+    );
   }
 
   async searchFiles(

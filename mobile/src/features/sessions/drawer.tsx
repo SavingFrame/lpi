@@ -1,3 +1,4 @@
+import { Circle, LockKeyhole, MessageCircleQuestion } from 'lucide-react-native';
 import { useEffect, useState, useSyncExternalStore } from 'react';
 import {
   ActivityIndicator,
@@ -10,16 +11,17 @@ import {
 } from 'react-native';
 import { activityCounts, groupSessions, visibleSessions } from '../../../../src/client/inventory';
 import type { LaunchController } from '../../../../src/client/launches';
+import type { UsageController } from '../../../../src/client/provider-usage';
 import { relativeTime } from '../../../../src/client/relative-time';
 import { hasUnreadCompletion } from '../../../../src/shared/session-read-state';
 import { BrandIcon } from '../../components/brand-icon';
-import type { MobileMessages } from '../../lib/messages';
 import type { InventoryState } from '../../lib/relay';
 import { colors, projectColor } from '../../theme/colors';
-import { InventoryAction } from './inventory-action';
+import { ProviderUsagePanel } from './provider-usage';
 
 export function ProjectDrawer({
   inventory,
+  usage,
   online,
   onSelect,
   onClose,
@@ -27,10 +29,9 @@ export function ProjectDrawer({
   onRefresh,
   launches,
   onCreate,
-  onArchive,
-  messages,
 }: {
   inventory: InventoryState;
+  usage: UsageController;
   online: boolean;
   onSelect: (id: string) => void;
   onClose: () => void;
@@ -38,8 +39,6 @@ export function ProjectDrawer({
   onRefresh: () => void;
   launches: LaunchController;
   onCreate: (projectId: string) => void;
-  onArchive: (id: string, archived: boolean) => Promise<void>;
-  messages: (id: string, projectId: string) => MobileMessages;
 }) {
   const launch = useSyncExternalStore(launches.subscribe, launches.getState);
   useEffect(() => {
@@ -142,9 +141,6 @@ export function ProjectDrawer({
           const all = expanded.has(project.id);
           const visible = visibleSessions(sessions, inventory.selectedId ?? undefined, all);
           const counts = activityCounts(sessions);
-          const unreadCount = sessions.filter((session) =>
-            hasUnreadCompletion(session.readState),
-          ).length;
           return (
             <View key={project.id} style={styles.group}>
               <View style={styles.projectHeader}>
@@ -152,9 +148,8 @@ export function ProjectDrawer({
                   accessibilityRole="button"
                   accessibilityState={{ expanded: !closed }}
                   onPress={() => setCollapsed((current) => toggle(project.id, current))}
-                  style={styles.project}
+                  style={[styles.project, configured && styles.projectWithCreate]}
                 >
-                  <Text style={styles.chevron}>{closed ? '▸' : '▾'}</Text>
                   <View accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
                     <View
                       style={[styles.folderTab, { backgroundColor: projectColor(project.id) }]}
@@ -164,7 +159,10 @@ export function ProjectDrawer({
                   <Text style={styles.projectName} numberOfLines={1}>
                     {project.name}
                   </Text>
-                  <Text style={styles.count}>{sessions.length}</Text>
+                  {counts.blocked > 0 && (
+                    <Text style={styles.blocked}>{counts.blocked} need input</Text>
+                  )}
+                  <Text style={styles.chevron}>{closed ? '▸' : '▾'}</Text>
                 </Pressable>
                 {configured && (
                   <Pressable
@@ -172,7 +170,7 @@ export function ProjectDrawer({
                     accessibilityLabel={`New session in ${project.name}`}
                     accessibilityState={{ disabled: !online || launch.status !== 'ready' }}
                     disabled={!online || launch.status !== 'ready'}
-                    style={styles.close}
+                    style={[styles.close, styles.projectCreate]}
                     onPress={() => onCreate(project.id)}
                   >
                     {launch.status === 'pending' ? (
@@ -190,17 +188,6 @@ export function ProjectDrawer({
                   </Pressable>
                 )}
               </View>
-              {(counts.running > 0 || counts.blocked > 0 || unreadCount > 0) && (
-                <View style={styles.counts}>
-                  {counts.running > 0 && (
-                    <Text style={styles.running}>{counts.running} running</Text>
-                  )}
-                  {counts.blocked > 0 && (
-                    <Text style={styles.blocked}>{counts.blocked} need input</Text>
-                  )}
-                  {unreadCount > 0 && <Text style={styles.unread}>{unreadCount} unread</Text>}
-                </View>
-              )}
               {!closed &&
                 visible.map((session) => {
                   const selected = inventory.selectedId === session.id;
@@ -212,14 +199,8 @@ export function ProjectDrawer({
                         ? 'Needs input'
                         : session.activity === 'idle'
                           ? 'Idle'
-                          : 'Saved';
+                          : 'Read-only, live activity unavailable';
                   const dateLabel = relativeTime(session.updatedAt ?? session.createdAt, now);
-                  const statusColor =
-                    session.activity === 'running'
-                      ? colors.running
-                      : session.activity === 'blocked'
-                        ? colors.blocked
-                        : colors.muted;
                   return (
                     <View key={session.id} style={[styles.sessionRow, selected && styles.selected]}>
                       <Pressable
@@ -237,21 +218,18 @@ export function ProjectDrawer({
                           {session.activity === 'running' ? (
                             <ActivityIndicator size="small" color={colors.running} />
                           ) : session.activity === 'blocked' ? (
-                            <Text style={styles.inputIcon}>?</Text>
+                            <MessageCircleQuestion size={18} color={colors.blocked} />
                           ) : session.activity === 'idle' ? (
-                            <View style={styles.idleIcon} />
+                            <Circle size={18} color={colors.muted} />
                           ) : (
-                            <View style={styles.savedIcon}>
-                              <View style={styles.savedLine} />
-                              <View style={styles.savedLine} />
-                            </View>
+                            <LockKeyhole size={18} color={colors.muted} />
                           )}
                         </View>
                         <View style={styles.sessionBody}>
                           <View style={styles.titleRow}>
                             <Text
                               style={[styles.sessionTitle, unread && styles.unreadTitle]}
-                              numberOfLines={2}
+                              numberOfLines={1}
                             >
                               {session.title || 'Untitled session'}
                             </Text>
@@ -263,23 +241,9 @@ export function ProjectDrawer({
                               />
                             )}
                           </View>
-                          <View style={styles.meta}>
-                            <Text
-                              style={[styles.metadata, styles.statusLabel, { color: statusColor }]}
-                            >
-                              {status}
-                            </Text>
-                            <Text style={styles.metadata}>{dateLabel}</Text>
-                          </View>
-                          {unread && <Text style={styles.unread}>Unviewed turn</Text>}
                         </View>
+                        <Text style={styles.timestamp}>{dateLabel}</Text>
                       </Pressable>
-                      <InventoryAction
-                        session={session}
-                        messages={messages(session.id, session.projectId)}
-                        online={online}
-                        onArchive={onArchive}
-                      />
                     </View>
                   );
                 })}
@@ -301,6 +265,7 @@ export function ProjectDrawer({
           );
         })}
       </ScrollView>
+      <ProviderUsagePanel controller={usage} />
       <View style={styles.footer}>
         <Pressable accessibilityRole="button" style={styles.footerButton} onPress={onSettings}>
           <Text style={styles.footerText}>Server settings</Text>
@@ -372,76 +337,41 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     minHeight: 44,
-    paddingHorizontal: 10,
+    paddingLeft: 10,
+    paddingRight: 28,
   },
-  chevron: { color: colors.muted, fontSize: 14 },
+  projectCreate: { position: 'absolute', right: 24 },
+  projectWithCreate: { paddingRight: 76 },
+  chevron: { position: 'absolute', right: 10, color: colors.muted, fontSize: 14 },
   folderTab: { width: 9, height: 3, borderTopLeftRadius: 2, borderTopRightRadius: 2 },
   folder: { width: 18, height: 13, borderWidth: 1.5, borderRadius: 3 },
   projectName: { flex: 1, color: colors.text, fontSize: 15, fontWeight: '700' },
-  count: {
-    color: colors.muted,
-    fontSize: 12,
-    fontVariant: ['tabular-nums'],
-    backgroundColor: colors.background,
-    paddingHorizontal: 7,
-    paddingVertical: 3,
-    borderRadius: 6,
-  },
-  counts: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, paddingLeft: 10, paddingBottom: 8 },
-  running: { color: colors.running, fontSize: 12 },
   blocked: { color: colors.blocked, fontSize: 12 },
-  unread: { color: colors.unread, fontSize: 12, fontWeight: '500' },
   sessionRow: {
     flexDirection: 'row',
-    alignItems: 'flex-start',
-    borderLeftWidth: 3,
-    borderLeftColor: 'transparent',
+    alignItems: 'center',
     borderRadius: 10,
     marginBottom: 4,
   },
   session: {
     flex: 1,
     flexDirection: 'row',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     gap: 10,
+    minHeight: 48,
     paddingHorizontal: 10,
     paddingVertical: 12,
     borderRadius: 8,
   },
-  selected: { backgroundColor: colors.selected, borderLeftColor: colors.accent },
+  selected: { backgroundColor: colors.selected },
   pressed: { backgroundColor: colors.border },
   statusIcon: { width: 20, height: 22, alignItems: 'center', justifyContent: 'center' },
-  inputIcon: {
-    color: colors.blocked,
-    borderColor: colors.blocked,
-    borderWidth: 1.5,
-    borderRadius: 9,
-    width: 18,
-    height: 18,
-    textAlign: 'center',
-    fontSize: 12,
-    lineHeight: 15,
-    fontWeight: '700',
-  },
-  idleIcon: { width: 13, height: 13, borderRadius: 7, borderWidth: 1.5, borderColor: colors.muted },
-  savedIcon: {
-    width: 14,
-    height: 17,
-    borderWidth: 1.5,
-    borderColor: colors.muted,
-    borderRadius: 3,
-    justifyContent: 'center',
-    paddingHorizontal: 2,
-    gap: 3,
-  },
-  savedLine: { height: 1, backgroundColor: colors.muted },
-  sessionBody: { flex: 1, gap: 6 },
-  titleRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 8 },
+  sessionBody: { flex: 1, minWidth: 0 },
+  titleRow: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   sessionTitle: { flex: 1, color: colors.text, fontSize: 15, lineHeight: 22 },
   unreadTitle: { fontWeight: '700' },
-  unreadDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.unread, marginTop: 7 },
-  meta: { flexDirection: 'row', justifyContent: 'space-between', flexWrap: 'wrap', gap: 6 },
-  statusLabel: { fontWeight: '500' },
+  unreadDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: colors.unread },
+  timestamp: { color: colors.muted, fontSize: 12, fontVariant: ['tabular-nums'], flexShrink: 0 },
   metadata: { color: colors.muted, fontSize: 12, lineHeight: 18 },
   older: { minHeight: 44, justifyContent: 'center', paddingLeft: 26 },
   empty: { color: colors.muted, fontSize: 13, padding: 16 },

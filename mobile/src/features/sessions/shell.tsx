@@ -70,10 +70,9 @@ export function SessionShell({
       renderDrawerContent={() => (
         <ProjectDrawer
           inventory={inventory}
+          usage={client.usage}
           online={online && visible}
           launches={client.launches}
-          onArchive={client.setArchived}
-          messages={client.messages}
           onCreate={(projectId) => {
             void client.createSession(projectId).then((selected) => {
               if (selected) {

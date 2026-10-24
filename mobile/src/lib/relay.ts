@@ -2,6 +2,7 @@ import { type ApiEnvironment, ApiError, RelayApi } from '../../../src/client/api
 import { SessionDrafts } from '../../../src/client/drafts.ts';
 import { LaunchController } from '../../../src/client/launches.ts';
 import { type EventSocket, LiveSession } from '../../../src/client/live.ts';
+import { UsageController } from '../../../src/client/provider-usage.ts';
 import { completionToView, ReadCompletions } from '../../../src/client/read-completion.ts';
 import {
   type ClientStorage,
@@ -32,6 +33,7 @@ export class MobileRelay {
   readonly live: LiveSession;
   readonly reads: ReadCompletions;
   readonly launches: LaunchController;
+  readonly usage: UsageController;
   private readonly drafts: SessionDrafts;
   private readonly messageControllers = new Map<string, MobileMessages>();
   private reading: { id: string; following: boolean; visible: boolean } | null = null;
@@ -66,6 +68,7 @@ export class MobileRelay {
       fetch: (path, request) => environment.fetch(new URL(path, this.origin).href, request),
       requestId: environment.requestId,
     });
+    this.usage = new UsageController(this.api.usage.bind(this.api));
     this.live = new LiveSession(
       {
         inspect: this.api.inspect.bind(this.api),
@@ -225,6 +228,7 @@ export class MobileRelay {
       return;
     }
     this.active = true;
+    this.usage.start();
     const lifecycle = ++this.lifecycle;
     if (!this.restored) {
       try {
@@ -248,6 +252,7 @@ export class MobileRelay {
     this.lifecycle++;
     this.inventoryVersion++;
     this.live.disconnect();
+    this.usage.stop();
     this.update({ ...this.current, loading: false });
   };
 

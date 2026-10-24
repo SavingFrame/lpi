@@ -1,12 +1,19 @@
 import { useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { X } from 'lucide-react';
-import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  type ReactNode,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { hasUnreadCompletion } from '../../../src/shared/session-read-state';
 import { sessions } from '../client/api';
 import { relayServer } from '../client/connection';
 import { live } from '../client/controllers';
 import { desktop } from '../client/platform';
+import { WorkspaceTab } from '../components/workspace-tab';
 import { statuses } from './session-status';
 import {
   closeSessionTab,
@@ -17,7 +24,7 @@ import {
 
 const storageKey = `lpi:desktop-tabs:v1:${relayServer ?? window.location.origin}`;
 
-export function SessionTabs() {
+export function SessionTabs({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
   const { projectId, sessionId } = useParams({ strict: false });
   const { branch } = useSearch({ strict: false });
@@ -96,16 +103,8 @@ export function SessionTabs() {
     }),
   );
 
-  useEffect(() => {
-    if (state.active === sessionId) {
-      document
-        .querySelector('.session-tab.active')
-        ?.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-    }
-  }, [sessionId, state.active]);
-
   return (
-    <nav className="session-tabs" aria-label="Open sessions">
+    <nav className="session-tabs" aria-label="Workspace tabs">
       {state.tabs.map((tab) => {
         const session = inventory.data?.find((session) => session.id === tab.sessionId);
         const title = session?.title || `Session ${tab.sessionId.slice(0, 8)}`;
@@ -123,53 +122,31 @@ export function SessionTabs() {
               : status.label;
         const description = `${label}. ${status.description}${unread ? ' Unviewed turn. This does not imply task success.' : ''}`;
         return (
-          // biome-ignore lint/a11y/noStaticElementInteractions: Middle-click supplements the keyboard-accessible close button.
-          <div
+          <WorkspaceTab
             key={tab.sessionId}
-            className={`session-tab ${sessionId === tab.sessionId ? 'active' : ''}`}
-            onMouseDown={(event) => {
-              if (event.button === 1) {
-                event.preventDefault();
-              }
-            }}
-            onAuxClick={(event) => {
-              if (event.button === 1) {
-                event.preventDefault();
-                close(tab.sessionId);
-              }
-            }}
-          >
-            <button
-              type="button"
-              className="session-tab-select"
-              aria-current={sessionId === tab.sessionId ? 'page' : undefined}
-              title={`${title}\n${description}`}
-              aria-label={`${title}, ${label}${unread ? ', unviewed turn' : ''}`}
-              onClick={() => activate(tab)}
-            >
-              {activity !== 'idle' && (
+            label={title}
+            active={sessionId === tab.sessionId}
+            title={`${title}\n${description}`}
+            ariaLabel={`${title}, ${label}${unread ? ', unviewed turn' : ''}`}
+            onSelect={() => activate(tab)}
+            onClose={() => close(tab.sessionId)}
+            icon={
+              activity !== 'idle' && (
                 <Icon
                   size={14}
                   className={`session-tab-status status-${activity} ${activity === 'running' ? 'working-icon' : ''}`}
                   aria-hidden="true"
                 />
-              )}
-              <span className="session-tab-title">{title}</span>
-              {unread && <span className="session-tab-unread status-unread" aria-hidden="true" />}
-            </button>
-            <button
-              type="button"
-              className="session-tab-close"
-              aria-label={`Close ${title}`}
-              title="Close tab (Ctrl+W / Cmd+W)"
-              onClick={() => close(tab.sessionId)}
-            >
-              <X size={14} aria-hidden="true" />
-            </button>
-          </div>
+              )
+            }
+            indicator={
+              unread && <span className="session-tab-unread status-unread" aria-hidden="true" />
+            }
+          />
         );
       })}
-      {!state.tabs.length && (
+      {children}
+      {!state.tabs.length && !children && (
         <span className="session-tabs-empty">Open a session from the sidebar</span>
       )}
     </nav>

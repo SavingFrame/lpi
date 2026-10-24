@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { DESKTOP_ORIGIN, desktopRelayOrigin } from '../../src/shared/desktop.ts';
-import { allowedNavigation, desktopDevelopmentOrigin } from '../policy.ts';
+import { allowedExternalUrl, allowedNavigation, desktopDevelopmentOrigin } from '../policy.ts';
 
 test('desktop configuration accepts only an explicit safe relay origin', () => {
   assert.equal(desktopRelayOrigin(), 'http://127.0.0.1:3141');
@@ -33,6 +33,27 @@ test('electron-vite renderer URLs stay on an explicit loopback origin', () => {
     'file:///tmp/index.html',
   ]) {
     assert.throws(() => desktopDevelopmentOrigin(url));
+  }
+});
+
+test('external links allow only HTTP(S) without credentials', () => {
+  for (const url of ['https://example.com/docs?q=hello#section', 'http://localhost:3141/']) {
+    assert.equal(allowedExternalUrl(url), true, url);
+  }
+  for (const url of [
+    'https://user:secret@example.com/',
+    'https://user@example.com/',
+    'file:///tmp/file',
+    'javascript:alert(1)',
+    'data:text/html,hello',
+    'mailto:user@example.com',
+    'lpi-app://app/app',
+    'custom://example.com',
+    'about:blank',
+    '/app',
+    'not a URL',
+  ]) {
+    assert.equal(allowedExternalUrl(url), false, url);
   }
 });
 

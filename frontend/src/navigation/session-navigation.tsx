@@ -9,7 +9,7 @@ import { SessionSidebar } from './session-sidebar';
 
 const emptyProjects: Project[] = [];
 const emptySessions: InventorySession[] = [];
-const filters = ['all', 'live', 'saved', 'archived'] as const;
+const filters = ['all', 'archived'] as const;
 
 /** Keep typing local and urgent; the memoized results use the deferred search value. */
 export const SessionNavigation = memo(function SessionNavigation({
@@ -94,13 +94,7 @@ export const SessionNavigation = memo(function SessionNavigation({
             aria-pressed={filter === item}
             onClick={() => setFilter(item)}
           >
-            {item === 'all'
-              ? 'All'
-              : item === 'live'
-                ? 'Live'
-                : item === 'saved'
-                  ? 'Saved'
-                  : 'Archived'}
+            {item === 'all' ? 'All' : 'Archived'}
             <span>{matches[item].length}</span>
           </button>
         ))}

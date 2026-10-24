@@ -7,8 +7,11 @@ import { live } from '../client/controllers';
 import { desktop } from '../client/platform';
 import { KeyboardProvider } from '../keyboard/keyboard';
 import { KeyboardNavigation } from '../keyboard/navigation';
+import { ProviderUsagePanel } from '../navigation/provider-usage';
 import { SessionNavigation } from '../navigation/session-navigation';
 import { SessionTabs } from '../navigation/session-tabs';
+import { DiffTabs, DiffTabsProvider, useDiffTabs } from '../workspace/diff-tabs';
+import { Workspace } from '../workspace/workspace';
 
 function ConnectionStatus() {
   const status = useSyncExternalStore(live.subscribe, () => live.getState().status);
@@ -23,13 +26,16 @@ function ConnectionStatus() {
 export function Shell() {
   return (
     <KeyboardProvider>
-      <ShellContent />
+      <DiffTabsProvider>
+        <ShellContent />
+      </DiffTabsProvider>
     </KeyboardProvider>
   );
 }
 
 function ShellContent() {
-  const [width, setWidth] = useState(360);
+  const [width, setWidth] = useState(280);
+  const { tabs: diffTabs } = useDiffTabs();
   const navigate = useNavigate();
   useEffect(
     () =>
@@ -71,6 +77,7 @@ function ShellContent() {
           </p>
         )}
         <SessionNavigation selectedId={sessionId} online={online} />
+        <ProviderUsagePanel />
         <Link to="/app/settings" className="settings-link" activeProps={{ className: 'selected' }}>
           <Settings size={15} aria-hidden="true" />
           Settings
@@ -93,7 +100,7 @@ function ShellContent() {
         onPointerMove={(event) => {
           if (event.currentTarget.hasPointerCapture(event.pointerId)) {
             const left = event.currentTarget.parentElement?.getBoundingClientRect().left ?? 0;
-            setWidth(Math.max(320, Math.min(520, event.clientX - left)));
+            setWidth(Math.max(240, Math.min(520, event.clientX - left)));
           }
         }}
         onPointerUp={(event) => event.currentTarget.releasePointerCapture(event.pointerId)}
@@ -101,26 +108,22 @@ function ShellContent() {
           if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
             event.preventDefault();
             setWidth((current) =>
-              Math.max(320, Math.min(520, current + (event.key === 'ArrowRight' ? 10 : -10))),
+              Math.max(240, Math.min(520, current + (event.key === 'ArrowRight' ? 10 : -10))),
             );
           } else if (event.key === 'Home') {
             event.preventDefault();
-            setWidth(360);
+            setWidth(280);
           }
         }}
       />
-      {desktop ? (
-        <div className="desktop-workspace">
-          <SessionTabs />
-          <main tabIndex={-1} aria-label="Conversation">
+      <div className="desktop-workspace">
+        <SessionTabs>{diffTabs.length > 0 ? <DiffTabs /> : null}</SessionTabs>
+        <Workspace projectId={projectId}>
+          <main tabIndex={-1} aria-label="Workspace content">
             <Outlet />
           </main>
-        </div>
-      ) : (
-        <main tabIndex={-1} aria-label="Conversation">
-          <Outlet />
-        </main>
-      )}
+        </Workspace>
+      </div>
     </div>
   );
 }

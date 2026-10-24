@@ -33,6 +33,40 @@ async function run() {
     const settings = sidebar.querySelector('.settings-link');
     const viewport = frame.contentWindow.innerHeight;
     const context = `${width}x${height}, desktop=${desktop}`;
+    if (width === 1280) {
+      check(Math.abs(sidebar.getBoundingClientRect().width - 280) < 1, 'Compact default sidebar');
+      const row = frameDocument.querySelector('.session-row');
+      const title = row.querySelector('.session-title');
+      const time = row.querySelector('.session-time');
+      const action = row.querySelector('.archive-control');
+      check(
+        frame.contentWindow.getComputedStyle(title).whiteSpace === 'nowrap' &&
+          title.scrollWidth > title.clientWidth &&
+          row.getBoundingClientRect().height < 40,
+        'Long session titles truncate in compact rows',
+      );
+      check(!row.textContent.includes('Saved'), 'Saved status is not repeated as row text');
+      const touch = frame.contentWindow.matchMedia('(hover: none)').matches;
+      check(
+        frame.contentWindow.getComputedStyle(action).opacity === (touch ? '1' : '0'),
+        'Contextual action is hidden unless touch requires it',
+      );
+      const before = title.getBoundingClientRect().width;
+      row.querySelector('.session-link').focus();
+      check(
+        frame.contentWindow.getComputedStyle(action).opacity === '1' &&
+          frame.contentWindow.getComputedStyle(time).visibility === 'hidden' &&
+          title.getBoundingClientRect().width === before,
+        'Keyboard focus swaps timestamp for action without shifting the title',
+      );
+      frameDocument.activeElement.blur();
+      const project = frameDocument.querySelector('.project-toggle');
+      check(
+        project.querySelector('.project-chevron').getBoundingClientRect().left >
+          project.querySelector('.project-name').getBoundingClientRect().right,
+        'Project chevron sits on the right',
+      );
+    }
     check(
       frameDocument.querySelectorAll('.session-item').length < 40,
       `Bounded initial rows: ${context}`,
@@ -73,9 +107,11 @@ async function run() {
     );
     firstProject.click();
     await until(() => firstProject.getAttribute('aria-expanded') === 'true');
-    const scope = frameDocument.querySelector('.project-scope');
-    scope.click();
-    await until(() => scope.getAttribute('aria-pressed') === 'true');
+    check(!frameDocument.querySelector('.project-scope'), 'No project-scope toggle');
+    check(
+      frameDocument.querySelectorAll('.session-visibility button').length === 2,
+      'Only All and Archived filters remain',
+    );
 
     if (width === 1280 && desktop) {
       const pin = frameDocument.querySelector('.project-pin');
@@ -93,7 +129,7 @@ async function run() {
       ).set;
       setValue.call(input, 'Session');
       input.dispatchEvent(new frame.contentWindow.Event('input', { bubbles: true }));
-      await until(() => !frameDocument.querySelector('.project-scope'));
+      await until(() => !frameDocument.querySelector('[data-window-key="more:0"]'));
       check(
         frameDocument.querySelector('.session-visibility button').textContent.includes('1200'),
         'Global search covers all history',
@@ -171,7 +207,7 @@ async function run() {
       await until(() => frameDocument.activeElement === input);
       setValue.call(input, '');
       input.dispatchEvent(new frame.contentWindow.Event('input', { bubbles: true }));
-      await until(() => frameDocument.querySelector('.project-scope'));
+      await until(() => frameDocument.querySelector('[data-window-key="more:0"]'));
     }
     check(
       navigation.scrollHeight > navigation.clientHeight,
@@ -194,14 +230,14 @@ async function run() {
       navigation.scrollTop = navigation.scrollHeight;
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
-    await until(() => frameDocument.querySelector('[data-window-key="more:79"]'));
+    await until(() => frameDocument.querySelector('[data-window-key="more:9"]'));
     const after = settings.getBoundingClientRect();
     check(
       Math.abs(before.top - after.top) < 1,
       `Settings must not scroll with projects: ${context}`,
     );
     check(sidebar.scrollTop === 0, `Sidebar itself must not scroll: ${context}`);
-    const last = frameDocument.querySelector('[data-window-key="more:79"]').getBoundingClientRect();
+    const last = frameDocument.querySelector('[data-window-key="more:9"]').getBoundingClientRect();
     const navBounds = navigation.getBoundingClientRect();
     check(last.bottom <= navBounds.bottom + 1, `Last project remains reachable: ${context}`);
     const target = frameDocument.elementFromPoint(

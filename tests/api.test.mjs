@@ -8,13 +8,14 @@ import { WebSocket } from 'ws';
 import { createApi } from '../dist/src/api/http.js';
 import { NativeBridges } from '../dist/src/bridge/server.js';
 import { Events } from '../dist/src/events.js';
+import { ProviderUsageService } from '../dist/src/provider-usage.js';
 import { Sessions } from '../dist/src/sessions.js';
 import { SessionDiscovery } from '../dist/src/storage/discovery.js';
 import { SessionReadStore } from '../dist/src/storage/read-state.js';
 import { fixture } from './helpers.mjs';
 
 test('relay REST, host/origin checks, WebSocket events and removed runtime endpoints', async (t) => {
-  const { config, defer } = fixture(t);
+  const { root, config, defer } = fixture(t);
   const events = new Events();
   const bridges = new NativeBridges(config, events);
   const sessions = new Sessions(
@@ -23,7 +24,8 @@ test('relay REST, host/origin checks, WebSocket events and removed runtime endpo
     events,
     new SessionReadStore(':memory:'),
   );
-  const server = await createApi(config, sessions, bridges, events);
+  const usage = new ProviderUsageService(join(root, 'missing-auth.json'));
+  const server = await createApi(config, sessions, bridges, events, undefined, undefined, usage);
   defer(async () => {
     return server.close();
   });
@@ -34,6 +36,14 @@ test('relay REST, host/origin checks, WebSocket events and removed runtime endpo
   const projectResponse = await fetch(`${base}/projects`, { headers });
   assert.deepEqual((await projectResponse.json()).projects, config.projects);
   assert.equal(config.projects[0].name, 'test');
+  const usageResponse = await fetch(`${base}/usage`, { headers });
+  assert.equal(usageResponse.status, 200);
+  assert.equal(usageResponse.headers.get('Cache-Control'), 'no-store');
+  assert.deepEqual((await usageResponse.json()).accounts, []);
+  assert.equal(
+    (await fetch(`${base}/usage`, { headers: { Origin: 'https://evil.example' } })).status,
+    403,
+  );
   writeFileSync(join(config.projects[0].directory, 'hello.txt'), 'Not returned by search');
   const files = await fetch(`${base}/projects/test/files?query=hello`, { headers });
   assert.equal(files.status, 200);

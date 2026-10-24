@@ -1,11 +1,11 @@
 import { type ReactNode, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
-import { Pressable, Text } from 'react-native';
+import { Pressable, Text, View } from 'react-native';
 import type { LiveState } from '../../../../src/client/live';
 import type { InventorySession } from '../../../../src/shared/sessions';
 import type { MobileRelay } from '../../lib/relay';
 import { colors } from '../../theme/colors';
+import { InventoryAction } from '../sessions/inventory-action';
 import { ResumeSession } from '../sessions/resume';
-import { StopSession } from '../sessions/stop';
 import { MessageComposer } from './composer';
 import { ConversationPreview } from './preview';
 import { MobileSessionControls } from './session-controls';
@@ -46,6 +46,30 @@ export function Conversation({
     );
     return () => client.setReading(id, false, false);
   }, [client, id, following, visible, picking, confirmingRuntime, choosingSettings, connection]);
+  const snapshot = connection.snapshot?.session.id === id ? connection.snapshot : undefined;
+  const sessionAction = session ? (
+    <InventoryAction
+      session={
+        snapshot
+          ? {
+              ...session,
+              connection: snapshot.session.connection,
+              generation: snapshot.session.generation,
+              managedRuntime: snapshot.state.managedRuntime === true,
+            }
+          : session
+      }
+      messages={client.messages(session.id, session.projectId)}
+      online={
+        visible &&
+        !picking &&
+        !confirmingRuntime &&
+        !choosingSettings &&
+        connection.status === 'ready'
+      }
+      onArchive={client.setArchived}
+    />
+  ) : null;
   return (
     <>
       {session &&
@@ -57,21 +81,17 @@ export function Conversation({
           id={session.id}
           enabled={visible && !picking && connection.status === 'ready'}
           onOpen={setConfirmingRuntime}
-          renderHeader={renderHeader}
+          renderHeader={(runtimeControl) =>
+            renderHeader(
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                {runtimeControl}
+                {sessionAction}
+              </View>,
+            )
+          }
         />
       ) : (
-        renderHeader(
-          session &&
-            connection.snapshot?.session.id === session.id &&
-            connection.snapshot.session.connection === 'connected' &&
-            connection.snapshot.state.managedRuntime === true ? (
-            <StopSession
-              messages={client.messages(session.id, session.projectId)}
-              generation={connection.snapshot.session.generation}
-              enabled={visible && !picking && connection.status === 'ready'}
-            />
-          ) : null,
-        )
+        renderHeader(sessionAction)
       )}
       <ConversationPreview
         key={`${session?.id}:${connection.snapshot?.session.generation}`}

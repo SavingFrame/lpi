@@ -19,6 +19,7 @@ Roots are not a filesystem sandbox. Project trust and agent configuration belong
 | Method | Path | Operation |
 |---|---|---|
 | GET | /projects | Project IDs, names, and canonical directories |
+| GET | /usage | Read-only Codex allowance snapshots for configured Pi accounts |
 | GET | /sessions | Combined saved-file and live-connection inventory |
 | GET | /sessions/:id | Session identity and connection metadata |
 | GET | /sessions/:id/snapshot | History/activity, runtime metadata, epoch, and cursor |
@@ -58,6 +59,44 @@ Extension actions use `{ type: "extension", extension: "ask-user-question", acti
 Success returns `outcome: "acknowledged"` and `data.disposition: "dispatched"`. This means the extension invoked the public Pi API, not that work completed or persisted. Observe subsequent output and settlement.
 
 Lost responses, timeouts, or connection failures may have unknown outcomes. Never replay mutations automatically. Used request IDs are rejected for the server's lifetime, bounded to 100,000. This is not durable exactly-once execution.
+
+## Provider usage
+
+The global Usage indicator in the browser/desktop sidebar and mobile drawer opens account
+quota details. It works without any connected Pi session. Each account has an OpenAI icon
+with two concentric rings: the outer ring is the short window and the inner ring is the
+weekly/long window. Rings fill as allowance is consumed; a missing window has a dashed
+track, not a guessed value. Displayed percentages are **used** allowance; the compact percentage
+uses each account's highest-used window. Rings, percentages, and detail bars become amber at
+80% used and red at 95%, including a full red ring when allowance is exhausted. Outdated
+reports are muted with a clock indicator, not treated as current warnings. The wire contract
+continues to carry remaining allowance; both apps convert it through shared presentation logic.
+
+`GET /usage` returns `{ accounts, message }`. Each account has a provider alias `id`, display
+`label`, `provider`, `status`, nullable `fetchedAt`, `windows`, and nullable `message`. Windows
+contain `label`, `remainingPercent`, and nullable `resetsAt` (Unix milliseconds). Reports do
+not contain credential account IDs, email addresses, tokens, or raw backend responses.
+
+The backend reads `auth.json` under `PI_CODING_AGENT_DIR` (default `~/.pi/agent`) for the
+`openai-codex` and `openai-codex-work` OAuth entries, displayed as Codex and Work. It validates
+the account claim against any stored account ID and checks credential expiry. It never writes
+credentials, refreshes tokens, calls Pi auth APIs, or reads another CLI's login. A valid token
+is sent only to fixed `GET https://chatgpt.com/backend-api/wham/usage`, with redirects rejected,
+a ten-second deadline, and a 256 KiB response limit. The endpoint is undocumented and may change.
+
+Clients poll once a minute. Successful snapshots are cached for five minutes in the single
+backend; concurrent callers share reads. Refresh reloads credentials and respects that cache
+and rate-limit backoff, rather than bypassing provider limits. Credential updates made by Pi
+allow fetching to resume. Expired credentials, failed reads, and rejected requests keep the
+last successful same-account snapshot with an outdated label and timestamp. Credential
+identity changes cannot reuse another account's snapshot. Removed accounts disappear after
+a valid credential-file read. Empty or invalid setup is reported without exposing file errors.
+
+Snapshots are in memory only and are lost on server restart. Offline clients, old snapshots,
+and elapsed reset windows are also labeled outdated. Reset times never imply a guessed fresh
+allowance. No reset redemption, Fast-mode changes, or automatic model/account switching occurs.
+Tests use temporary credential files and mocked requests. Live account agreement and device
+presentation remain unverified.
 
 ## Snapshots
 

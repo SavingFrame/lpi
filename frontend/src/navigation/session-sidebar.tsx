@@ -4,8 +4,6 @@ import {
   CheckCircle2,
   ChevronDown,
   Folder,
-  GitFork,
-  LoaderCircle,
   MessageCircleQuestion,
   Pin,
 } from 'lucide-react';
@@ -76,7 +74,7 @@ const SessionRow = memo(function SessionRow({
           params={{ projectId: session.projectId, sessionId: session.id }}
           className={`session-link activity-${session.activity} ${hasCompletion ? 'has-completion' : ''} ${isUnread ? 'unread' : ''} ${selected ? 'selected' : ''}`}
           aria-current={selected ? 'page' : undefined}
-          title={title}
+          title={`${title}\n${status.description}${session.parentSession ? `\nFrom ${parent?.title || 'another session'}` : ''}`}
         >
           <Icon
             className={`session-status-icon ${session.activity === 'running' ? 'working-icon' : ''}`}
@@ -85,38 +83,16 @@ const SessionRow = memo(function SessionRow({
           />
           <div className="session-summary">
             <span className="session-title">{title}</span>
-            <small>
-              <span
-                title={status.description}
-                className={`session-status status-${session.activity}`}
-              >
-                {status.label}
-              </span>
-              <time dateTime={updatedAt} title={dateTitle}>
-                {relativeTime(updatedAt, now)}
-              </time>
-            </small>
-            {session.parentSession && (
-              <small
-                className="session-origin"
-                title="Separate session derived from another session. Pi also records this for clones and explicitly parented sessions."
-              >
-                <GitFork size={12} aria-hidden="true" />
-                From {parent?.title || 'another session'}
-              </small>
-            )}
-            {isUnread && (
-              <small
-                className="completion-notice"
-                title="An observed turn ended and has not been viewed. This does not imply task success."
-              >
-                <CheckCircle2 size={12} aria-hidden="true" />
-                Unviewed turn
-              </small>
-            )}
+            <span className="sr-only">{status.description}</span>
+            {isUnread && <span className="sr-only">Unviewed turn</span>}
           </div>
         </Link>
-        <ArchiveSession session={session} online={online} />
+        <div className="session-trailing">
+          <time className="session-time" dateTime={updatedAt} title={dateTitle}>
+            {relativeTime(updatedAt, now)}
+          </time>
+          <ArchiveSession session={session} online={online} />
+        </div>
       </div>
       {open && <SessionBranches session={session} selected={selected} online={online} />}
     </div>
@@ -138,7 +114,6 @@ const ProjectHeader = memo(function ProjectHeader({
 }) {
   const { project, configured, sessions } = group;
   const counts = activityCounts(sessions);
-  const unread = sessions.filter((session) => hasUnreadCompletion(session.readState)).length;
   return (
     <section className="project-group" data-project-id={project.id}>
       <div className="project-header">
@@ -146,17 +121,25 @@ const ProjectHeader = memo(function ProjectHeader({
           type="button"
           className="project-toggle"
           aria-expanded={!closed}
-          title={project.directory}
+          title={`${project.directory}\n${sessions.length} sessions${counts.running ? `, ${counts.running} running` : ''}`}
           onClick={() => onToggle(project.id)}
         >
+          <Folder size={17} style={{ color: projectColor(project.id) }} aria-hidden="true" />
+          <span className="project-name">{project.name}</span>
+          {counts.blocked > 0 && (
+            <span
+              className="project-attention status-blocked"
+              title={`${counts.blocked} need input`}
+            >
+              <MessageCircleQuestion size={12} aria-hidden="true" />
+              <span className="sr-only">{counts.blocked} need input</span>
+            </span>
+          )}
           <ChevronDown
             size={13}
             className={closed ? 'project-chevron closed' : 'project-chevron'}
             aria-hidden="true"
           />
-          <Folder size={17} style={{ color: projectColor(project.id) }} aria-hidden="true" />
-          <span className="project-name">{project.name}</span>
-          <span className="project-count">{sessions.length}</span>
         </button>
         <div className="project-actions">
           <button
@@ -170,26 +153,6 @@ const ProjectHeader = memo(function ProjectHeader({
           </button>
           {configured && <LaunchSession projectId={project.id} compact />}
         </div>
-      </div>
-      <div className="project-status">
-        {counts.blocked > 0 && (
-          <span className="status-blocked">
-            <MessageCircleQuestion size={12} aria-hidden="true" />
-            {counts.blocked} need input
-          </span>
-        )}
-        {counts.running > 0 && (
-          <span className="status-running">
-            <LoaderCircle size={12} aria-hidden="true" />
-            {counts.running} running
-          </span>
-        )}
-        {unread > 0 && (
-          <span className="status-unread">
-            <CheckCircle2 size={12} aria-hidden="true" />
-            {unread} unviewed
-          </span>
-        )}
       </div>
       {sessions.length === 0 && !closed && <p className="project-empty">No sessions yet</p>}
     </section>
@@ -216,7 +179,6 @@ export const SessionSidebar = memo(function SessionSidebar({
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [branches, setBranches] = useState<Set<string>>(() => new Set());
-  const [allProjects, setAllProjects] = useState(false);
   const pinKey = `lpi:sidebar:${relayServer ?? window.location.origin}:pins`;
   const [pinned, setPinned] = useState<Set<string>>(() => {
     try {
@@ -240,8 +202,8 @@ export const SessionSidebar = memo(function SessionSidebar({
     [sessions],
   );
   const shown = useMemo(
-    () => visibleProjects(groups, selectedId, pinned, allProjects || searching || filter !== 'all'),
-    [groups, selectedId, pinned, allProjects, searching, filter],
+    () => visibleProjects(groups, selectedId, pinned, searching || filter !== 'all'),
+    [groups, selectedId, pinned, searching, filter],
   );
   const toggleProject = useCallback((id: string) => {
     setCollapsed((current) => {
@@ -310,7 +272,7 @@ export const SessionSidebar = memo(function SessionSidebar({
       for (const session of visible) {
         rows.push({
           key: `session:${session.id}`,
-          estimate: 85,
+          estimate: 38,
           content: (
             <SessionRow
               session={session}
@@ -370,19 +332,5 @@ export const SessionSidebar = memo(function SessionSidebar({
   if (filtered.length === 0 && (searching || filter !== 'all')) {
     return <p className="project-empty">No matching sessions</p>;
   }
-  return (
-    <>
-      {!searching && filter === 'all' && (
-        <button
-          type="button"
-          className="project-scope"
-          aria-pressed={allProjects}
-          onClick={() => setAllProjects((current) => !current)}
-        >
-          {allProjects ? 'Recent and pinned projects' : `All projects (${groups.length})`}
-        </button>
-      )}
-      <WindowedList items={rows} resetKey={`${search}:${filter}:${allProjects}`} />
-    </>
-  );
+  return <WindowedList items={rows} resetKey={`${search}:${filter}`} />;
 });

@@ -57,6 +57,23 @@ The shadcn configuration is `frontend/components.json`. Run future shadcn CLI co
 
 ## Behavior
 
+The **Diff** button opens a resizable, collapsible changes panel on the right. It lists current
+project changes against Git HEAD, combining staged and unstaged changes and including
+non-ignored untracked files. **Settings > Diff > Diff opening** controls how file selections
+open in the main tab bar. **All files in one tab** is the default: one project Diff tab contains
+every file in a continuous scroll, and selecting a file on the right reuses that tab and scrolls
+to the file. The right-hand list highlights the file currently in view. **One tab per file**
+opens or selects an individual file tab instead. The preference is saved on this device;
+changing it does not close existing tabs. Diff tabs are temporary; conversation tabs retain
+their existing persistence.
+Use the refresh controls to reload. This is a read-only working-tree view, not per-turn history.
+The panel starts open on wide screens and overlays the conversation on narrow screens;
+opening a diff on a narrow screen closes the picker.
+`GET /projects/:projectId/diff` reads configured projects only, disables external diff/textconv
+commands, and limits output to 4 MiB. At most 100 untracked files are included, with an
+omission notice when that limit or the combined output limit is reached. A tracked diff
+that exceeds the output limit returns an error rather than a partial patch. Git is required.
+
 The sidebar groups sessions into collapsible projects, ordered by recent activity, with stable folder colors and per-project **+** creation buttons. Each group initially shows five recent sessions plus running, waiting, unviewed, and selected sessions; older sessions expand per project. Titles use the session name or first user text, with relative timestamps. Blue marks running work, amber marks input requests, and green marks unviewed turns. Idle and read-only activity are separate from unread notifications. Saved title discovery reads bounded file prefixes and tails, so missing metadata falls back to **Untitled session**.
 
 Opening session details fetches only that session’s tree, even while the panel is closed. The pinned header’s **Tree** button opens a right-side panel with search and **Show all entries**. By default it shows user prompts and nonempty assistant replies; tools and metadata remain available through the checkbox. The outline shows shared messages once and nests every child of a split at the same indentation, inside separate branch containers. Each sibling has the same heading, message count, and collapse control. Branches start expanded and preserve saved sibling order; active/preview badges do not change their layout. Linear conversations have no redundant root heading or folding. User rows have blue labels, tinted backgrounds, and accent bars; assistant rows use purple. The button counts leaves of the default projected conversation tree, unaffected by rewinding, search, or Show all entries. Metadata-only side paths therefore do not inflate the count, but remain inspectable with Show all entries. Search ignores collapses and retains matching entries with their ancestors, without overwriting collapse choices. A header control widens or narrows the panel. Opening the panel scrolls its own list to the active position, or to its nearest visible ancestor marked **active path** when the exact entry is filtered out. Entry clicks switch idle native Pi directly; unavailable sessions fall back to read-only previews. Desktop layout reserves space for the panel; on narrow screens it overlays the conversation. Escape or the close button closes it and restores focus to the Tree button. Sidebar chevrons appear for cached sessions with multiple paths and expand saved branch tips inside each session row. The sidebar never initiates tree requests, including during live invalidation; unvisited sessions have unknown branch information. Reload clears the browser cache. Pi labels take precedence over prompt previews. Branches have no independent running/unread badges; connected native Pi supplies a single active position. Offline or disconnected clients show saved paths without claiming a live selection. Forks stay separate session rows with **From …** origin hints where Pi records `parentSession` (also used for clones and explicitly parented sessions).

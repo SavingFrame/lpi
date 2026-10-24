@@ -60,7 +60,9 @@ app/Vite running; activation reopens it.
 - Bundled pages have a CSP allowing local scripts/assets and connections to the selected relay.
   Inline scripts/eval and arbitrary external main-page resources are not enabled.
 - Navigation is restricted to the local UI's `/` and `/app` routes (Vite's origin in development).
-  Redirects follow the same rules. Popups/external links are blocked, not passed to the OS.
+  External HTTP(S) link navigation and new-window requests open in the default browser using
+  `shell.openExternal`; URLs with credentials and other schemes are rejected. Electron popups
+  stay blocked. Subframe navigation and redirects never launch the browser.
 - Local asset serving rejects other hosts, traversal, and symlinks escaping the bundle.
   API paths are not served or proxied by the bundled UI protocol.
 - Visuals use the existing `/display` shell and opaque-origin blank/srcdoc frames, generated
@@ -96,5 +98,5 @@ and Electron binary are required.
 This does not establish real-Pi integration or macOS/Windows behavior. Manual platform checks
 should include window reopening, app quit, downloads, attachment/paste, and development HMR.
 Native notification delivery and click behavior require manual OS checks.
-External-link UX, deep links, installers, signing, auto-updates,
-and production distribution remain separate work. Bundling the UI is not an installer.
+Default-browser link opening requires a manual OS check. Deep links, installers, signing,
+auto-updates, and production distribution remain separate work. Bundling the UI is not an installer.

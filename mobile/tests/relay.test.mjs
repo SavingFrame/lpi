@@ -27,6 +27,7 @@ const session = {
 function setup(t, origin = 'http://relay-one:3141', values = new Map(), mutations = false) {
   const sockets = [];
   const requests = [];
+  const usageRequests = [];
   const storage = {
     getItem: async (key) => values.get(key) ?? null,
     setItem: async (key, value) => {
@@ -42,13 +43,18 @@ function setup(t, origin = 'http://relay-one:3141', values = new Map(), mutation
       assert.ok(mutations, 'Read-only lifecycle must never issue mutations');
       return '22222222-2222-2222-2222-222222222222';
     },
-    fetch: (url, request) =>
-      new Promise((resolve, reject) => {
+    fetch: (url, request) => {
+      if (new URL(url).pathname === '/usage') {
+        usageRequests.push({ url, request });
+        return Promise.resolve(Response.json({ accounts: [], message: null }));
+      }
+      return new Promise((resolve, reject) => {
         if (!mutations) {
           assert.equal(request.method, 'GET');
         }
         requests.push({ url, request, resolve, reject });
-      }),
+      });
+    },
     openSocket: (url) => {
       const socket = {
         url,
@@ -85,7 +91,7 @@ function setup(t, origin = 'http://relay-one:3141', values = new Map(), mutation
       .resolve(Response.json({ sessions }));
     await setImmediate();
   };
-  return { client, sockets, requests, storage, values, connected, inventory };
+  return { client, sockets, requests, usageRequests, storage, values, connected, inventory };
 }
 
 test('mobile new-session launch shares a durable lane and selects the acknowledged session', async (t) => {
@@ -793,6 +799,9 @@ test('server switching isolates selection and outstanding requests', async (t) =
   second.connected();
   await second.inventory();
   assert.equal(second.client.getState().selectedId, null);
+  assert.equal(first.usageRequests[0].url, `${first.client.origin}/usage`);
+  assert.equal(second.usageRequests[0].url, `${second.client.origin}/usage`);
+  assert.equal(first.client.usage.getState().online, false);
   assert.equal(values.get(clientStorageKey(first.client.origin, 'selection', 'session')), id);
   assert.equal(values.has(clientStorageKey(second.client.origin, 'selection', 'session')), false);
   assert.ok(first.requests.every((request) => new URL(request.url).origin === first.client.origin));

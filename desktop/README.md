@@ -118,7 +118,7 @@ window stops notifications even though the app remains running.
 ## Limitations
 
 - Deep links, installers, signing, and auto-updates are not implemented.
-- External links and popups are currently blocked rather than opened in your browser.
+- HTTP/HTTPS links open in your default browser. Other external URL schemes and in-app popups are blocked.
 - Files use the native Save As flow and never open automatically.
 - macOS/Windows behavior and real-Pi integration remain unverified by the Linux smoke tests.
 

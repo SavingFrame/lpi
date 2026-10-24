@@ -7,6 +7,18 @@ export function desktopDevelopmentOrigin(value: string): string {
   return url.origin;
 }
 
+/** Only web links may be handed to the OS, never credentials or custom protocols. */
+export function allowedExternalUrl(value: string): boolean {
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === 'https:' || url.protocol === 'http:') && !url.username && !url.password
+    );
+  } catch {
+    return false;
+  }
+}
+
 export function allowedNavigation(value: string, origin: string, mainFrame: boolean): boolean {
   if (!mainFrame && (value === 'about:blank' || value === 'about:srcdoc')) {
     return true; // The existing opaque-origin visual shell uses a nested srcdoc frame.

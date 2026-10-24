@@ -4,6 +4,7 @@ import type { NativeBridges } from '../bridge/server.js';
 import type { Config } from '../config.js';
 import type { Events } from '../events.js';
 import { Launches } from '../launches.js';
+import { ProviderUsageService } from '../provider-usage.js';
 import type { Sessions } from '../sessions.js';
 import { COMMAND_BODY_LIMIT } from '../shared/attachments.js';
 import { BRIDGE_LIMIT } from '../shared/commands.js';
@@ -21,6 +22,7 @@ export async function createApi(
   events: Events,
   frontendDirectory = 'frontend/dist',
   launches = new Launches(config, sessions, bridges),
+  usage = new ProviderUsageService(),
 ) {
   const app = Fastify({
     bodyLimit: COMMAND_BODY_LIMIT,
@@ -148,6 +150,8 @@ export async function createApi(
 
   registerWebSocketRoutes(app, events, bridges);
   registerProjectRoutes(app, config);
+  app.get('/usage', () => usage.get());
+  app.addHook('preClose', async () => usage.close());
   registerSessionRoutes(app, post, sessions, bridges, launches);
   const frontend: RouteHandlerMethod = async (request, reply) => {
     if (

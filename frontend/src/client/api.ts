@@ -9,8 +9,10 @@ const api = new RelayApi({
   requestId: () => uuid(),
 });
 
+export const diff = api.diff.bind(api);
 export const searchFiles = api.searchFiles.bind(api);
 export const projects = () => api.projects();
+export const usage = api.usage.bind(api);
 export const sessions = () => api.sessions();
 export const inspect = api.inspect.bind(api);
 export const tree = api.tree.bind(api);

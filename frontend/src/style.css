@@ -1,9 +1,11 @@
 @import "tailwindcss";
 @import "./styles/theme.css";
 @import "./styles/shell.css";
+@import "./styles/workspace.css";
 @import "./styles/session.css";
 @import "./styles/transcript.css";
 @import "./styles/composer.css";
 @import "./styles/session-controls.css";
+@import "./styles/provider-usage.css";
 @import "./styles/keyboard.css";
 @import "./styles/responsive.css";

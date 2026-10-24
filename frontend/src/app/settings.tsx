@@ -4,6 +4,7 @@ import { live } from '../client/controllers';
 import { type DesktopPlatform, desktop } from '../client/platform';
 import { Button } from '../components/ui/button';
 import { KeyboardSettings } from '../keyboard/settings';
+import { useDiffTabs } from '../workspace/diff-tabs';
 
 function DesktopAppearance({ platform }: { platform: DesktopPlatform }) {
   const [factor, setFactor] = useState<number>();
@@ -89,6 +90,39 @@ function DesktopAppearance({ platform }: { platform: DesktopPlatform }) {
   );
 }
 
+function DiffSettings() {
+  const { opening, setOpening, settingsError } = useDiffTabs();
+  return (
+    <section className="settings-section" aria-labelledby="diff-settings-heading">
+      <h2 id="diff-settings-heading">Diff</h2>
+      <label htmlFor="diff-opening">Diff opening</label>
+      <p className="muted" id="diff-opening-help">
+        Choose how files in the right-side changes panel open. Saved on this device.
+      </p>
+      <div className="settings-scale-controls">
+        <select
+          id="diff-opening"
+          aria-describedby="diff-opening-help"
+          value={opening}
+          onChange={(event) => setOpening(event.target.value === 'files' ? 'files' : 'combined')}
+        >
+          <option value="combined">All files in one tab</option>
+          <option value="files">One tab per file</option>
+        </select>
+      </div>
+      <p className="muted">
+        In the combined view, selecting a file scrolls to it in the existing Diff tab. Existing tabs
+        stay open when this preference changes.
+      </p>
+      {settingsError && (
+        <p className="error" role="alert">
+          {settingsError}
+        </p>
+      )}
+    </section>
+  );
+}
+
 export function SettingsPage() {
   const router = useRouter();
   useEffect(() => live.select(null), []);
@@ -121,6 +155,7 @@ export function SettingsPage() {
   return (
     <div className="settings-page">
       <h1>Settings</h1>
+      <DiffSettings />
       <KeyboardSettings />
       {desktop ? (
         <DesktopAppearance platform={desktop} />
