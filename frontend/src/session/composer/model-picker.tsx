@@ -1,4 +1,4 @@
-import { useId, useRef, useState } from 'react';
+import { useId, useLayoutEffect, useRef, useState } from 'react';
 import type { ModelOption } from '../../../../src/shared/session-controls';
 
 function modelKey(model: ModelOption) {
@@ -22,6 +22,34 @@ export function ModelPicker({
   const [open, setOpen] = useState(false);
   const input = useRef<HTMLInputElement>(null);
   const resultsId = useId();
+  const results = useRef<HTMLElement>(null);
+  useLayoutEffect(() => {
+    const menu = results.current;
+    const field = input.current;
+    if (!open || disabled || !menu || !field) {
+      return;
+    }
+    const position = () => {
+      const bounds = field.getBoundingClientRect();
+      const width = Math.min(Math.max(bounds.width, 300), window.innerWidth - 32);
+      menu.style.width = `${width}px`;
+      menu.style.left = `${Math.max(16, Math.min(bounds.left, window.innerWidth - width - 16))}px`;
+      menu.style.bottom = `${window.innerHeight - bounds.top + 8}px`;
+      menu.style.maxHeight = `${Math.max(0, Math.min(320, window.innerHeight * 0.45, bounds.top - 24))}px`;
+    };
+    position();
+    menu.showPopover();
+    window.addEventListener('resize', position);
+    document.addEventListener('scroll', position, true);
+    const observer = new ResizeObserver(position);
+    observer.observe(field);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', position);
+      document.removeEventListener('scroll', position, true);
+      menu.hidePopover();
+    };
+  }, [open, disabled]);
   const terms = query.toLowerCase().trim().split(/\s+/);
   const matches = availableModels.filter((option) => {
     const text = `${option.provider} ${option.id} ${option.name}`.toLowerCase();
@@ -85,7 +113,13 @@ export function ModelPicker({
         />
       </label>
       {open && !disabled && (
-        <section id={resultsId} className="model-results" aria-label="Matching models">
+        <section
+          ref={results}
+          id={resultsId}
+          popover="manual"
+          className="model-results"
+          aria-label="Matching models"
+        >
           {matches.length === 0 && <p role="status">No matching models.</p>}
           {groups.map((group) =>
             group.models.length ? (

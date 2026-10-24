@@ -5,6 +5,7 @@ import { createRoot } from 'react-dom/client';
 import { KeyboardProvider } from '../../src/keyboard/keyboard.tsx';
 import { Composer } from '../../src/session/composer/composer.tsx';
 import '../../src/styles/composer.css';
+import '../../src/styles/session-controls.css';
 
 try {
   const container = document.createElement('div');
@@ -317,6 +318,73 @@ try {
     keyboardCommands[1].type === 'prompt',
     'Enter must use the guarded message submission path',
   );
+  const models = Array.from({ length: 20 }, (_, index) => ({
+    provider: 'test',
+    id: `model-${index}`,
+    name: `Model ${index}`,
+  }));
+  render('model-menu', {
+    active: true,
+    snapshot: {
+      ...snapshot,
+      controls: { ...snapshot.controls, model: models[0], availableModels: models },
+    },
+    onCommand: async (command) => {
+      keyboardCommands.push(command);
+      return true;
+    },
+  });
+  Object.assign(container.style, {
+    position: 'fixed',
+    bottom: '0',
+    height: '100dvh',
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'flex-end',
+  });
+  for (const width of ['600px', '320px']) {
+    container.style.width = width;
+    const search = container.querySelector('input[type=search]');
+    flushSync(() => search.focus());
+    const menu = container.querySelector('.model-results');
+    const bounds = menu.getBoundingClientRect();
+    const composerBounds = container.querySelector('.composer').getBoundingClientRect();
+    check(bounds.top < composerBounds.top, 'Model results must extend above the composer');
+    check(
+      bounds.top >= 0 && bounds.left >= 0 && bounds.right <= innerWidth,
+      'Model results must stay inside the viewport',
+    );
+    const button = menu.querySelector('button');
+    const row = button.getBoundingClientRect();
+    check(
+      button.contains(document.elementFromPoint(row.left + 10, row.top + row.height / 2)),
+      'Model options above the scrolling composer must be visible and clickable',
+    );
+    flushSync(() =>
+      search.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'ArrowDown',
+          bubbles: true,
+          cancelable: true,
+        }),
+      ),
+    );
+    check(document.activeElement === button, 'ArrowDown must focus the first model option');
+    flushSync(() => button.click());
+    check(!container.querySelector('.model-results'), 'Selecting a model must close the menu');
+    flushSync(() => search.focus());
+    flushSync(() =>
+      search.dispatchEvent(
+        new KeyboardEvent('keydown', {
+          key: 'Escape',
+          bubbles: true,
+          cancelable: true,
+        }),
+      ),
+    );
+    check(!container.querySelector('.model-results'), 'Escape must close the model menu');
+    other.focus();
+  }
   root.unmount();
   queryClient.clear();
   await fetch('/result', { method: 'POST', body: JSON.stringify({ passed: true }) });

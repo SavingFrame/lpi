@@ -35,13 +35,10 @@
     opacity: 0.5;
   }
   .model-results {
-    position: absolute;
-    z-index: 20;
-    bottom: calc(100% + 8px);
-    left: 0;
-    width: max(100%, 300px);
-    max-width: calc(100vw - 32px);
-    max-height: min(320px, 45dvh);
+    position: fixed;
+    inset: auto;
+    margin: 0;
+    box-sizing: border-box;
     overflow-y: auto;
     padding: 6px;
     background: #202023;
