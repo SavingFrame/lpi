@@ -56,7 +56,11 @@ React Native styles; Tamagui supplies the provider/form foundation.
   inspectable. Hidden thinking must not split tool groups. Long groups use bounded native
   list rows so tool-only runs remain virtualizable. Codemode has a stable expandable parent
   with individually virtualized nested calls, shared browser/mobile metadata projection, and
-  lazy script/output inspection. Native parent IDs keep live child calls out of top-level groups.
+  lazy script/output inspection. Codemode uses the ordinary compact tool row, indented as a
+  tree. Native parent IDs keep live child calls out of top-level groups.
+- Ordinary tool arguments and outputs are formatted only when their spoiler is opened.
+  Immutable call previews, completed metadata, and opened details are cached with weak references;
+  adding sibling calls preserves completed entries and their cached details.
 - Live transcript rendering coalesces updates in 100 ms windows and reuses unchanged rows.
   Connection, session, control, dialog, and completion boundaries bypass that delay. The
   drawer pauses transcript rendering, not transport processing or authoritative command guards.

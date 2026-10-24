@@ -1,5 +1,4 @@
-import { type ReactNode, useState } from 'react';
-import { ActivityIndicator, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 import {
   type CodemodeCall,
   codemodeCallInput,
@@ -8,40 +7,16 @@ import {
 import { colors } from '../../theme/colors';
 import { messageBlocks } from './content';
 import { CodeBlock } from './markdown';
-import type { ToolEntry } from './timeline';
+import { type ToolEntry, toolPreview } from './timeline';
+import { ToolDisclosure, ToolRow } from './tool-row';
 
 type CodemodeState = ReturnType<typeof codemodeState>;
-const statuses = { running: 'Running', ok: 'Completed', error: 'Failed', cancelled: 'Cancelled' };
-
-function Disclosure({
-  title,
-  onInspect,
-  children,
-}: {
-  title: string;
-  onInspect: () => void;
-  children: () => ReactNode;
-}) {
-  const [open, setOpen] = useState(false);
-  return (
-    <View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityState={{ expanded: open }}
-        onPress={() => {
-          onInspect();
-          setOpen(!open);
-        }}
-        style={styles.button}
-      >
-        <Text style={styles.text} numberOfLines={2}>
-          {open ? '▾' : '▸'} {title}
-        </Text>
-      </Pressable>
-      {open && <View style={styles.body}>{children()}</View>}
-    </View>
-  );
-}
+const statuses = {
+  running: 'running',
+  ok: 'complete',
+  error: 'error',
+  cancelled: 'cancelled',
+} as const;
 
 export function CodemodeHeader({
   tool,
@@ -54,31 +29,21 @@ export function CodemodeHeader({
   expanded: boolean;
   onToggle: () => void;
 }) {
+  const summary = [
+    `${state.calls.length} calls`,
+    ...(state.errors ? [`${state.errors} failed`] : []),
+    ...(state.cancelled ? [`${state.cancelled} cancelled`] : []),
+  ].join(' · ');
   return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={`codemode, ${state.calls.length} calls, ${tool.status}`}
-      accessibilityState={{ expanded }}
-      style={styles.header}
+    <ToolRow
+      name="codemode"
+      preview={summary}
+      metadata={state.wallTime}
+      status={tool.status}
+      open={expanded}
       onPress={onToggle}
-    >
-      <Text style={styles.text}>{expanded ? '▾' : '▸'} codemode</Text>
-      <Text style={styles.muted}>{state.calls.length} calls</Text>
-      {tool.status === 'running' ? (
-        <ActivityIndicator size="small" color={colors.running} />
-      ) : (
-        <Text style={tool.status === 'error' ? styles.error : styles.muted}>
-          {tool.status === 'complete'
-            ? 'Completed'
-            : tool.status === 'error'
-              ? 'Failed'
-              : 'Pending'}
-        </Text>
-      )}
-      {state.wallTime && <Text style={styles.muted}>{state.wallTime}</Text>}
-      {state.errors > 0 && <Text style={styles.error}>{state.errors} failed</Text>}
-      {state.cancelled > 0 && <Text style={styles.muted}>{state.cancelled} cancelled</Text>}
-    </Pressable>
+      framed
+    />
   );
 }
 
@@ -91,7 +56,20 @@ export function CodemodeCallRow({
 }) {
   return (
     <View style={styles.nested}>
-      <Disclosure title={`${call.name} · ${codemodeCallInput(call)}`} onInspect={onInspect}>
+      <ToolDisclosure
+        name={call.name}
+        preview={toolPreview(codemodeCallInput(call))}
+        status={statuses[call.status]}
+        metadata={
+          call.durationMs === undefined
+            ? undefined
+            : call.durationMs < 1000
+              ? `${Math.round(call.durationMs)}ms`
+              : `${(call.durationMs / 1000).toFixed(1)}s`
+        }
+        onInspect={onInspect}
+        framed
+      >
         {() => (
           <>
             <Text style={styles.muted}>Saved argument preview (may be truncated)</Text>
@@ -107,19 +85,7 @@ export function CodemodeCallRow({
             )}
           </>
         )}
-      </Disclosure>
-      <View style={styles.callStatus}>
-        <Text style={call.status === 'error' ? styles.error : styles.muted}>
-          {statuses[call.status]}
-        </Text>
-        {call.durationMs !== undefined && (
-          <Text style={styles.muted}>
-            {call.durationMs < 1000
-              ? `${Math.round(call.durationMs)}ms`
-              : `${(call.durationMs / 1000).toFixed(1)}s`}
-          </Text>
-        )}
-      </View>
+      </ToolDisclosure>
     </View>
   );
 }
@@ -143,63 +109,57 @@ export function CodemodeDetails({
         </Text>
       )}
       {state.patchesOmitted && <Text style={styles.muted}>Some edit patches were not saved.</Text>}
-      <Disclosure title="Script" onInspect={onInspect}>
-        {() => <CodeBlock text={state.script ?? 'Script unavailable.'} language="javascript" />}
-      </Disclosure>
-      <Disclosure title="Combined output" onInspect={onInspect}>
-        {() => (
-          <>
-            <Text style={styles.muted}>
-              Script output is not associated with individual nested calls.
-            </Text>
-            {state.fullOutputPath && (
-              <Text selectable style={styles.muted}>
-                Full output: {state.fullOutputPath} (temporary file)
-              </Text>
-            )}
-            {state.output ? (
-              messageBlocks(state.output).map((block, index) =>
-                block.kind === 'image' ? (
-                  <Image
-                    key={String(index)}
-                    accessibilityLabel="Codemode output image"
-                    source={{ uri: block.uri }}
-                    style={styles.image}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <CodeBlock key={String(index)} text={block.text} />
-                ),
-              )
-            ) : (
+      <View style={styles.frame}>
+        <ToolDisclosure name="Script" preview="JavaScript" onInspect={onInspect}>
+          {() => <CodeBlock text={state.script ?? 'Script unavailable.'} language="javascript" />}
+        </ToolDisclosure>
+        <ToolDisclosure name="Combined output" onInspect={onInspect}>
+          {() => (
+            <>
               <Text style={styles.muted}>
-                {tool.status === 'unknown' ? 'No result available.' : 'Waiting for output.'}
+                Script output is not associated with individual nested calls.
               </Text>
-            )}
-          </>
-        )}
-      </Disclosure>
+              {state.fullOutputPath && (
+                <Text selectable style={styles.muted}>
+                  Full output: {state.fullOutputPath} (temporary file)
+                </Text>
+              )}
+              {state.output ? (
+                messageBlocks(state.output).map((block, index) =>
+                  block.kind === 'image' ? (
+                    <Image
+                      key={String(index)}
+                      accessibilityLabel="Codemode output image"
+                      source={{ uri: block.uri }}
+                      style={styles.image}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <CodeBlock key={String(index)} text={block.text} />
+                  ),
+                )
+              ) : (
+                <Text style={styles.muted}>
+                  {tool.status === 'unknown' ? 'No result available.' : 'Waiting for output.'}
+                </Text>
+              )}
+            </>
+          )}
+        </ToolDisclosure>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    alignItems: 'center',
-    gap: 8,
-    minHeight: 48,
-    padding: 10,
-    backgroundColor: colors.panel,
-    borderRadius: 8,
+  nested: { marginLeft: 12, paddingLeft: 10, borderLeftWidth: 1, borderLeftColor: colors.border },
+  frame: {
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    borderRadius: 6,
+    overflow: 'hidden',
   },
-  nested: { marginLeft: 12, paddingLeft: 10, borderLeftWidth: 2, borderLeftColor: colors.border },
-  button: { minHeight: 40, justifyContent: 'center' },
-  body: { gap: 8, paddingBottom: 8 },
-  text: { color: colors.text, fontSize: 13 },
-  muted: { color: colors.muted, fontSize: 12 },
-  error: { color: colors.error, fontSize: 12 },
-  callStatus: { flexDirection: 'row', gap: 10, paddingBottom: 8 },
+  muted: { color: colors.muted, fontSize: 11 },
+  error: { color: colors.error, fontSize: 11 },
   image: { width: '100%', height: 240 },
 });

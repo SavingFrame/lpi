@@ -1,14 +1,5 @@
 import { memo, type ReactNode, useMemo, useRef, useState } from 'react';
-import {
-  ActivityIndicator,
-  FlatList,
-  Image,
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { LiveState } from '../../../../src/client/live';
 import { MobileQuestion } from '../../extensions';
 import type { MobileMessages } from '../../lib/messages';
@@ -18,7 +9,8 @@ import { MobileDisplay } from './display';
 import { CodeBlock, Markdown } from './markdown';
 import { conversationScroll } from './scroll';
 import { StatusBarScrollTarget } from './status-bar-scroll';
-import { type ConversationRow, createConversationRows, type ToolEntry } from './timeline';
+import { type ConversationRow, createConversationRows } from './timeline';
+import { ToolDetail } from './tool-row';
 
 function Detail({
   label,
@@ -46,91 +38,6 @@ function Detail({
         </Text>
       </Pressable>
       {open && <View style={styles.detailBody}>{children}</View>}
-    </View>
-  );
-}
-
-function ToolStatus({ status }: { status: ToolEntry['status'] }) {
-  return (
-    <View
-      style={styles.statusIcon}
-      accessibilityElementsHidden
-      importantForAccessibility="no-hide-descendants"
-    >
-      {status === 'running' ? (
-        <ActivityIndicator size="small" color={colors.running} style={styles.spinner} />
-      ) : status === 'complete' ? (
-        <View style={styles.checkIcon} />
-      ) : status === 'error' ? (
-        <>
-          <View style={[styles.errorStroke, styles.errorStrokeLeft]} />
-          <View style={[styles.errorStroke, styles.errorStrokeRight]} />
-        </>
-      ) : (
-        <View style={styles.unknownIcon}>
-          <View style={styles.unknownStroke} />
-        </View>
-      )}
-    </View>
-  );
-}
-
-function ToolDetail({ tool, onInspect }: { tool: ToolEntry; onInspect: () => void }) {
-  const [open, setOpen] = useState(false);
-  const status =
-    tool.status === 'running'
-      ? 'Running'
-      : tool.status === 'error'
-        ? 'Error'
-        : tool.status === 'complete'
-          ? 'Completed'
-          : 'No result';
-  return (
-    <View style={styles.toolRow}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${tool.name}${tool.preview ? `, ${tool.preview}` : ''}, ${status}`}
-        accessibilityState={{ expanded: open }}
-        onPress={() => {
-          onInspect();
-          setOpen(!open);
-        }}
-        style={({ pressed }) => [styles.toolButton, pressed && styles.toolPressed]}
-      >
-        <View style={[styles.chevron, open && styles.chevronOpen]} />
-        <Text style={styles.toolName} numberOfLines={1}>
-          {tool.name}
-        </Text>
-        <Text style={styles.toolPreview} numberOfLines={1} ellipsizeMode="tail">
-          {tool.preview ?? ''}
-        </Text>
-        <ToolStatus status={tool.status} />
-      </Pressable>
-      {open && (
-        <View style={styles.toolBody}>
-          {tool.arguments !== undefined && (
-            <>
-              <Text style={styles.sectionLabel}>Arguments</Text>
-              <CodeBlock text={tool.arguments} />
-            </>
-          )}
-          {tool.output !== undefined && (
-            <>
-              <Text style={styles.sectionLabel}>
-                {tool.status === 'running' ? 'Output so far' : 'Output'}
-              </Text>
-              <CodeBlock text={tool.output || 'No text output.'} />
-            </>
-          )}
-          {tool.output === undefined && (
-            <Text style={styles.muted}>
-              {tool.status === 'running'
-                ? 'Waiting for output…'
-                : 'No result available in this history.'}
-            </Text>
-          )}
-        </View>
-      )}
     </View>
   );
 }
@@ -209,28 +116,9 @@ const MessageRow = memo(function MessageRow({
   );
 });
 
-function ConversationSeparator({
-  leadingItem,
-  trailingItem,
-}: {
-  leadingItem?: ConversationRow;
-  trailingItem?: ConversationRow;
-}) {
-  const leadingParent =
-    leadingItem &&
-    ('parentKey' in leadingItem
-      ? leadingItem.parentKey
-      : leadingItem.kind === 'codemode'
-        ? leadingItem.key
-        : undefined);
-  const trailingParent =
-    trailingItem &&
-    ('parentKey' in trailingItem
-      ? trailingItem.parentKey
-      : trailingItem.kind === 'codemode'
-        ? trailingItem.key
-        : undefined);
-  return <View style={{ height: leadingParent && leadingParent === trailingParent ? 4 : 20 }} />;
+function ConversationSeparator({ leadingItem }: { leadingItem?: ConversationRow }) {
+  // Data is newest-first. A child is followed by its sibling or parent, without a gap.
+  return <View style={{ height: leadingItem && 'parentKey' in leadingItem ? 0 : 20 }} />;
 }
 
 export function ConversationPreview({
@@ -424,67 +312,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     overflow: 'hidden',
   },
-  toolRow: { borderBottomWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  toolButton: {
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 10,
-  },
-  toolPressed: { backgroundColor: colors.panel },
-  toolName: { color: colors.text, fontSize: 12, fontWeight: '600', maxWidth: '40%' },
-  toolPreview: {
-    flex: 1,
-    minWidth: 0,
-    color: colors.muted,
-    fontSize: 11,
-    fontFamily: Platform.OS === 'ios' ? 'Menlo' : 'monospace',
-  },
-  toolBody: { gap: 10, paddingHorizontal: 10, paddingBottom: 12 },
-  chevron: {
-    width: 5,
-    height: 5,
-    borderRightWidth: 1,
-    borderTopWidth: 1,
-    borderColor: colors.muted,
-    transform: [{ rotate: '45deg' }],
-    marginRight: 2,
-  },
-  chevronOpen: { transform: [{ rotate: '135deg' }] },
-  statusIcon: { width: 16, height: 16, alignItems: 'center', justifyContent: 'center' },
-  spinner: { transform: [{ scale: 0.7 }] },
-  checkIcon: {
-    width: 5,
-    height: 9,
-    borderRightWidth: 1.5,
-    borderBottomWidth: 1.5,
-    borderColor: colors.success,
-    transform: [{ rotate: '45deg' }],
-    marginTop: -3,
-  },
-  errorStroke: {
-    position: 'absolute',
-    height: 1.5,
-    width: 12,
-    borderRadius: 1,
-    backgroundColor: colors.error,
-  },
-  errorStrokeLeft: { transform: [{ rotate: '45deg' }] },
-  errorStrokeRight: { transform: [{ rotate: '-45deg' }] },
-  unknownIcon: {
-    width: 12,
-    height: 12,
-    borderWidth: 1,
-    borderColor: colors.muted,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  unknownStroke: { width: 5, height: 1, backgroundColor: colors.muted },
   detail: { gap: 8 },
   detailBody: { gap: 10, paddingHorizontal: 4, paddingBottom: 8 },
-  sectionLabel: { color: colors.muted, fontSize: 11, fontWeight: '600' },
   error: { color: colors.error },
   detailButton: {
     minHeight: 44,

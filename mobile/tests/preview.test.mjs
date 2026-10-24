@@ -29,6 +29,7 @@ test('replaces the empty native list on history arrival, then preserves its iden
     './scroll': { conversationScroll },
     './timeline': { createConversationRows },
     './codemode': {},
+    './tool-row': { ToolDetail: Symbol('ToolDetail') },
     './status-bar-scroll': { StatusBarScrollTarget: Symbol('StatusBarScrollTarget') },
   };
   const { outputText } = ts.transpileModule(

@@ -4,6 +4,7 @@ import { emptyView, reduceEvent } from '../../src/shared/client-state.ts';
 import {
   conversationRows,
   createConversationRows,
+  toolDetails,
   toolPreview,
 } from '../src/features/conversation/timeline.ts';
 
@@ -16,6 +17,52 @@ const result = (id, text, isError = false) => ({
   toolName: 'read',
   isError,
   content: [{ type: 'text', text }],
+});
+
+test('closed tool spoilers never format payloads; opened completed details are reused on growth', () => {
+  let argumentFormats = 0;
+  let outputReads = 0;
+  const args = {
+    path: 'large.ts',
+    toJSON() {
+      argumentFormats++;
+      return { path: this.path, content: 'x'.repeat(32_768) };
+    },
+  };
+  const output = result('a', '');
+  output.content = [
+    {
+      type: 'text',
+      get text() {
+        outputReads++;
+        return 'Saved output';
+      },
+    },
+  ];
+  const history = [
+    assistant([{ type: 'toolCall', id: 'a', name: 'write', arguments: args }]),
+    output,
+  ];
+  const project = createConversationRows();
+  const initial = project(history, []);
+  const updated = project([...history, assistant('Streaming text')], []);
+  assert.equal(argumentFormats, 0);
+  assert.equal(outputReads, 0, 'result bodies stay untouched while closed');
+  const tool = updated[0].tools[0];
+  assert.equal(tool, initial[0].tools[0]);
+  const details = toolDetails(tool);
+  assert.equal(argumentFormats, 1);
+  assert.equal(outputReads, 1);
+  assert.equal(JSON.parse(details.arguments).path, 'large.ts');
+  assert.equal(details.output, 'Saved output');
+  const grown = project([...history, assistant([call('b', 'next.ts')])], []);
+  assert.equal(grown[0].tools[0], tool, 'a new sibling must not invalidate completed tools');
+  assert.equal(toolDetails(grown[0].tools[0]), details);
+  assert.equal(argumentFormats, 1);
+  assert.equal(outputReads, 1);
+  const changed = project([history[0], result('a', 'Replacement branch output')], []);
+  assert.equal(toolDetails(changed[0].tools[0]).output, 'Replacement branch output');
+  assert.equal(details.output, 'Saved output', 'cached details stay immutable');
 });
 
 test('long tool-only runs stay virtualizable and preserve unchanged rows during streaming', () => {
@@ -42,8 +89,8 @@ test('long tool-only runs stay virtualizable and preserve unchanged rows during 
     { id: 'live', name: 'read', args: {}, result: { text: 'new output' } },
   ]);
   assert.equal(nextProgress[0], initial[0]);
-  assert.match(progress.at(-1).tools.at(-1).output, /partial/);
-  assert.match(nextProgress.at(-1).tools.at(-1).output, /new output/);
+  assert.match(toolDetails(progress.at(-1).tools.at(-1)).output, /partial/);
+  assert.match(toolDetails(nextProgress.at(-1).tools.at(-1)).output, /new output/);
   const replacement = project([{ role: 'user', timestamp: 3, content: 'Different branch' }], []);
   assert.equal(replacement.length, 1);
   assert.equal(replacement[0].blocks[0].text, 'Different branch');
@@ -80,12 +127,12 @@ test('hides all thinking and empty assistant content while grouping paired tools
   const tools = rows[0].tools;
   assert.equal(tools.length, 3);
   assert.equal(tools[0].preview, 'first.ts');
-  assert.equal(JSON.parse(tools[0].arguments).path, 'first.ts');
-  assert.equal(tools[0].output, 'first output');
+  assert.equal(JSON.parse(toolDetails(tools[0]).arguments).path, 'first.ts');
+  assert.equal(toolDetails(tools[0]).output, 'first output');
   assert.equal(tools[0].status, 'complete');
-  assert.equal(tools[1].output, 'second output');
+  assert.equal(toolDetails(tools[1]).output, 'second output');
   assert.equal(tools[1].status, 'error');
-  assert.equal(tools[2].output, 'third output');
+  assert.equal(toolDetails(tools[2]).output, 'third output');
   assert.equal(rows[1].blocks[0].text, 'Finished.');
   assert.equal(rows[2].role, 'user');
   assert.equal(rows[3].tools.length, 1, 'user messages must start a separate group');
@@ -120,10 +167,10 @@ test('keeps orphan results and missing results visible without pairing by tool n
     rows.map((row) => row.kind),
     ['tools', 'message', 'tools'],
   );
-  assert.equal(rows[0].tools[0].output, 'orphan output');
+  assert.equal(toolDetails(rows[0].tools[0]).output, 'orphan output');
   assert.equal(rows[0].tools[1].status, 'unknown');
   assert.equal(rows[2].tools[0].status, 'unknown');
-  assert.equal(rows[2].tools[1].output, 'unidentified output');
+  assert.equal(toolDetails(rows[2].tools[1]).output, 'unidentified output');
 });
 
 test('live calls retain their group and row identities as streamed calls enter history', () => {
@@ -187,7 +234,7 @@ test('parallel progress updates do not reorder live calls or replace the group a
     updated[0].tools.map((tool) => tool.key),
     initial[0].tools.map((tool) => tool.key),
   );
-  assert.match(updated[0].tools[0].output, /progress/);
+  assert.match(toolDetails(updated[0].tools[0]).output, /progress/);
 });
 
 test('tool previews show bounded command, path, search, or script hints without changing arguments', () => {
@@ -209,7 +256,7 @@ test('tool previews show bounded command, path, search, or script hints without 
     [],
   );
   assert.equal(rows[0].tools[0].preview, 'npm run check && npm run build');
-  assert.equal(JSON.parse(rows[0].tools[0].arguments).command, command);
+  assert.equal(JSON.parse(toolDetails(rows[0].tools[0]).arguments).command, command);
 });
 
 test('live activity updates a matching call once and never replaces a completed result', () => {
@@ -226,9 +273,9 @@ test('live activity updates a matching call once and never replaces a completed 
   const tools = conversationRows(messages, activity)[0].tools;
   assert.equal(tools.length, 3);
   assert.equal(tools[0].status, 'running');
-  assert.match(tools[0].output, /partial/);
+  assert.match(toolDetails(tools[0]).output, /partial/);
   assert.equal(tools[1].status, 'complete');
-  assert.equal(tools[1].output, 'final');
+  assert.equal(toolDetails(tools[1]).output, 'final');
   assert.equal(tools[2].name, 'bash');
   assert.equal(tools[2].preview, 'pwd');
   assert.equal(tools[2].status, 'running');

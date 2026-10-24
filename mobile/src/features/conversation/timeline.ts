@@ -11,8 +11,6 @@ export interface ToolEntry {
   progress?: unknown;
   name: string;
   preview?: string;
-  arguments?: string;
-  output?: string;
   status: 'running' | 'complete' | 'error' | 'unknown';
 }
 
@@ -49,13 +47,74 @@ export function toolPreview(args: unknown): string | undefined {
   return undefined;
 }
 
+const detailCache = new WeakMap<ToolEntry, { arguments?: string; output?: string }>();
+const callCache = new WeakMap<Record<string, unknown>, ToolEntry>();
+const codemodeCache = new WeakMap<
+  Message,
+  { args: unknown; state: ReturnType<typeof codemodeState> }
+>();
+const artifactCache = new WeakMap<Message, DisplayArtifact | undefined>();
+
+/** Called only by mounted, open spoilers. Cache formatting without retaining old snapshots. */
+export function toolDetails(tool: ToolEntry) {
+  const cached = detailCache.get(tool);
+  if (cached) {
+    return cached;
+  }
+  const details = {
+    arguments: 'args' in tool ? JSON.stringify(tool.args ?? {}, null, 2) : undefined,
+    output: tool.result
+      ? messageBlocks(tool.result)
+          .map((block) => block.text)
+          .join('\n\n')
+      : tool.progress === undefined
+        ? undefined
+        : JSON.stringify(tool.progress, null, 2),
+  };
+  detailCache.set(tool, details);
+  return details;
+}
+
+function callEntry(part: Record<string, unknown>, key: string): ToolEntry {
+  const cached = callCache.get(part);
+  if (cached?.key === key) {
+    return { ...cached };
+  }
+  const tool: ToolEntry = {
+    key,
+    id: typeof part.id === 'string' ? part.id : undefined,
+    args: part.arguments,
+    name: String(part.name ?? 'Tool'),
+    preview: part.name === 'codemode' ? undefined : toolPreview(part.arguments),
+    status: 'unknown',
+  };
+  callCache.set(part, tool);
+  // Pairing a result updates only this projection, never the cached call template.
+  return { ...tool };
+}
+
+function projectCodemode(tool: ToolEntry, children: ToolActivity[] | undefined) {
+  const cached = tool.result ? codemodeCache.get(tool.result) : undefined;
+  if (cached && cached.args === tool.args) {
+    return cached.state;
+  }
+  const state = codemodeState(tool, children);
+  if (tool.result) {
+    codemodeCache.set(tool.result, { args: tool.args, state });
+  }
+  return state;
+}
+
 /** Presentation only. Correlate results by tool ID, never by name or timestamp. */
 export function conversationRows(messages: Message[], active: ToolActivity[]): ConversationRow[] {
-  const rows: ConversationRow[] = [];
+  const rows: (
+    | Exclude<ConversationRow, { kind: 'codemode' }>
+    | { kind: 'codemode'; key: string; tool: ToolEntry }
+  )[] = [];
   const calls = new Map<string, ToolEntry>();
   function addTool(tool: ToolEntry) {
     if (tool.name === 'codemode') {
-      rows.push({ kind: 'codemode', key: tool.key, tool, state: codemodeState(tool) });
+      rows.push({ kind: 'codemode', key: tool.key, tool });
       return;
     }
     if (tool.name === 'ask_user_question') {
@@ -75,15 +134,8 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
     if (message.role === 'toolResult') {
       const id = typeof message.toolCallId === 'string' ? message.toolCallId : undefined;
       const matched = id ? calls.get(id) : undefined;
-      const output =
-        message.toolName === 'codemode'
-          ? undefined
-          : messageBlocks(message)
-              .map((block) => block.text)
-              .join('\n\n');
       if (matched && matched.status === 'unknown') {
         matched.result = message;
-        matched.output = output;
         matched.status = message.isError === true ? 'error' : 'complete';
       } else {
         // History can start after a call or contain results without an ID. Keep them visible.
@@ -92,7 +144,6 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
           id,
           name: String(message.toolName ?? 'Tool output'),
           result: message,
-          output,
           status: message.isError === true ? 'error' : 'complete',
         });
       }
@@ -123,16 +174,10 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
     for (const [partIndex, part] of (message.content ?? []).entries()) {
       if (part.type === 'toolCall') {
         flush();
-        const tool: ToolEntry = {
-          key: typeof part.id === 'string' ? `tool:${part.id}` : `${key}:tool:${partIndex}`,
-          id: typeof part.id === 'string' ? part.id : undefined,
-          args: part.arguments,
-          name: String(part.name ?? 'Tool'),
-          preview: toolPreview(part.arguments),
-          arguments:
-            part.name === 'codemode' ? undefined : JSON.stringify(part.arguments ?? {}, null, 2),
-          status: 'unknown',
-        };
+        const tool = callEntry(
+          part,
+          typeof part.id === 'string' ? `tool:${part.id}` : `${key}:tool:${partIndex}`,
+        );
         addTool(tool);
         if (typeof part.id === 'string') {
           calls.set(part.id, tool);
@@ -175,9 +220,6 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
         matched.status = 'running';
         matched.progress = tool.result;
         matched.preview = toolPreview(tool.args) ?? matched.preview;
-        if (tool.result !== undefined && tool.name !== 'codemode') {
-          matched.output = JSON.stringify(tool.result, null, 2);
-        }
       }
     } else {
       addTool({
@@ -187,11 +229,6 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
         progress: tool.result,
         name: tool.name,
         preview: toolPreview(tool.args),
-        arguments: tool.name === 'codemode' ? undefined : JSON.stringify(tool.args, null, 2),
-        output:
-          tool.name === 'codemode' || tool.result === undefined
-            ? undefined
-            : JSON.stringify(tool.result, null, 2),
         status: 'running',
       });
     }
@@ -199,7 +236,7 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
   const projected: ConversationRow[] = [];
   for (const row of rows) {
     if (row.kind === 'codemode') {
-      const state = codemodeState(row.tool, children.get(row.tool.id ?? ''));
+      const state = projectCodemode(row.tool, children.get(row.tool.id ?? ''));
       projected.push({ ...row, state });
       for (const call of state.calls) {
         projected.push({
@@ -230,7 +267,10 @@ export function conversationRows(messages: Message[], active: ToolActivity[]): C
       tools = [];
     };
     for (const tool of row.tools) {
-      const artifact = displayArtifact(tool.result);
+      if (tool.result && !artifactCache.has(tool.result)) {
+        artifactCache.set(tool.result, displayArtifact(tool.result));
+      }
+      const artifact = tool.result ? artifactCache.get(tool.result) : undefined;
       if (artifact) {
         flush();
         projected.push({ kind: 'display', key: `display:${tool.id ?? tool.key}`, artifact });
@@ -291,12 +331,19 @@ function sameRow(left: ConversationRow, right: ConversationRow): boolean {
 /** Per-mounted-transcript cache. Retain only the current rows, never old live snapshots. */
 export function createConversationRows() {
   let previous = new Map<string, ConversationRow>();
+  let previousTools = new Map<string, ToolEntry>();
   return (messages: Message[], active: ToolActivity[], running = false): ConversationRow[] => {
     const rows: ConversationRow[] = [];
     const waiting = new Set<string>();
     for (const row of conversationRows(messages, active)) {
       if ('parentKey' in row && waiting.has(row.parentKey)) {
         continue;
+      }
+      if (row.kind === 'tools') {
+        row.tools = row.tools.map((tool) => {
+          const old = previousTools.get(tool.key);
+          return old && sameFields(old, tool) ? old : tool;
+        });
       }
       const old = previous.get(row.key);
       if (
@@ -320,6 +367,11 @@ export function createConversationRows() {
       }
     }
     previous = new Map(rows.map((row) => [row.key, row]));
+    previousTools = new Map(
+      rows.flatMap((row) =>
+        row.kind === 'tools' ? row.tools.map((tool) => [tool.key, tool] as const) : [],
+      ),
+    );
     return rows;
   };
 }
