@@ -78,7 +78,12 @@ A chat must be at least half visible before its completion can be marked read. O
 live chat is supported; splitting does not create or resume a Pi runtime. Split placement
 is temporary and does not survive reload.
 
-Use the refresh controls to reload. This is a read-only working-tree view, not per-turn history.
+Visible Diff views update automatically, including external edits. All panes for one project
+share a subscription and cached snapshot; hiding the document or closing the last Diff view
+stops it. Returning to the foreground or reconnecting refreshes authoritative data. Updates
+preserve file selection and scroll position. Refresh remains available manually. This is a
+read-only working-tree view, not per-turn history. See [live Diff protocol](server.md#live-project-diffs)
+for the relay polling cadence and limits.
 The panel starts open on wide screens and overlays the conversation on narrow screens;
 opening a diff on a narrow screen closes the picker.
 `GET /projects/:projectId/diff` reads configured projects only, disables external diff/textconv

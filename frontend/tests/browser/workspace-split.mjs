@@ -36,7 +36,7 @@ test('split diff tabs preserve chat, route closes to the focused group and respe
     managedRuntime: false,
     readState: snapshot.readState,
   };
-  const patch = ['one.ts', 'two.ts']
+  let patch = ['one.ts', 'two.ts']
     .map(
       (name) =>
         `diff --git a/${name} b/${name}\nindex 1111111..2222222 100644\n--- a/${name}\n+++ b/${name}\n@@ -1,30 +1,30 @@\n${Array.from({ length: 30 }, (_, i) => `-old ${i}\n`).join('')}${Array.from({ length: 30 }, (_, i) => `+new ${i}\n`).join('')}`,
@@ -50,10 +50,15 @@ test('split diff tabs preserve chat, route closes to the focused group and respe
       getZoom: async () => 1, setZoom: async value => value,
       onZoomChanged: () => () => {}, notify: async () => {}, onNotificationClicked: () => () => {}
     };
+    window.diffSockets = new Set();
     window.WebSocket = class {
       readyState = 1;
-      constructor() { setTimeout(() => this.onmessage?.({data: JSON.stringify({type:'connected',epoch:'server-one',cursor:0})}), 0); }
-      close() { this.readyState = 3; }
+      constructor(url) {
+        const diff = String(url).includes('/diff/events');
+        if (diff) window.diffSockets.add(this);
+        setTimeout(() => this.onmessage?.({data: JSON.stringify(diff ? {type:'diff-ready'} : {type:'connected',epoch:'server-one',cursor:0})}), 0);
+      }
+      close() { this.readyState = 3; window.diffSockets.delete(this); }
     };
   </script>`;
   let commands = 0;
@@ -104,6 +109,9 @@ test('split diff tabs preserve chat, route closes to the focused group and respe
       json({ patch, truncated: false });
     } else if (path === '/fixture/stats') {
       json({ commands, reads, snapshots });
+    } else if (path === '/fixture/edit') {
+      patch = patch.replaceAll('+new ', '+updated ');
+      json({});
     } else if (path === '/fixture/complete') {
       snapshot.readState.completionId = '33333333-3333-3333-3333-333333333333';
       json({});

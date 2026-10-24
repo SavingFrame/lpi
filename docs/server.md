@@ -19,6 +19,7 @@ Roots are not a filesystem sandbox. Project trust and agent configuration belong
 | Method | Path | Operation |
 |---|---|---|
 | GET | /projects | Project IDs, names, and canonical directories |
+| GET | /projects/:projectId/diff | Current read-only Git working-tree patch |
 | GET | /usage | Read-only Codex allowance snapshots for configured Pi accounts |
 | GET | /sessions | Combined saved-file and live-connection inventory |
 | GET | /sessions/:id | Session identity and connection metadata |
@@ -59,6 +60,29 @@ Extension actions use `{ type: "extension", extension: "ask-user-question", acti
 Success returns `outcome: "acknowledged"` and `data.disposition: "dispatched"`. This means the extension invoked the public Pi API, not that work completed or persisted. Observe subsequent output and settlement.
 
 Lost responses, timeouts, or connection failures may have unknown outcomes. Never replay mutations automatically. Used request IDs are rejected for the server's lifetime, bounded to 100,000. This is not durable exactly-once execution.
+
+## Live project diffs
+
+`GET /projects/:projectId/diff` returns `{ patch, truncated }`, comparing the working tree
+against HEAD, including staged, unstaged, and non-ignored untracked files. Git external diff
+and textconv commands are disabled. Output is bounded to 4 MiB and 100 untracked files;
+an oversized tracked diff returns an error, not an incomplete patch.
+
+Visible Diff views subscribe to `/projects/:projectId/diff/events` over WebSocket. The
+read-only protocol sends `{ type: "diff-ready" }` on connection and
+`{ type: "diff-changed" }` when the snapshot or its error state changes. Refresh the REST
+snapshot after either notification and after reconnecting. There is no event replay or
+conversation cursor on this channel. Client messages close the socket with code 1008.
+The same Host/Origin policy applies; unknown projects and query strings are rejected.
+
+The relay checks subscribed projects with one polling loop per project, waiting one second
+after each bounded Git read before the next. This detects external edits, Git operations,
+and deletions without watching ignored directory trees. Concurrent viewers share the loop
+and its in-memory snapshot. Rapid writes coalesce into the next check; this is near-real-time,
+not a per-write event log. No Git checks run after the last subscriber disconnects.
+Limits are eight watched projects and 32 Diff sockets, separate from session-event sockets.
+Reads have a 15-second deadline; errors retain client-side last-known content and retry.
+Diff snapshots are transient memory only, never stored in SQLite or Pi session files.
 
 ## Provider usage
 

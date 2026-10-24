@@ -119,6 +119,29 @@ async function run() {
       frame.remove();
       continue;
     }
+    const diffContent = doc.querySelector('[aria-label="Right workspace content"]');
+    diffContent.dispatchEvent(
+      new frame.contentWindow.WheelEvent('wheel', { deltaY: 24, bubbles: true }),
+    );
+    diffContent.scrollTop += 24;
+    const diffOffset = diffContent.scrollTop;
+    await fetch('/fixture/edit');
+    for (const socket of frame.contentWindow.diffSockets) {
+      socket.onmessage({ data: JSON.stringify({ type: 'diff-changed' }) });
+    }
+    await until(() =>
+      [...diffContent.querySelectorAll('diffs-container')].some((element) =>
+        element.shadowRoot?.textContent.includes('updated'),
+      ),
+    );
+    check(
+      Math.abs(diffContent.scrollTop - diffOffset) < 1,
+      'Live diff updates preserve the reading position',
+    );
+    check(
+      doc.querySelector('[data-message-composer]') === editor,
+      'Live diff updates do not remount chat',
+    );
     doc.querySelector('.settings-link').click();
     await until(() => doc.querySelector('#diff-opening'));
     const setting = doc.querySelector('#diff-opening');

@@ -4,6 +4,7 @@ import type { LiveState } from '../../../../src/client/live';
 import type { InventorySession } from '../../../../src/shared/sessions';
 import type { MobileRelay } from '../../lib/relay';
 import { colors } from '../../theme/colors';
+import { MobileChanges } from '../changes/changes';
 import { InventoryAction } from '../sessions/inventory-action';
 import { ResumeSession } from '../sessions/resume';
 import { MessageComposer } from './composer';
@@ -27,6 +28,7 @@ export function Conversation({
   const [picking, setPicking] = useState(false);
   const [confirmingRuntime, setConfirmingRuntime] = useState(false);
   const [choosingSettings, setChoosingSettings] = useState(false);
+  const [changesOpen, setChangesOpen] = useState(false);
   const read = useSyncExternalStore(client.reads.subscribe, client.reads.getState);
   const inventory = useSyncExternalStore(client.subscribe, client.getState);
   const id = session?.id;
@@ -42,10 +44,21 @@ export function Conversation({
         !picking &&
         !confirmingRuntime &&
         !choosingSettings &&
+        !changesOpen &&
         connection.status === 'ready',
     );
     return () => client.setReading(id, false, false);
-  }, [client, id, following, visible, picking, confirmingRuntime, choosingSettings, connection]);
+  }, [
+    client,
+    id,
+    following,
+    visible,
+    picking,
+    confirmingRuntime,
+    choosingSettings,
+    changesOpen,
+    connection,
+  ]);
   const snapshot = connection.snapshot?.session.id === id ? connection.snapshot : undefined;
   const sessionAction = session ? (
     <InventoryAction
@@ -65,90 +78,115 @@ export function Conversation({
         !picking &&
         !confirmingRuntime &&
         !choosingSettings &&
+        !changesOpen &&
         connection.status === 'ready'
       }
       onArchive={client.setArchived}
     />
   ) : null;
-  return (
-    <>
-      {session &&
-      inventory.projects.some((project) => project.id === session.projectId) &&
-      connection.snapshot?.session.id === session.id &&
-      connection.snapshot.session.connection === 'disconnected' ? (
-        <ResumeSession
-          client={client}
-          id={session.id}
-          enabled={visible && !picking && connection.status === 'ready'}
-          onOpen={setConfirmingRuntime}
-          renderHeader={(runtimeControl) =>
-            renderHeader(
-              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                {runtimeControl}
-                {sessionAction}
-              </View>,
-            )
+  const project = inventory.projects.find((item) => item.id === session?.projectId);
+  const renderContent = (changesButton: ReactNode) => {
+    const headerActions = (
+      <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {changesButton}
+        {sessionAction}
+      </View>
+    );
+    return (
+      <>
+        {session &&
+        inventory.projects.some((project) => project.id === session.projectId) &&
+        connection.snapshot?.session.id === session.id &&
+        connection.snapshot.session.connection === 'disconnected' ? (
+          <ResumeSession
+            client={client}
+            id={session.id}
+            enabled={visible && !picking && connection.status === 'ready'}
+            onOpen={setConfirmingRuntime}
+            renderHeader={(runtimeControl) =>
+              renderHeader(
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  {runtimeControl}
+                  {headerActions}
+                </View>,
+              )
+            }
+          />
+        ) : (
+          renderHeader(headerActions)
+        )}
+        <ConversationPreview
+          key={`${session?.id}:${connection.snapshot?.session.generation}`}
+          connection={connection}
+          onFollowing={onFollowing}
+          messages={session ? client.messages(session.id, session.projectId) : undefined}
+          questionsEnabled={
+            visible &&
+            !picking &&
+            !confirmingRuntime &&
+            !choosingSettings &&
+            !changesOpen &&
+            connection.status === 'ready' &&
+            connection.snapshot?.session.id === session?.id &&
+            connection.snapshot?.session.connection === 'connected'
           }
         />
-      ) : (
-        renderHeader(sessionAction)
-      )}
-      <ConversationPreview
-        key={`${session?.id}:${connection.snapshot?.session.generation}`}
-        connection={connection}
-        onFollowing={onFollowing}
-        messages={session ? client.messages(session.id, session.projectId) : undefined}
-        questionsEnabled={
-          visible &&
-          !picking &&
-          !confirmingRuntime &&
-          !choosingSettings &&
-          connection.status === 'ready' &&
-          connection.snapshot?.session.id === session?.id &&
-          connection.snapshot?.session.connection === 'connected'
-        }
-      />
-      {read.error && read.target?.id === id && (
-        <Pressable
-          accessibilityRole="button"
-          disabled={read.pending}
-          onPress={() => void client.reads.retry()}
-        >
-          <Text style={{ color: colors.error, padding: 12 }}>
-            Read status could not be saved. Tap to retry.
-          </Text>
-        </Pressable>
-      )}
-      {session && (
-        <MessageComposer
-          settings={
-            connection.snapshot?.session.id === session.id ? (
-              <MobileSessionControls
-                key={`settings:${session.id}:${connection.snapshot.session.generation}`}
-                controls={connection.snapshot.controls}
-                messages={client.messages(session.id, session.projectId)}
-                enabled={
-                  visible &&
-                  !picking &&
-                  !confirmingRuntime &&
-                  connection.status === 'ready' &&
-                  connection.snapshot.session.connection === 'connected' &&
-                  !connection.snapshot.view.running &&
-                  !connection.snapshot.view.compacting &&
-                  connection.snapshot.state.isStreaming !== true &&
-                  connection.snapshot.state.hasPendingMessages !== true &&
-                  connection.snapshot.state.pendingDialog == null
-                }
-                onOpen={setChoosingSettings}
-              />
-            ) : null
-          }
-          messages={client.messages(session.id, session.projectId)}
-          running={connection.snapshot?.view.running === true}
-          picking={picking}
-          onPicking={setPicking}
-        />
-      )}
-    </>
+        {read.error && read.target?.id === id && (
+          <Pressable
+            accessibilityRole="button"
+            disabled={read.pending}
+            onPress={() => void client.reads.retry()}
+          >
+            <Text style={{ color: colors.error, padding: 12 }}>
+              Read status could not be saved. Tap to retry.
+            </Text>
+          </Pressable>
+        )}
+        {session && (
+          <MessageComposer
+            settings={
+              connection.snapshot?.session.id === session.id ? (
+                <MobileSessionControls
+                  key={`settings:${session.id}:${connection.snapshot.session.generation}`}
+                  controls={connection.snapshot.controls}
+                  messages={client.messages(session.id, session.projectId)}
+                  enabled={
+                    visible &&
+                    !picking &&
+                    !confirmingRuntime &&
+                    !changesOpen &&
+                    connection.status === 'ready' &&
+                    connection.snapshot.session.connection === 'connected' &&
+                    !connection.snapshot.view.running &&
+                    !connection.snapshot.view.compacting &&
+                    connection.snapshot.state.isStreaming !== true &&
+                    connection.snapshot.state.hasPendingMessages !== true &&
+                    connection.snapshot.state.pendingDialog == null
+                  }
+                  onOpen={setChoosingSettings}
+                />
+              ) : null
+            }
+            messages={client.messages(session.id, session.projectId)}
+            running={connection.snapshot?.view.running === true}
+            picking={picking}
+            onPicking={setPicking}
+          />
+        )}
+      </>
+    );
+  };
+  return project ? (
+    <MobileChanges
+      client={client}
+      projectId={project.id}
+      projectName={project.name}
+      visible={visible}
+      open={changesOpen}
+      onOpenChange={setChangesOpen}
+      renderContent={renderContent}
+    />
+  ) : (
+    renderContent(null)
   );
 }

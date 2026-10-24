@@ -94,6 +94,22 @@ function setup(t, origin = 'http://relay-one:3141', values = new Map(), mutation
   return { client, sockets, requests, usageRequests, storage, values, connected, inventory };
 }
 
+test('mobile diff uses the bound relay and a read-only project socket', async (t) => {
+  const { client, requests, sockets } = setup(t, 'https://relay.example');
+  const diff = client.createDiff('project');
+  t.after(diff.stop);
+  diff.start();
+  assert.equal(sockets[0].url, 'wss://relay.example/projects/project/diff/events');
+  assert.equal(requests[0].url, 'https://relay.example/projects/project/diff');
+  assert.equal(requests[0].request.method, 'GET');
+  requests[0].resolve(Response.json({ patch: 'current patch', truncated: false }));
+  await setImmediate();
+  assert.equal(diff.getState().data.patch, 'current patch');
+  diff.stop();
+  assert.equal(sockets[0].readyState, 3);
+  assert.equal(diff.getState().status, 'paused');
+});
+
 test('mobile new-session launch shares a durable lane and selects the acknowledged session', async (t) => {
   const fixture = setup(t, undefined, undefined, true);
   await fixture.client.start();

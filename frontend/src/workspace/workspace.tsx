@@ -115,7 +115,14 @@ function DiffPanel({ projectId, onClose }: { projectId: string; onClose: () => v
         <div className="workspace-diff-toolbar">
           <div>
             <strong>Working tree</strong>
-            <span className="muted">Staged, unstaged and untracked</span>
+            <span className="muted">
+              Staged, unstaged and untracked ·{' '}
+              {query.status === 'live'
+                ? 'Live'
+                : query.status === 'paused'
+                  ? 'Paused'
+                  : 'Connecting…'}
+            </span>
           </div>
           <button
             type="button"

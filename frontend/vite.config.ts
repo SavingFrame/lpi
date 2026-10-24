@@ -15,7 +15,7 @@ export function frontendConfig(target = process.env.LPI_DEV_SERVER ?? 'http://12
       strictPort: true,
       proxy: {
         '/display': { target, changeOrigin: true },
-        '/projects': { target, changeOrigin: true },
+        '/projects': { target, changeOrigin: true, ws: true },
         '/usage': { target, changeOrigin: true },
         '/sessions': { target, changeOrigin: true },
         '/events': { target, changeOrigin: true, ws: true },

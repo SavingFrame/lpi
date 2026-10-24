@@ -13,7 +13,8 @@ dependencies aligned with the Expo SDK.
 Paths below are relative to `mobile/` unless stated otherwise:
 
 - `src/app/`: Expo Router entry and provider shell.
-- `src/features/`: connection form, grouped drawer, conversation UI.
+- `src/features/`: connection form, grouped drawer, conversation UI, and native full-screen
+  Changes/file-diff views. Changes use virtualized native text rows, not a WebView.
 - `src/lib/`: native storage/network adapters and lifecycle binding.
 - `src/theme/`: mobile presentation colors.
 - `src/extensions/index.tsx`: explicit mobile extension-renderer registration.
@@ -34,6 +35,10 @@ React Native styles; Tamagui supplies the provider/form foundation.
 
 - Server settings, selection, text drafts, and uncertain-command guards are scoped to the
   normalized relay origin. Restore selection only if the session is still available.
+- Visible Changes views use the shared `ProjectDiffController` and a relay-bound project
+  socket. Close/background stops it; foreground reconnects and refreshes. Selection and
+  list offsets survive live updates. Shared `src/shared/diff-files.ts` projects unified
+  patches into native rows, including Git-quoted filenames and binary/rename metadata.
 - Foregrounding reconnects and synchronizes; suspension closes the client transport, not Pi.
   Ignore stale inventory responses.
 - Persist command uncertainty before dispatch and recheck connectivity/generation after

@@ -1,5 +1,9 @@
 import { record } from './client-state.ts';
 
+export function projectDiffEventsPath(projectId: string): string {
+  return `/projects/${encodeURIComponent(projectId)}/diff/events`;
+}
+
 export interface ProjectDiff {
   patch: string;
   truncated: boolean;

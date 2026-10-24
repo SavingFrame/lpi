@@ -30,7 +30,14 @@ export function DiffView({
       <header className="workspace-diff-toolbar">
         <div>
           <h1>{file ?? 'Working-tree diff'}</h1>
-          <span className="muted">Current changes against HEAD</span>
+          <span className="muted">
+            Current changes against HEAD ·{' '}
+            {query.status === 'live'
+              ? 'Live'
+              : query.status === 'paused'
+                ? 'Paused'
+                : 'Connecting…'}
+          </span>
         </div>
         <button
           type="button"

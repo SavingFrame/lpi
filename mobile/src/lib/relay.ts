@@ -2,6 +2,7 @@ import { type ApiEnvironment, ApiError, RelayApi } from '../../../src/client/api
 import { SessionDrafts } from '../../../src/client/drafts.ts';
 import { LaunchController } from '../../../src/client/launches.ts';
 import { type EventSocket, LiveSession } from '../../../src/client/live.ts';
+import { ProjectDiffController } from '../../../src/client/project-diff.ts';
 import { UsageController } from '../../../src/client/provider-usage.ts';
 import { completionToView, ReadCompletions } from '../../../src/client/read-completion.ts';
 import {
@@ -9,6 +10,7 @@ import {
   clientStorageKey,
   serializedStorage,
 } from '../../../src/client/storage.ts';
+import { projectDiffEventsPath } from '../../../src/shared/project-diff.ts';
 import { linkedSessionId } from '../../../src/shared/session-link.ts';
 import type { InventorySession, Project } from '../../../src/shared/sessions.ts';
 import { MobileMessages } from './messages.ts';
@@ -38,6 +40,7 @@ export class MobileRelay {
   private readonly messageControllers = new Map<string, MobileMessages>();
   private reading: { id: string; following: boolean; visible: boolean } | null = null;
   private readonly api: RelayApi;
+  private readonly diffSocket: (projectId: string) => EventSocket;
   private readonly storage: ClientStorage;
   private readonly selectionKey: string;
   private readonly listeners = new Set<() => void>();
@@ -68,6 +71,11 @@ export class MobileRelay {
       fetch: (path, request) => environment.fetch(new URL(path, this.origin).href, request),
       requestId: environment.requestId,
     });
+    this.diffSocket = (projectId) => {
+      const url = new URL(projectDiffEventsPath(projectId), this.origin);
+      url.protocol = url.protocol === 'https:' ? 'wss:' : 'ws:';
+      return environment.openSocket(url.href);
+    };
     this.usage = new UsageController(this.api.usage.bind(this.api));
     this.live = new LiveSession(
       {
@@ -110,6 +118,12 @@ export class MobileRelay {
       }
     });
   }
+
+  createDiff = (projectId: string): ProjectDiffController =>
+    new ProjectDiffController({
+      read: (signal) => this.api.diff(projectId, signal),
+      openSocket: () => this.diffSocket(projectId),
+    });
 
   messages = (id: string, projectId: string): MobileMessages => {
     let controller = this.messageControllers.get(id);

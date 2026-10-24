@@ -17,6 +17,10 @@ filesystem, database, or Pi runtime dependencies belong here.
   Cached saved sessions are ready without fetching again while the socket stays connected.
   Events for inactive sessions invalidate their caches; reconnecting clears all caches.
   Manual refresh always fetches fresh state. Background sessions are not projected live.
+- `project-diff.ts`: shared read-only live Diff controller. Debounces project invalidations,
+  coalesces in-flight reads, retries transient reads/subscriptions, refreshes after reconnect,
+  and retains last-known content without accepting stale lifecycle results. Adapters start
+  only visible views and stop on close/background; no agent command path is involved.
 - `commands.ts`: one protected command lane per session, including extension answers.
 - `launches.ts`: one shared fresh-launch lane and individual saved-session resume lanes.
 - `mutation-guard.ts`: storage hydration, synchronous in-memory exclusion, persistence

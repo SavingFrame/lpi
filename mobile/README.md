@@ -10,6 +10,7 @@ prebuilt installer is available.
 
 - Browse live and saved conversations by project, with activity and unread indicators.
 - Archive and restore sessions across clients.
+- Browse live working-tree changes and full-screen file diffs, without tabs or split panes.
 - Read streaming Markdown, code, tables, images, and expandable tool details. Thinking is hidden.
 - View image and interactive HTML artifacts, including CDN-backed charts when online.
 - Send text and images, steer running agents, and stop a response.
@@ -63,6 +64,15 @@ agents. Keep it behind trusted LAN, Tailscale, or tunnel access controls.**
 
 Open **Projects**, or swipe from the left edge, to select a conversation. Server settings and
 refresh are in the drawer. Use a project's **+** button to create a new native Pi session.
+
+The header **Changes** icon opens a full-screen changed-file list with addition/deletion
+counts. Tap a file for its unified diff, with line numbers and horizontal scrolling for long
+lines. Changes update automatically while this view is open, including edits made outside Pi.
+The last loaded file count stays on the icon; closing the view or backgrounding the app pauses
+its subscription. Returning refreshes without changing the selected file. A file that becomes
+clean stays selected with an explanatory message. Changes are read-only and do not mark the
+covered conversation read. Lines longer than 2,000 characters are explicitly shortened for
+display. Git and the relay's normal Diff output limits apply.
 
 The composer sends a prompt while idle and steers while the agent is running. With an empty
 draft during a run, its button becomes **Stop**, which requests response cancellation without
