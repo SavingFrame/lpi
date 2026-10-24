@@ -333,7 +333,7 @@ async function run() {
     );
     frame.remove();
   }
-  for (const width of [1280, 390]) {
+  for (const width of [1600, 1280, 390]) {
     const frame = document.createElement('iframe');
     frame.style.cssText = `border:0;width:${width}px;height:844px;display:block`;
     frame.src = '/app/projects/0/sessions/11111111-1111-1111-1111-000000000000?header=1';
@@ -442,6 +442,39 @@ async function run() {
         `Synchronization does not shift ${key} at ${width}px: ${JSON.stringify({ before, during, after })}`,
       );
     }
+    const workspace = doc.querySelector('.desktop-workspace');
+    const originalWidth = doc.querySelector('.workspace').getBoundingClientRect().width;
+    [...doc.querySelectorAll('.session-header button')]
+      .find((button) => button.textContent.includes('Tree'))
+      .click();
+    await until(() => doc.querySelector('.tree-panel'));
+    for (const wide of [false, true]) {
+      if (wide) {
+        doc.querySelector('[aria-label="Widen tree panel"]').click();
+        await until(() => doc.querySelector('.tree-panel.tree-wide'));
+      }
+      const tree = doc.querySelector('.tree-panel').getBoundingClientRect();
+      const content = doc.querySelector('.workspace').getBoundingClientRect();
+      const docked = wide ? width > 1400 : width > 1000;
+      check(
+        Math.abs(content.right - (docked ? tree.left : workspace.getBoundingClientRect().right)) <
+          1,
+        `Tree reserves space once across the whole workspace at ${width}px, wide=${wide}`,
+      );
+      check(
+        Math.abs(
+          history.getBoundingClientRect().right -
+            doc.querySelector('.session-pane').getBoundingClientRect().right,
+        ) < 1,
+        'Chat does not retain a second empty tree reservation',
+      );
+    }
+    doc.querySelector('[aria-label="Close session tree"]').click();
+    await until(() => !doc.querySelector('.tree-panel'));
+    check(
+      Math.abs(doc.querySelector('.workspace').getBoundingClientRect().width - originalWidth) < 1,
+      'Closing the tree restores the workspace width',
+    );
     frame.remove();
   }
   const frame = document.createElement('iframe');
