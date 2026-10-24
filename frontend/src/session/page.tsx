@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { Power, RefreshCw, Search } from 'lucide-react';
+import { ArrowDown, Power, RefreshCw, Search } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ExtensionPanels } from '../../../src/extension-support/web';
 import { emptyView } from '../../../src/shared/client-state';
@@ -50,7 +50,7 @@ function SessionPane({
   const [treeWide, setTreeWide] = useState(false);
   const connection = useSyncExternalStore(live.subscribe, live.getState);
   const snapshot = connection.snapshot?.session.id === id ? connection.snapshot : null;
-  const { pane, following, follow, pause } = useChatScroll(id, Boolean(snapshot));
+  const { pane, viewport, following, follow, pause } = useChatScroll(id, Boolean(snapshot));
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
   const projectName =
     projectQuery.data?.find((project) => project.id === projectId)?.name ??
@@ -65,10 +65,7 @@ function SessionPane({
   const { preview, selectBranch, restoredDraft, navigationPending, navigationError } =
     useBranchNavigation(id, projectId, branch, commands);
   return (
-    <div
-      ref={pane}
-      className={`session-pane ${treeOpen ? 'tree-open' : ''} ${treeWide ? 'tree-wide' : ''}`}
-    >
+    <div className={`session-pane ${treeOpen ? 'tree-open' : ''} ${treeWide ? 'tree-wide' : ''}`}>
       <div className="session-topbar">
         <header className="session-header">
           <div className="session-heading">
@@ -156,6 +153,7 @@ function SessionPane({
         </header>
         <ChatSearch
           pane={pane}
+          viewport={viewport}
           open={searchOpen}
           onOpenChange={setSearchOpen}
           trigger={searchButton}
@@ -183,65 +181,91 @@ function SessionPane({
         )}
         {snapshot?.view.notice && <p className="banner">{snapshot.view.notice}</p>}
       </div>
-      {commands.error && (
-        <p className="banner error" role="alert">
-          {commands.error.message}
-        </p>
-      )}
-      {commands.uncertain && (
-        <div className="banner error">
-          <p>Do not resend automatically. Refresh and inspect the session first.</p>
+      <div className="session-history">
+        <section
+          ref={viewport}
+          className="session-scroll"
+          data-chat-scroll
+          tabIndex={-1}
+          aria-label="Conversation history"
+        >
+          <div ref={pane} className="session-content">
+            {commands.error && (
+              <p className="banner error" role="alert">
+                {commands.error.message}
+              </p>
+            )}
+            {commands.uncertain && (
+              <div className="banner error">
+                <p>Do not resend automatically. Refresh and inspect the session first.</p>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  size="sm"
+                  disabled={connection.status !== 'ready'}
+                  onClick={commands.review}
+                >
+                  I reviewed the session
+                </Button>
+              </div>
+            )}
+            {branch && (
+              <div className="banner branch-preview" role="status">
+                <span>
+                  {navigationPending
+                    ? 'Switching conversation…'
+                    : 'Read-only branch preview. Select an entry again when Pi is synchronized and idle to switch.'}
+                </span>
+                <Button type="button" variant="ghost" size="sm" onClick={() => void selectBranch()}>
+                  Back to current conversation
+                </Button>
+                {navigationError && <p className="error">{navigationError}</p>}
+              </div>
+            )}
+            {branch && preview.isPending && <p className="banner">Loading branch preview…</p>}
+            {branch && preview.error && (
+              <p className="banner error" role="alert">
+                {preview.error.message}
+              </p>
+            )}
+            {branch
+              ? preview.data && (
+                  <Transcript
+                    view={{ ...emptyView(), messages: preview.data.messages }}
+                    onPreview={selectBranch}
+                  />
+                )
+              : snapshot && <Transcript view={snapshot.view} onPreview={selectBranch} />}
+            <ReadCompletion
+              viewport={viewport}
+              snapshot={snapshot}
+              synchronized={connection.status === 'ready' && !branch}
+              following={following}
+            />
+            {snapshot && !branch && (
+              <ExtensionPanels
+                key={`${snapshot.session.id}:${snapshot.session.generation}`}
+                extensions={snapshot.view.extensions}
+                disabled={!commands.active}
+                onCommand={commands.submit}
+              />
+            )}
+          </div>
+        </section>
+        {!following && (
           <Button
             type="button"
-            variant="secondary"
-            size="sm"
-            disabled={connection.status !== 'ready'}
-            onClick={commands.review}
+            variant="outline"
+            size="icon"
+            className="session-follow rounded-full shadow-lg"
+            aria-label="Go to bottom"
+            title="Go to bottom"
+            onClick={follow}
           >
-            I reviewed the session
+            <ArrowDown aria-hidden="true" />
           </Button>
-        </div>
-      )}
-      {branch && (
-        <div className="banner branch-preview" role="status">
-          <span>
-            {navigationPending
-              ? 'Switching conversation…'
-              : 'Read-only branch preview. Select an entry again when Pi is synchronized and idle to switch.'}
-          </span>
-          <Button type="button" variant="ghost" size="sm" onClick={() => void selectBranch()}>
-            Back to current conversation
-          </Button>
-          {navigationError && <p className="error">{navigationError}</p>}
-        </div>
-      )}
-      {branch && preview.isPending && <p className="banner">Loading branch preview…</p>}
-      {branch && preview.error && (
-        <p className="banner error" role="alert">
-          {preview.error.message}
-        </p>
-      )}
-      {branch
-        ? preview.data && (
-            <Transcript
-              view={{ ...emptyView(), messages: preview.data.messages }}
-              onPreview={selectBranch}
-            />
-          )
-        : snapshot && <Transcript view={snapshot.view} onPreview={selectBranch} />}
-      <ReadCompletion
-        snapshot={snapshot}
-        synchronized={connection.status === 'ready' && !branch}
-        following={following}
-      />
-      {snapshot && !branch && (
-        <ExtensionPanels
-          key={`${snapshot.session.id}:${snapshot.session.generation}`}
-          extensions={snapshot.view.extensions}
-          disabled={!commands.active}
-          onCommand={commands.submit}
-        />
-      )}
+        )}
+      </div>
       <Composer
         id={id}
         projectId={projectId}
@@ -252,7 +276,6 @@ function SessionPane({
         pending={commands.pending}
         uncertain={commands.uncertain}
         outcome={commands.outcome}
-        following={following}
         onFollow={follow}
         onNew={async () => {
           const created = await launches.start(projectId);

@@ -87,6 +87,29 @@ test('windowed sidebar search, project controls and settings work in desktop and
   snapshot.state.sessionName =
     'A long session title that wraps on compact layouts without moving during synchronization';
   snapshot.state.managedRuntime = true;
+  snapshot.view.messages = Array.from({ length: 12 }, (_, index) => [
+    { role: 'user', timestamp: index * 2, content: `Question ${index}` },
+    {
+      role: 'assistant',
+      timestamp: index * 2 + 1,
+      content: `Reply ${index}. ${'Conversation history for scrolling. '.repeat(40)}`,
+    },
+  ]).flat();
+  snapshot.view.messages.unshift({
+    role: 'assistant',
+    timestamp: -1,
+    content: [
+      {
+        type: 'toolCall',
+        id: 'write-preview',
+        name: 'write',
+        arguments: {
+          path: 'src/preview.ts',
+          content: 'export const value = 1;\n'.repeat(30),
+        },
+      },
+    ],
+  });
   const result = Promise.withResolvers();
   const types = { '.js': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm' };
   const server = createServer(async (request, response) => {

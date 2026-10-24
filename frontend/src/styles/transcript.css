@@ -16,9 +16,8 @@
     font-weight: 500;
     margin-bottom: 12px;
   }
+  /* A turn can contain many tools. Estimated offscreen heights make visible content jump. */
   .message {
-    content-visibility: auto;
-    contain-intrinsic-size: auto 300px;
     padding: 24px 0;
     overflow-wrap: anywhere;
   }
@@ -85,6 +84,8 @@
     color: var(--foreground);
   }
   .edit-diff {
+    /* Contain fixed/sticky shadow-DOM headers without estimating the preview height. */
+    contain: layout paint;
     min-width: 0;
     max-width: 100%;
     overflow: hidden;

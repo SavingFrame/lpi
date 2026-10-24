@@ -6,12 +6,14 @@ import { conversationRanges } from './conversation-ranges';
 
 export function ChatSearch({
   pane,
+  viewport,
   open,
   onOpenChange,
   trigger,
   onNavigate,
 }: {
   pane: RefObject<HTMLDivElement | null>;
+  viewport: RefObject<HTMLDivElement | null>;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   trigger: RefObject<HTMLButtonElement | null>;
@@ -76,15 +78,11 @@ export function ChatSearch({
     const last = previous.current;
     if (active && (!last || active.compareBoundaryPoints(Range.START_TO_START, last) !== 0)) {
       onNavigate();
-      // Reveal content-visibility sections before measuring the exact occurrence.
-      active.startContainer.parentElement?.scrollIntoView({ block: 'center' });
-      const viewport = pane.current?.closest('main');
-      if (viewport) {
-        const bounds = viewport.getBoundingClientRect();
-        const header = pane.current?.querySelector('.session-topbar')?.getBoundingClientRect();
-        const top = Math.max(bounds.top, header?.bottom ?? bounds.top);
+      const scroller = viewport.current;
+      if (scroller) {
+        const bounds = scroller.getBoundingClientRect();
         const match = active.getBoundingClientRect();
-        viewport.scrollBy({ top: match.top - (top + (bounds.bottom - top) / 2) });
+        scroller.scrollBy({ top: match.top - (bounds.top + bounds.height / 2) });
       }
     }
     previous.current = active ?? null;
@@ -101,7 +99,7 @@ export function ChatSearch({
       CSS.highlights.delete('chat-search');
       CSS.highlights.delete('chat-search-active');
     };
-  }, [open, ranges, current, onNavigate, pane]);
+  }, [open, ranges, current, onNavigate, viewport]);
 
   if (!open) {
     return null;

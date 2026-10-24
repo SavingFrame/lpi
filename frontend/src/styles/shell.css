@@ -570,7 +570,8 @@
     min-width: 0;
     min-height: 0;
     overflow-y: auto;
-    overflow-anchor: none;
+    /* Keep the visible content in place when deferred previews above it expand. */
+    overflow-anchor: auto;
     overscroll-behavior: contain;
     scrollbar-width: thin;
     scrollbar-color: var(--input) transparent;

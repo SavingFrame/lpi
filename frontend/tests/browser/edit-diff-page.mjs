@@ -1,7 +1,9 @@
-import { createElement } from 'react';
+import { useWorkerPool } from '@pierre/diffs/react';
+import { createElement, useEffect } from 'react';
 import { flushSync } from 'react-dom';
 import { createRoot } from 'react-dom/client';
 import { emptyView } from '../../../src/shared/client-state.ts';
+import { DiffProvider } from '../../src/components/diff-provider';
 import { Transcript } from '../../src/session/transcript/transcript';
 import '../../src/styles/transcript.css';
 
@@ -21,6 +23,14 @@ const waitFor = async (predicate) => {
     `Timed out waiting for diff rendering: ${document.querySelector('diffs-container')?.shadowRoot?.innerHTML.slice(-5000) ?? document.body.innerHTML}`,
   );
 };
+let workerPool;
+function WorkerTranscript(props) {
+  const pool = useWorkerPool();
+  useEffect(() => {
+    workerPool = pool;
+  }, [pool]);
+  return createElement(Transcript, props);
+}
 const violations = [];
 document.addEventListener('securitypolicyviolation', (event) => {
   violations.push(event.effectiveDirective);
@@ -54,7 +64,13 @@ try {
   };
   const render = (messages, overrides = {}) =>
     flushSync(() =>
-      root.render(createElement(Transcript, { view: { ...emptyView(), messages, ...overrides } })),
+      root.render(
+        createElement(
+          DiffProvider,
+          null,
+          createElement(WorkerTranscript, { view: { ...emptyView(), messages, ...overrides } }),
+        ),
+      ),
     );
   const click = (node) => flushSync(() => node.click());
   const ordinary = (id, name) => ({ type: 'toolCall', id, name, arguments: { path: id } });
@@ -84,6 +100,12 @@ try {
   const viewer = () => host.querySelector('diffs-container')?.shadowRoot;
   await waitFor(() => viewer()?.querySelector('[data-unified]'));
   await waitFor(() => viewer()?.querySelector('[data-line] span[style]'));
+  await waitFor(() => workerPool?.getStats().managerState === 'initialized');
+  check(
+    !workerPool.getStats().workersFailed,
+    'highlighting workers initialize under production CSP',
+  );
+  check(workerPool.getStats().totalWorkers > 0, 'highlighting uses real workers');
   check(
     getComputedStyle(viewer().querySelector('[data-code]')).display === 'grid',
     'viewer stylesheet applies under production CSP',
@@ -140,6 +162,22 @@ try {
   render([message, toolResult]);
   await waitFor(() => viewer()?.querySelector('[data-diff]'));
   check(host.querySelector('.tool-block').open, 'live completion keeps the edit open');
+  render([
+    {
+      ...message,
+      content: [
+        {
+          type: 'toolCall',
+          id: 'write-1',
+          name: 'write',
+          arguments: { path: 'src/example.ts', content: oldLine },
+        },
+      ],
+    },
+  ]);
+  await waitFor(() => viewer()?.querySelector('[data-line] span[style]'));
+  check(viewer().textContent.includes(oldLine), 'write previews retain syntax highlighting');
+  check(!workerPool.getStats().workersFailed, 'file highlighting keeps the worker pool healthy');
   const nestedMessages = [
     {
       ...message,
@@ -199,10 +237,16 @@ try {
   flushSync(() =>
     deferredRoot.render(
       createElement(
-        'div',
+        DiffProvider,
         null,
-        createElement('div', { style: { height: 3000 } }),
-        createElement(Transcript, { view: { ...emptyView(), messages: [message, toolResult] } }),
+        createElement(
+          'div',
+          null,
+          createElement('div', { style: { height: 3000 } }),
+          createElement(WorkerTranscript, {
+            view: { ...emptyView(), messages: [message, toolResult] },
+          }),
+        ),
       ),
     ),
   );
@@ -211,6 +255,8 @@ try {
   deferredHost.scrollTop = deferredHost.scrollHeight;
   await waitFor(() => deferredHost.querySelector('diffs-container'));
   const deferredViewer = deferredHost.querySelector('diffs-container');
+  await waitFor(() => deferredViewer.shadowRoot?.querySelector('[data-line] span[style]'));
+  check(!workerPool.getStats().workersFailed, 'deferred previews retain worker highlighting');
   deferredHost.scrollTop = 0;
   await new Promise((resolve) => setTimeout(resolve, 100));
   check(

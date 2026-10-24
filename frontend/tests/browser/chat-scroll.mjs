@@ -17,6 +17,11 @@ test('Chromium scroll following, reader control, disclosures and cleanup', {
     readFileSync(new URL('../../src/session/scroll/chat-scroll.ts', import.meta.url), 'utf8'),
   );
   const page = readFileSync(new URL('./chat-scroll-page.mjs', import.meta.url), 'utf8');
+  const shell = readFileSync(new URL('../../src/styles/shell.css', import.meta.url), 'utf8');
+  const transcript = readFileSync(
+    new URL('../../src/styles/transcript.css', import.meta.url),
+    'utf8',
+  );
   const result = Promise.withResolvers();
   const server = createServer(async (request, response) => {
     if (request.url === '/result' && request.method === 'POST') {
@@ -34,7 +39,12 @@ test('Chromium scroll following, reader control, disclosures and cleanup', {
       return;
     }
     const sources = {
-      '/': ['text/html', '<!doctype html><script type="module" src="/page.js"></script>'],
+      '/': [
+        'text/html',
+        '<!doctype html><link rel="stylesheet" href="/shell.css"><link rel="stylesheet" href="/transcript.css"><script type="module" src="/page.js"></script>',
+      ],
+      '/shell.css': ['text/css', shell],
+      '/transcript.css': ['text/css', transcript],
       '/page.js': ['text/javascript', page],
       '/chat-scroll.js': ['text/javascript', controller],
     };
@@ -45,7 +55,7 @@ test('Chromium scroll following, reader control, disclosures and cleanup', {
     }
     response.writeHead(200, {
       'Content-Type': source[0],
-      'Content-Security-Policy': "default-src 'self'; style-src 'unsafe-inline'",
+      'Content-Security-Policy': "default-src 'self'; style-src 'self' 'unsafe-inline'",
     });
     response.end(source[1]);
   });
@@ -118,5 +128,7 @@ test('Chromium scroll following, reader control, disclosures and cleanup', {
     'manual scroll',
     'disclosures',
     'cleanup',
+    'stable message heights',
+    'deferred preview anchoring',
   ]);
 });

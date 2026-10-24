@@ -1,8 +1,11 @@
 @layer components {
   .composer {
-    margin-top: auto;
-    position: sticky;
-    bottom: 0;
+    position: relative;
+    flex-shrink: 0;
+    max-height: 50%;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
     background: var(--background);
     padding: 14px 28px 20px;
     border-top: 1px solid var(--border);

@@ -4,6 +4,7 @@ import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { router } from './app/router';
 import { queryClient } from './client/controllers';
+import { DiffProvider } from './components/diff-provider';
 import './style.css';
 
 const element = document.getElementById('root');
@@ -12,8 +13,10 @@ if (!element) {
 }
 createRoot(element).render(
   <StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <RouterProvider router={router} />
-    </QueryClientProvider>
+    <DiffProvider>
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>
+    </DiffProvider>
   </StrictMode>,
 );

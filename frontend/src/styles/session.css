@@ -2,14 +2,41 @@
   .session-pane {
     display: flex;
     flex-direction: column;
+    height: 100%;
+    min-height: 0;
+    overflow: hidden;
+  }
+  .session-history {
+    position: relative;
+    isolation: isolate;
+    flex: 1;
+    min-height: 0;
+  }
+  .session-scroll {
+    height: 100%;
+    overflow: auto;
+    overflow-anchor: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+    scrollbar-color: var(--input) transparent;
+  }
+  .session-content {
+    display: flex;
+    flex-direction: column;
     min-height: 100%;
   }
+  .session-follow {
+    position: absolute;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
+  }
   .session-topbar {
-    position: sticky;
-    top: 0;
+    position: relative;
     z-index: 10;
     flex-shrink: 0;
-    max-height: 60dvh;
+    max-height: 30%;
     overflow: auto;
     background: var(--background);
   }
@@ -17,6 +44,7 @@
     border-bottom: 1px solid var(--border);
     padding: 18px 28px;
     display: flex;
+    flex-wrap: wrap;
     justify-content: space-between;
     align-items: center;
     gap: 16px;
@@ -50,7 +78,7 @@
     color: #18181b;
   }
   .session-heading {
-    flex: 1;
+    flex: 1 1 240px;
     min-width: 0;
   }
   .session-header-status {
@@ -72,6 +100,8 @@
   }
   .controls {
     display: flex;
+    min-width: 0;
+    max-width: 100%;
     gap: 8px;
     flex-wrap: wrap;
   }

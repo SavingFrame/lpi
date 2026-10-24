@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { type RefObject, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { completionToView, ReadCompletions } from '../../../src/client/read-completion';
 import { hasUnreadCompletion } from '../../../src/shared/session-read-state';
 import type { Snapshot } from '../../../src/shared/snapshots';
@@ -8,10 +8,12 @@ import { Button } from '../components/ui/button';
 
 /** Browser visibility and React lifecycle bind the shared read-completion controller. */
 export function ReadCompletion({
+  viewport,
   snapshot,
   synchronized,
   following,
 }: {
+  viewport: RefObject<HTMLDivElement | null>;
   snapshot: Snapshot | null;
   synchronized: boolean;
   following: boolean;
@@ -47,7 +49,7 @@ export function ReadCompletion({
     };
   }, [snapshot, synchronized, following, controller]);
   useEffect(() => {
-    const pane = document.querySelector('.session-pane')?.closest('main');
+    const pane = viewport.current;
     if (!pane) {
       return;
     }
@@ -65,7 +67,7 @@ export function ReadCompletion({
       paneVisible.current = false;
       observer.disconnect();
     };
-  }, [controller]);
+  }, [controller, viewport]);
   useEffect(() => {
     const update = () => void controller.synchronize();
     document.addEventListener('visibilitychange', update);

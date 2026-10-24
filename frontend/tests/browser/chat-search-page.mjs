@@ -14,17 +14,19 @@ async function run() {
   let navigations = 0;
   function App({ reply = 'A **needle** reply. needle [x].' }) {
     const pane = useRef(null);
+    const viewport = useRef(null);
     const trigger = useRef(null);
     const [open, setOpen] = useState(false);
     return h(
       'div',
-      { ref: pane },
+      { className: 'session-pane' },
       h(
         'div',
         { className: 'session-topbar' },
         h('button', { type: 'button', ref: trigger, onClick: () => setOpen(!open) }, 'Search'),
         h(ChatSearch, {
           pane,
+          viewport,
           trigger,
           open,
           onOpenChange: setOpen,
@@ -32,22 +34,35 @@ async function run() {
         }),
       ),
       h(
-        'section',
-        { className: 'transcript' },
-        h(MessageBody, { item: { role: 'user', content: 'NEEDLE [x].' } }),
-        h('div', { style: { height: 800 } }),
-        h(MessageBody, {
-          item: {
-            role: 'assistant',
-            content: [
-              { type: 'thinking', thinking: 'needle secret reasoning' },
-              { type: 'text', text: reply },
-              { type: 'toolCall', name: 'bash', arguments: { command: 'needle' } },
-            ],
-          },
-        }),
-        h(MessageBody, { item: { role: 'toolResult', content: 'needle output' } }),
+        'div',
+        { className: 'session-history' },
+        h(
+          'div',
+          { className: 'session-scroll', ref: viewport, 'data-chat-scroll': '' },
+          h(
+            'div',
+            { className: 'session-content', ref: pane },
+            h(
+              'section',
+              { className: 'transcript' },
+              h(MessageBody, { item: { role: 'user', content: 'NEEDLE [x].' } }),
+              h('div', { style: { height: 800 } }),
+              h(MessageBody, {
+                item: {
+                  role: 'assistant',
+                  content: [
+                    { type: 'thinking', thinking: 'needle secret reasoning' },
+                    { type: 'text', text: reply },
+                    { type: 'toolCall', name: 'bash', arguments: { command: 'needle' } },
+                  ],
+                },
+              }),
+              h(MessageBody, { item: { role: 'toolResult', content: 'needle output' } }),
+            ),
+          ),
+        ),
       ),
+      h('div', { className: 'composer' }, h('textarea', { 'aria-label': 'Fixture composer' })),
     );
   }
   const render = (reply) => flushSync(() => root.render(h(App, { reply })));
@@ -69,6 +84,7 @@ async function run() {
     flushSync(() => input.dispatchEvent(new Event('input', { bubbles: true })));
   };
   const status = () => host.querySelector('.chat-search [role="status"]').textContent;
+  const scroller = () => host.querySelector('[data-chat-scroll]');
   render();
   key(window, 'f', { ctrlKey: true });
   check(document.activeElement === host.querySelector('input'), 'Ctrl+F focuses search');
@@ -77,7 +93,13 @@ async function run() {
   check(CSS.highlights.get('chat-search').size === 3, 'all occurrences highlighted');
   check(CSS.highlights.get('chat-search-active').size === 1, 'active match highlighted separately');
   click('Next match');
-  check(status() === '2 of 3' && host.scrollTop > 0, 'next scrolls to the reply');
+  check(status() === '2 of 3' && scroller().scrollTop > 0, 'next scrolls to the reply');
+  check(host.scrollTop === 0, 'search does not scroll the outer workspace');
+  check(
+    scroller().getBoundingClientRect().bottom <=
+      host.querySelector('.composer').getBoundingClientRect().top + 1,
+    'history scrolling ends above the composer',
+  );
   key(host.querySelector('input'), 'Enter', { shiftKey: true });
   check(status() === '1 of 3', 'Shift+Enter navigates backward');
   click('Previous match');
@@ -102,10 +124,10 @@ async function run() {
   render(`needle ${'filler '.repeat(3000)} needle`);
   await new Promise((resolve) => setTimeout(resolve, 50));
   click('Next match');
-  const firstReplyMatch = host.scrollTop;
+  const firstReplyMatch = scroller().scrollTop;
   click('Next match');
   check(
-    host.scrollTop > firstReplyMatch + 400,
+    scroller().scrollTop > firstReplyMatch + 400,
     'navigation reaches occurrences within a long paragraph',
   );
   const searchBounds = host.querySelector('.chat-search').getBoundingClientRect();

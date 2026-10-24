@@ -34,7 +34,6 @@ try {
               pending: false,
               uncertain: false,
               outcome: null,
-              following: true,
               onFollow: () => {},
               onCommand: async () => false,
               ...props,

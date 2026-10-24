@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { mkdir, writeFile } from 'node:fs/promises';
-import { join } from 'node:path';
+import { dirname, join } from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import Fastify from 'fastify';
@@ -17,6 +17,7 @@ test('edit patches render safely, switch layout and preserve raw output in Chrom
   const { root, home, defer } = fixture(t);
   const bundle = await build({
     configFile: false,
+    base: '/assets/',
     logLevel: 'warn',
     esbuild: { jsx: 'automatic' },
     define: { 'process.env.NODE_ENV': JSON.stringify('production') },
@@ -33,12 +34,11 @@ test('edit patches render safely, switch layout and preserve raw output in Chrom
   const directory = join(root, 'frontend');
   await mkdir(join(directory, 'assets'), { recursive: true });
   await Promise.all(
-    output.map((item) =>
-      writeFile(
-        join(directory, 'assets', item.fileName),
-        item.type === 'chunk' ? item.code : item.source,
-      ),
-    ),
+    output.map(async (item) => {
+      const path = join(directory, 'assets', item.fileName);
+      await mkdir(dirname(path), { recursive: true });
+      await writeFile(path, item.type === 'chunk' ? item.code : item.source);
+    }),
   );
   const entry = output.find((item) => item.type === 'chunk' && item.isEntry);
   const css = output.filter((item) => item.type === 'asset' && item.fileName.endsWith('.css'));

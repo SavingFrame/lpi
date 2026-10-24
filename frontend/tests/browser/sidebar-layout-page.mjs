@@ -346,7 +346,7 @@ async function run() {
       topbar: doc.querySelector('.session-topbar').getBoundingClientRect().height,
       transcript:
         doc.querySelector('.transcript').getBoundingClientRect().top +
-        doc.querySelector('main').scrollTop,
+        doc.querySelector('[data-chat-scroll]').scrollTop,
     });
     const before = bounds();
     frame.contentWindow.holdSnapshots = true;
@@ -363,10 +363,33 @@ async function run() {
     frame.contentWindow.releaseSnapshots();
     await until(() => status.textContent === '');
     const after = bounds();
+    const history = doc.querySelector('[data-chat-scroll]');
+    const composer = doc.querySelector('.composer');
+    const headerTop = doc.querySelector('.session-topbar').getBoundingClientRect().top;
+    const composerTop = composer.getBoundingClientRect().top;
+    check(history.clientHeight > 40, `History keeps usable space at ${width}px`);
+    check(
+      history.getBoundingClientRect().bottom <= composerTop + 1,
+      `History scrolling ends above the composer at ${width}px`,
+    );
+    history.scrollTop = history.scrollHeight / 2;
+    await until(() => doc.querySelector('[aria-label="Go to bottom"]'));
+    check(
+      Math.abs(doc.querySelector('.session-topbar').getBoundingClientRect().top - headerTop) < 1 &&
+        Math.abs(composer.getBoundingClientRect().top - composerTop) < 1,
+      `Scrolling history leaves the header and composer fixed at ${width}px`,
+    );
+    check(doc.querySelector('main').scrollTop === 0, 'The outer workspace does not scroll');
+    check(
+      doc.querySelector('main').scrollHeight <= doc.querySelector('main').clientHeight + 1,
+      'Session content fits the workspace without an outer scrollbar',
+    );
+    doc.querySelector('[aria-label="Go to bottom"]').click();
+    await until(() => history.scrollHeight - history.scrollTop - history.clientHeight < 2);
     for (const key of ['header', 'topbar', 'transcript']) {
       check(
         Math.abs(before[key] - during[key]) < 1 && Math.abs(before[key] - after[key]) < 1,
-        `Synchronization does not shift ${key} at ${width}px`,
+        `Synchronization does not shift ${key} at ${width}px: ${JSON.stringify({ before, during, after })}`,
       );
     }
     frame.remove();

@@ -10,13 +10,13 @@ const check = (condition, message) => {
 
 try {
   document.body.innerHTML = `
-    <div id="viewport" style="height:240px;width:400px;overflow:auto">
+    <main id="viewport" style="height:240px;width:400px;overflow:auto">
       <div id="content">
         <div style="height:800px">History</div>
         <div id="tail" style="height:200px">Streaming reply</div>
         <details><summary>Tool output</summary><div style="height:600px">Result</div></details>
       </div>
-    </div>`;
+    </main>`;
   const viewport = document.querySelector('#viewport');
   const content = document.querySelector('#content');
   const tail = document.querySelector('#tail');
@@ -72,6 +72,51 @@ try {
   );
   check(following, 'disconnected scroll listeners must not update following state');
   passed.push('cleanup');
+
+  content.className = 'transcript';
+  content.innerHTML = Array.from(
+    { length: 12 },
+    (_, index) => `<article class="message assistant">
+      <header>Pi</header>
+      <div style="height:${700 + index * 100}px">Turn ${index}</div>
+    </article>`,
+  ).join('');
+  viewport.style.height = '300px';
+  viewport.scrollTop = 0;
+  await pause();
+  const coldHeight = viewport.scrollHeight;
+  viewport.scrollTop = viewport.scrollHeight;
+  await pause();
+  viewport.scrollTop = 0;
+  await pause();
+  check(
+    Math.abs(viewport.scrollHeight - coldHeight) <= 1,
+    'visiting offscreen turns must not replace estimated message heights',
+  );
+  passed.push('stable message heights');
+
+  const reader = chatScroll(viewport, content, (value) => {
+    following = value;
+  });
+  const anchor = content.children[6].querySelector('header');
+  viewport.scrollTop +=
+    anchor.getBoundingClientRect().top - viewport.getBoundingClientRect().top - 40;
+  await pause();
+  check(!following, 'reading older turns should pause bottom following');
+  const anchorTop = anchor.getBoundingClientRect().top;
+  const preview = content.children[4].querySelector('div');
+  preview.style.height = `${preview.offsetHeight + 1200}px`;
+  await pause();
+  check(
+    Math.abs(anchor.getBoundingClientRect().top - anchorTop) <= 1,
+    `a deferred preview expanding above the reader must preserve the visible message (${anchorTop} -> ${anchor.getBoundingClientRect().top}, anchoring: ${getComputedStyle(viewport).overflowAnchor})`,
+  );
+  check(!following, 'scroll anchoring must not reenable bottom following');
+  reader.follow();
+  await pause();
+  check(atBottom() && following, 'explicit follow still works after scroll anchoring');
+  reader.disconnect();
+  passed.push('deferred preview anchoring');
   await fetch('/result', { method: 'POST', body: JSON.stringify({ passed }) });
 } catch (error) {
   await fetch('/result', {

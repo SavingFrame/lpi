@@ -1,5 +1,5 @@
 import { keepPreviousData, useQuery } from '@tanstack/react-query';
-import { ArrowDown, ArrowUp, Square } from 'lucide-react';
+import { ArrowUp, Square } from 'lucide-react';
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { type ComposerDraft, composerCommand } from '../../../../src/client/drafts';
 import type { BridgeCommand } from '../../../../src/shared/commands';
@@ -26,7 +26,6 @@ export function Composer({
   pending,
   uncertain,
   outcome,
-  following,
   onFollow,
   onCommand,
   onNew,
@@ -40,7 +39,6 @@ export function Composer({
   pending: boolean;
   uncertain: boolean;
   outcome: string | null;
-  following: boolean;
   onFollow: () => void;
   onCommand: (command: BridgeCommand) => Promise<boolean>;
   onNew: () => Promise<boolean>;
@@ -180,19 +178,6 @@ export function Composer({
   useKeyboardAction('send', () => input.current?.form?.requestSubmit(), canSend);
   return (
     <div className="composer">
-      {!following && (
-        <Button
-          type="button"
-          variant="outline"
-          size="icon"
-          className="absolute -top-12 left-1/2 -translate-x-1/2 rounded-full shadow-lg"
-          aria-label="Go to bottom"
-          title="Go to bottom"
-          onClick={onFollow}
-        >
-          <ArrowDown aria-hidden="true" />
-        </Button>
-      )}
       {snapshot && (
         <SessionSettings
           controls={snapshot.controls}
