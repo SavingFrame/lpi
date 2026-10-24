@@ -5,7 +5,7 @@ import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
 import { conversationScroll } from '../src/features/conversation/scroll.ts';
-import { conversationRows } from '../src/features/conversation/timeline.ts';
+import { createConversationRows } from '../src/features/conversation/timeline.ts';
 
 test('replaces the empty native list on history arrival, then preserves its identity on updates', () => {
   // Inspect React elements with native imports/hooks stubbed. Actual positioning is
@@ -15,6 +15,7 @@ test('replaces the empty native list on history arrival, then preserves its iden
   const exports = {};
   const modules = {
     react: {
+      memo: (component) => component,
       useMemo: (fn) => fn(),
       useRef: () => ({ current: null }),
       useState: (value) => [value, () => {}],
@@ -26,7 +27,9 @@ test('replaces the empty native list on history arrival, then preserves its iden
     './display': { MobileDisplay: Symbol('MobileDisplay') },
     './markdown': {},
     './scroll': { conversationScroll },
-    './timeline': { conversationRows },
+    './timeline': { createConversationRows },
+    './codemode': {},
+    './status-bar-scroll': { StatusBarScrollTarget: Symbol('StatusBarScrollTarget') },
   };
   const { outputText } = ts.transpileModule(
     readFileSync(new URL('../src/features/conversation/preview.tsx', import.meta.url), 'utf8'),

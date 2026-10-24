@@ -13,6 +13,7 @@ import {
 import { projectDiffEventsPath } from '../../../src/shared/project-diff.ts';
 import { linkedSessionId } from '../../../src/shared/session-link.ts';
 import type { InventorySession, Project } from '../../../src/shared/sessions.ts';
+import { LivePresentation } from './live-presentation.ts';
 import { MobileMessages } from './messages.ts';
 import { eventsUrl, relayOrigin } from './server.ts';
 
@@ -33,6 +34,7 @@ export interface InventoryState {
 export class MobileRelay {
   readonly origin: string;
   readonly live: LiveSession;
+  readonly presentation: LivePresentation;
   readonly reads: ReadCompletions;
   readonly launches: LaunchController;
   readonly usage: UsageController;
@@ -84,6 +86,7 @@ export class MobileRelay {
       },
       () => void this.refresh(),
     );
+    this.presentation = new LivePresentation(this.live);
     this.launches = new LaunchController({
       server: this.origin,
       storage: this.storage,

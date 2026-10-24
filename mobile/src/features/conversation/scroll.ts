@@ -3,9 +3,11 @@ const bottomThreshold = 24;
 
 export function conversationScroll({
   scrollToLatest,
+  scrollToOldest,
   onChange,
 }: {
   scrollToLatest: (animated: boolean) => void;
+  scrollToOldest: () => void;
   onChange: (following: boolean, reading: boolean) => void;
 }) {
   let following = true;
@@ -66,6 +68,13 @@ export function conversationScroll({
       following = false;
       animatingLatest = false;
       publish();
+    },
+    oldest() {
+      following = false;
+      interacting = false;
+      animatingLatest = false;
+      publish();
+      scrollToOldest();
     },
     latest() {
       interacting = false;

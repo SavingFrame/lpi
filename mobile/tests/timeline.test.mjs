@@ -1,7 +1,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { emptyView, reduceEvent } from '../../src/shared/client-state.ts';
-import { conversationRows, toolPreview } from '../src/features/conversation/timeline.ts';
+import {
+  conversationRows,
+  createConversationRows,
+  toolPreview,
+} from '../src/features/conversation/timeline.ts';
 
 const assistant = (content) => ({ role: 'assistant', timestamp: 1, content });
 const call = (id, path) => ({ type: 'toolCall', id, name: 'read', arguments: { path } });
@@ -12,6 +16,37 @@ const result = (id, text, isError = false) => ({
   toolName: 'read',
   isError,
   content: [{ type: 'text', text }],
+});
+
+test('long tool-only runs stay virtualizable and preserve unchanged rows during streaming', () => {
+  const history = [];
+  for (let i = 0; i < 1000; i++) {
+    history.push(assistant([call(String(i), `${i}.ts`)]), result(String(i), `output ${i}`));
+  }
+  const project = createConversationRows();
+  const initial = project(history, []);
+  assert.ok(initial.length > 1, 'a tool-only run must not become one unbounded native row');
+  assert.ok(initial.every((row) => row.kind === 'tools' && row.tools.length <= 12));
+  assert.equal(initial.flatMap((row) => row.tools).length, 1000, 'all tools remain inspectable');
+  const streaming = project([...history, assistant('First token')], []);
+  const updated = project([...history, assistant('Next token')], []);
+  assert.equal(streaming[0], initial[0], 'completed rows can skip React rendering');
+  assert.equal(updated[0], initial[0]);
+  assert.notEqual(updated.at(-1), streaming.at(-1));
+  assert.equal(streaming.at(-1).blocks[0].text, 'First token', 'old rows remain immutable');
+  const withCall = [...history, assistant([call('live', 'live.ts')])];
+  const progress = project(withCall, [
+    { id: 'live', name: 'read', args: {}, result: { text: 'partial' } },
+  ]);
+  const nextProgress = project(withCall, [
+    { id: 'live', name: 'read', args: {}, result: { text: 'new output' } },
+  ]);
+  assert.equal(nextProgress[0], initial[0]);
+  assert.match(progress.at(-1).tools.at(-1).output, /partial/);
+  assert.match(nextProgress.at(-1).tools.at(-1).output, /new output/);
+  const replacement = project([{ role: 'user', timestamp: 3, content: 'Different branch' }], []);
+  assert.equal(replacement.length, 1);
+  assert.equal(replacement[0].blocks[0].text, 'Different branch');
 });
 
 test('hides all thinking and empty assistant content while grouping paired tools in order', () => {

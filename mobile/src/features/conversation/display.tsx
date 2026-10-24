@@ -106,7 +106,7 @@ export function MobileDisplay({
   return (
     <View style={styles.visual} onTouchStart={onInspect}>
       {source && artifact.kind === 'html' ? (
-        <ScrollView style={styles.source} nestedScrollEnabled>
+        <ScrollView style={styles.source} nestedScrollEnabled scrollsToTop={false}>
           <CodeBlock text={artifact.html} language="html" />
         </ScrollView>
       ) : (

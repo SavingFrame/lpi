@@ -50,9 +50,16 @@ React Native styles; Tamagui supplies the provider/form foundation.
   and following the bottom. Pause while drawers, settings, sheets, or the photo picker are open.
 - The inverted transcript keeps the newest content at offset zero. Preserve older reading
   positions, avoid blank-space anchoring for short histories, and pause following while
-  inspecting older content.
+  inspecting older content. iOS status-bar taps use a non-inverted native scroll target to
+  request the oldest messages without first scrolling the transcript to its newest content.
 - Tool calls/results pair by ID. Keep orphan results, errors, and missing-result states
-  inspectable. Hidden thinking must not split tool groups.
+  inspectable. Hidden thinking must not split tool groups. Long groups use bounded native
+  list rows so tool-only runs remain virtualizable. Codemode has a stable expandable parent
+  with individually virtualized nested calls, shared browser/mobile metadata projection, and
+  lazy script/output inspection. Native parent IDs keep live child calls out of top-level groups.
+- Live transcript rendering coalesces updates in 100 ms windows and reuses unchanged rows.
+  Connection, session, control, dialog, and completion boundaries bypass that delay. The
+  drawer pauses transcript rendering, not transport processing or authoritative command guards.
 - Images are validated by bytes. Text drafts persist; unsent images and questionnaire drafts
   are memory-only. Selecting an attachment never sends it.
 - Ask answers share the command lane and require the authoritative native verdict.

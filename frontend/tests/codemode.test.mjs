@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { emptyView, reduceEvent } from '../../src/shared/client-state.ts';
-import {
-  codemodeCallInput,
-  codemodeState,
-} from '../src/session/transcript/tools/codemode-state.ts';
+import { codemodeCallInput, codemodeState } from '../../src/shared/codemode.ts';
 import { editDiff } from '../src/session/transcript/tools/edit-diff.ts';
 import { transcriptState } from '../src/session/transcript/transcript-state.ts';
 

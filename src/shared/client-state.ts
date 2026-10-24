@@ -11,6 +11,7 @@ export interface Message {
 
 export interface ToolActivity {
   id: string;
+  parentToolCallId?: string;
   name: string;
   args: unknown;
   result?: unknown;
@@ -70,6 +71,9 @@ export function view(value: unknown): View {
       const tool = record(value);
       return {
         id: text(tool.id, 'tool ID', 256),
+        ...(tool.parentToolCallId === undefined
+          ? {}
+          : { parentToolCallId: text(tool.parentToolCallId, 'parent tool ID', 256) }),
         name: text(tool.name, 'tool name', 256),
         args: tool.args,
         result: tool.result,
@@ -144,6 +148,9 @@ export function reduceEvent(view: View, event: Record<string, unknown>): View {
       }
       const tool = {
         id: event.toolCallId,
+        ...(event.parentToolCallId === undefined
+          ? {}
+          : { parentToolCallId: text(event.parentToolCallId, 'parent tool ID', 256) }),
         name: event.toolName,
         args: event.args,
         result: event.partialResult,

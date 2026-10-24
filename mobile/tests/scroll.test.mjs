@@ -7,6 +7,7 @@ function fixture() {
   const commands = [];
   const scroll = conversationScroll({
     scrollToLatest: (animated) => commands.push({ animated }),
+    scrollToOldest: () => commands.push({ oldest: true }),
     onChange: (following, reading) => changes.push({ following, reading }),
   });
   return { scroll, changes, commands, jumps: () => commands.length, state: () => changes.at(-1) };
@@ -87,6 +88,22 @@ test('inspecting details pauses even at zero and Latest waits for the native pos
   f.scroll.scroll(0);
   f.scroll.endMomentum();
   assert.equal(f.state().reading, true);
+});
+
+test('status-bar navigation targets the oldest messages and pauses following before scrolling', () => {
+  const f = fixture();
+  f.scroll.layout(600);
+  f.scroll.contentSize(4000);
+  f.scroll.oldest();
+  assert.deepEqual(f.commands, [{ oldest: true }]);
+  assert.deepEqual(f.state(), { following: false, reading: false });
+  f.scroll.contentSize(4200);
+  f.scroll.layout(500);
+  f.scroll.scroll(3700);
+  f.scroll.endMomentum();
+  assert.deepEqual(f.commands, [{ oldest: true }], 'streaming must not pull the reader down');
+  f.scroll.latest();
+  assert.deepEqual(f.commands.at(-1), { animated: true });
 });
 
 test('short histories and iOS bottom bounce remain at the latest content', () => {

@@ -27,7 +27,20 @@ export type ContentBlock = {
   text: string;
 };
 
+const blockCache = new WeakMap<Message, ContentBlock[]>();
+
+/** Messages are immutable snapshots. Do not decode historical images on every token. */
 export function messageBlocks(message: Message): ContentBlock[] {
+  const cached = blockCache.get(message);
+  if (cached) {
+    return cached;
+  }
+  const blocks = projectMessageBlocks(message);
+  blockCache.set(message, blocks);
+  return blocks;
+}
+
+function projectMessageBlocks(message: Message): ContentBlock[] {
   if (typeof message.content === 'string') {
     return [{ kind: 'text', label: '', text: message.content }];
   }

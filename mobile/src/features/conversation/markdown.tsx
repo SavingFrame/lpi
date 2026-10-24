@@ -8,7 +8,12 @@ export function CodeBlock({ text, language }: { text: string; language?: string 
   return (
     <View style={styles.codeBlock}>
       {language ? <Text style={styles.language}>{language}</Text> : null}
-      <ScrollView horizontal nestedScrollEnabled contentContainerStyle={styles.codeContent}>
+      <ScrollView
+        horizontal
+        nestedScrollEnabled
+        scrollsToTop={false}
+        contentContainerStyle={styles.codeContent}
+      >
         <Text selectable style={styles.code}>
           {text}
         </Text>
@@ -133,7 +138,13 @@ function Blocks({ tokens }: { tokens: MarkedToken[] }) {
         return <View key={key} style={styles.rule} />;
       case 'table':
         return (
-          <ScrollView key={key} horizontal nestedScrollEnabled style={styles.table}>
+          <ScrollView
+            key={key}
+            horizontal
+            nestedScrollEnabled
+            scrollsToTop={false}
+            style={styles.table}
+          >
             <View>
               {[token.header, ...token.rows].map((row, rowIndex) => (
                 <View key={String(rowIndex)} style={styles.tableRow}>

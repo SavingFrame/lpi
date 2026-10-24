@@ -1,4 +1,4 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
@@ -28,8 +28,21 @@ export function SessionShell({
   sessionLink?: string | string[];
 }) {
   const inventory = useSyncExternalStore(client.subscribe, client.getState);
-  const connection = useSyncExternalStore(client.live.subscribe, client.live.getState);
   const [open, setOpen] = useState(false);
+  const connectionStatus = useSyncExternalStore(
+    client.live.subscribe,
+    () => client.live.getState().status,
+  );
+  const presentation = useMemo(() => {
+    if (visible && !open) {
+      return client.presentation;
+    }
+    // Keep the transcript mounted, but stop rendering tokens behind the drawer.
+    // Transport and command guards still use the authoritative live state.
+    const snapshot = client.live.getState();
+    return { getState: () => snapshot, subscribe: () => () => {} };
+  }, [client, visible, open]);
+  const connection = useSyncExternalStore(presentation.subscribe, presentation.getState);
   useEffect(() => {
     if (sessionLink !== undefined) {
       setOpen(false);
@@ -39,7 +52,7 @@ export function SessionShell({
   // The drawer's local layout excludes the outer safe area's screen-space top inset.
   const insets = useSafeAreaInsets();
   const selected = inventory.sessions.find((session) => session.id === inventory.selectedId);
-  const online = connection.status === 'ready';
+  const online = connectionStatus === 'ready';
   const running =
     online &&
     selected !== undefined &&
@@ -47,7 +60,7 @@ export function SessionShell({
     connection.snapshot.session.connection === 'connected' &&
     connection.snapshot.view.running;
   const status =
-    connection.status === 'offline'
+    connectionStatus === 'offline'
       ? 'Offline · Last-known history'
       : !online
         ? 'Synchronizing…'
@@ -70,6 +83,7 @@ export function SessionShell({
       renderDrawerContent={() => (
         <ProjectDrawer
           inventory={inventory}
+          visible={visible && open}
           usage={client.usage}
           online={online && visible}
           launches={client.launches}
@@ -138,7 +152,7 @@ export function SessionShell({
                 </View>
                 {runtimeControl}
               </View>
-              {connection.status === 'offline' && (
+              {connectionStatus === 'offline' && (
                 <Text style={styles.warningBanner}>Connection lost. Pi may still be running.</Text>
               )}
               {(inventory.error || connection.error) && (

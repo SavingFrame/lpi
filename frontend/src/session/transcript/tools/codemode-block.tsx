@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 import type { Message } from '../../../../../src/shared/client-state';
+import { codemodeCallInput, codemodeState } from '../../../../../src/shared/codemode';
 import { Disclosure } from '../../../components/disclosure';
 import type { TranscriptTool } from '../transcript-state';
-import { codemodeCallInput, codemodeState } from './codemode-state';
 import { ToolFileBody } from './tool-file-body';
 import { ToolStatus } from './tool-status';
 

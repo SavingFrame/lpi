@@ -23,6 +23,7 @@ export function ProjectDrawer({
   inventory,
   usage,
   online,
+  visible,
   onSelect,
   onClose,
   onSettings,
@@ -33,6 +34,7 @@ export function ProjectDrawer({
   inventory: InventoryState;
   usage: UsageController;
   online: boolean;
+  visible: boolean;
   onSelect: (id: string) => void;
   onClose: () => void;
   onSettings: () => void;
@@ -130,7 +132,7 @@ export function ProjectDrawer({
           </Pressable>
         </View>
       )}
-      <ScrollView contentContainerStyle={styles.list}>
+      <ScrollView contentContainerStyle={styles.list} scrollsToTop={visible}>
         {groups.length === 0 && (
           <Text style={styles.empty}>
             {inventory.loading ? 'Loading projects…' : 'No configured projects.'}

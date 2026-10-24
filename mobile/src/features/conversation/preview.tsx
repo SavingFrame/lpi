@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useRef, useState } from 'react';
+import { memo, type ReactNode, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -13,10 +13,12 @@ import type { LiveState } from '../../../../src/client/live';
 import { MobileQuestion } from '../../extensions';
 import type { MobileMessages } from '../../lib/messages';
 import { colors } from '../../theme/colors';
+import { CodemodeCallRow, CodemodeDetails, CodemodeHeader } from './codemode';
 import { MobileDisplay } from './display';
 import { CodeBlock, Markdown } from './markdown';
 import { conversationScroll } from './scroll';
-import { type ConversationRow, conversationRows, type ToolEntry } from './timeline';
+import { StatusBarScrollTarget } from './status-bar-scroll';
+import { type ConversationRow, createConversationRows, type ToolEntry } from './timeline';
 
 function Detail({
   label,
@@ -133,11 +135,11 @@ function ToolDetail({ tool, onInspect }: { tool: ToolEntry; onInspect: () => voi
   );
 }
 
-function MessageRow({
+const MessageRow = memo(function MessageRow({
   row,
   onInspect,
 }: {
-  row: Exclude<ConversationRow, { kind: 'question' }>;
+  row: Exclude<ConversationRow, { kind: 'question' | 'codemode' }>;
   onInspect: () => void;
 }) {
   if (row.kind === 'display') {
@@ -160,6 +162,12 @@ function MessageRow({
         </View>
       </View>
     );
+  }
+  if (row.kind === 'codemode-call') {
+    return <CodemodeCallRow call={row.call} onInspect={onInspect} />;
+  }
+  if (row.kind === 'codemode-details') {
+    return <CodemodeDetails tool={row.tool} state={row.state} onInspect={onInspect} />;
   }
   const { role, blocks } = row;
   if (role !== 'user' && role !== 'assistant') {
@@ -199,6 +207,30 @@ function MessageRow({
       )}
     </View>
   );
+});
+
+function ConversationSeparator({
+  leadingItem,
+  trailingItem,
+}: {
+  leadingItem?: ConversationRow;
+  trailingItem?: ConversationRow;
+}) {
+  const leadingParent =
+    leadingItem &&
+    ('parentKey' in leadingItem
+      ? leadingItem.parentKey
+      : leadingItem.kind === 'codemode'
+        ? leadingItem.key
+        : undefined);
+  const trailingParent =
+    trailingItem &&
+    ('parentKey' in trailingItem
+      ? trailingItem.parentKey
+      : trailingItem.kind === 'codemode'
+        ? trailingItem.key
+        : undefined);
+  return <View style={{ height: leadingParent && leadingParent === trailingParent ? 4 : 20 }} />;
 }
 
 export function ConversationPreview({
@@ -206,19 +238,23 @@ export function ConversationPreview({
   onFollowing,
   messages,
   questionsEnabled = false,
+  visible = true,
 }: {
   connection: LiveState;
   onFollowing: (following: boolean) => void;
   messages?: MobileMessages;
   questionsEnabled?: boolean;
+  visible?: boolean;
 }) {
   const snapshot = connection.snapshot;
   const list = useRef<FlatList<ConversationRow>>(null);
   const [showBottom, setShowBottom] = useState(false);
+  const [collapsedCodemode, setCollapsedCodemode] = useState(new Set<string>());
   const scroll = useMemo(
     () =>
       conversationScroll({
         scrollToLatest: (animated) => list.current?.scrollToOffset({ offset: 0, animated }),
+        scrollToOldest: () => list.current?.scrollToEnd({ animated: true }),
         onChange: (following, reading) => {
           setShowBottom(!following);
           onFollowing(reading);
@@ -226,16 +262,19 @@ export function ConversationPreview({
       }),
     [onFollowing],
   );
+  const projectRows = useMemo(createConversationRows, []);
+  const transcript = snapshot?.view.messages;
+  const partial = snapshot?.view.partial;
+  const tools = snapshot?.view.tools;
+  const extensions = snapshot?.view.extensions;
+  const running = snapshot?.view.running;
   const rows = useMemo(() => {
-    if (!snapshot) {
+    if (!transcript || !tools) {
       return [];
     }
-    const timeline = conversationRows(
-      [...snapshot.view.messages, ...(snapshot.view.partial ? [snapshot.view.partial] : [])],
-      snapshot.view.tools,
-    );
+    const timeline = projectRows([...transcript, ...(partial ? [partial] : [])], tools, running);
     // A public prompt can arrive before its tool call is present in the transcript.
-    for (const prompt of snapshot.view.extensions?.['ask-user-question'] ?? []) {
+    for (const prompt of extensions?.['ask-user-question'] ?? []) {
       if (!timeline.some((row) => row.kind === 'question' && row.tool.id === prompt.toolCallId)) {
         timeline.push({
           kind: 'question',
@@ -250,20 +289,34 @@ export function ConversationPreview({
       }
     }
     return timeline.reverse();
-  }, [snapshot]);
+  }, [projectRows, transcript, partial, tools, extensions, running]);
+  const visibleRows = useMemo(
+    () => rows.filter((row) => !('parentKey' in row) || !collapsedCodemode.has(row.parentKey)),
+    [rows, collapsedCodemode],
+  );
   return (
     <View style={styles.container}>
+      <StatusBarScrollTarget
+        visible={visible}
+        onTop={() => {
+          scroll.oldest();
+        }}
+      />
       <FlatList
         // Do not preserve the empty placeholder's position when history first arrives.
         key={rows.length ? 'messages' : 'empty'}
         ref={list}
         style={styles.container}
         contentContainerStyle={styles.content}
-        data={rows}
+        data={visibleRows}
         keyExtractor={(row) => row.key}
         inverted
+        scrollsToTop={false}
         maintainVisibleContentPosition={{ minIndexForVisible: 0 }}
         removeClippedSubviews={false}
+        initialNumToRender={6}
+        maxToRenderPerBatch={4}
+        windowSize={5}
         // KeyboardAvoidingView cannot follow iOS interactive dismissal frame by frame.
         // Dismiss on drag so the composer and keyboard use the same hide animation.
         keyboardDismissMode="on-drag"
@@ -271,7 +324,25 @@ export function ConversationPreview({
         contentInsetAdjustmentBehavior="never"
         automaticallyAdjustKeyboardInsets={false}
         renderItem={({ item }) =>
-          item.kind === 'question' ? (
+          item.kind === 'codemode' ? (
+            <CodemodeHeader
+              tool={item.tool}
+              state={item.state}
+              expanded={!collapsedCodemode.has(item.key)}
+              onToggle={() => {
+                scroll.pause();
+                setCollapsedCodemode((current) => {
+                  const next = new Set(current);
+                  if (next.has(item.key)) {
+                    next.delete(item.key);
+                  } else {
+                    next.add(item.key);
+                  }
+                  return next;
+                });
+              }}
+            />
+          ) : item.kind === 'question' ? (
             <MobileQuestion
               key={item.tool.id ?? item.key}
               tool={item.tool}
@@ -287,7 +358,7 @@ export function ConversationPreview({
             <MessageRow row={item} onInspect={scroll.pause} />
           )
         }
-        ItemSeparatorComponent={() => <View style={styles.separator} />}
+        ItemSeparatorComponent={ConversationSeparator}
         onScroll={({ nativeEvent }) => scroll.scroll(nativeEvent.contentOffset.y)}
         onScrollBeginDrag={scroll.beginInteraction}
         onScrollEndDrag={({ nativeEvent }) => {
@@ -339,7 +410,6 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingBottom: 20,
   },
-  separator: { height: 20 },
   message: { gap: 10 },
   attachment: { width: '100%', height: 240, borderRadius: 8 },
   user: { backgroundColor: colors.panel, borderRadius: 12, padding: 14 },

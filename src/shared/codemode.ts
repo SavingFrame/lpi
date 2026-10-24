@@ -1,5 +1,10 @@
-import type { Message } from '../../../../../src/shared/client-state.ts';
-import type { TranscriptTool } from '../transcript-state.ts';
+import type { Message, ToolActivity } from './client-state.ts';
+
+interface CodemodeSource {
+  args?: unknown;
+  result?: Message;
+  progress?: unknown;
+}
 
 export interface CodemodeCall {
   key: string;
@@ -9,7 +14,12 @@ export interface CodemodeCall {
   durationMs?: number;
   error?: string;
   cost?: number;
-  editTool?: TranscriptTool;
+  editTool?: {
+    name: string;
+    args: unknown;
+    status: 'Completed';
+    result: Message & { details: { patch: string } };
+  };
 }
 
 function record(value: unknown): Record<string, unknown> | undefined {
@@ -19,7 +29,7 @@ function record(value: unknown): Record<string, unknown> | undefined {
 }
 
 /** Native call metadata is preview-only; lpi may also save authoritative edit patches. */
-export function codemodeState(tool: TranscriptTool) {
+export function codemodeState(tool: CodemodeSource, children: ToolActivity[] = []) {
   const source = tool.result ?? record(tool.progress);
   const details = record(source?.details);
   const calls: CodemodeCall[] = [];
@@ -74,6 +84,18 @@ export function codemodeState(tool: TranscriptTool) {
           typeof call.cost === 'number' && Number.isFinite(call.cost) && call.cost >= 0
             ? call.cost
             : undefined,
+      });
+    }
+  }
+  // Native nested events may arrive before the enclosing codemode progress update.
+  // Use their explicit parent relationship, never infer nesting from a tool name or ID.
+  if (calls.length === 0 && !tool.result) {
+    for (const [position, child] of children.entries()) {
+      calls.push({
+        key: String(position),
+        name: child.name,
+        args: JSON.stringify(child.args ?? {}),
+        status: 'running',
       });
     }
   }

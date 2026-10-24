@@ -119,6 +119,7 @@ export function Conversation({
           key={`${session?.id}:${connection.snapshot?.session.generation}`}
           connection={connection}
           onFollowing={onFollowing}
+          visible={visible && !picking && !confirmingRuntime && !choosingSettings && !changesOpen}
           messages={session ? client.messages(session.id, session.projectId) : undefined}
           questionsEnabled={
             visible &&
