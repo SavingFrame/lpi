@@ -1,10 +1,37 @@
 import type { MarkedToken } from 'marked';
-import { useMemo } from 'react';
+import { createContext, type ReactNode, useContext, useMemo } from 'react';
 import { Linking, Platform, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { type TextMatch, textMatches } from '../../../../src/client/text-search';
 import { colors } from '../../theme/colors';
 import { builtInTokens, linkUrl, markdownTokens } from './content';
+import { HighlightedText } from './highlighted-text';
+import { inlineTokenText, markdownProjection } from './search';
 
-export function CodeBlock({ text, language }: { text: string; language?: string }) {
+const SearchContext = createContext<{
+  offsets: Map<MarkedToken, number>;
+  matches: TextMatch[];
+  active?: TextMatch;
+} | null>(null);
+
+function MarkedText({ token, text }: { token: MarkedToken; text: string }) {
+  const search = useContext(SearchContext);
+  const offset = search?.offsets.get(token);
+  return search && offset !== undefined ? (
+    <HighlightedText text={text} matches={search.matches} active={search.active} offset={offset} />
+  ) : (
+    text
+  );
+}
+
+export function CodeBlock({
+  text,
+  language,
+  children,
+}: {
+  text: string;
+  language?: string;
+  children?: ReactNode;
+}) {
   return (
     <View style={styles.codeBlock}>
       {language ? <Text style={styles.language}>{language}</Text> : null}
@@ -15,7 +42,7 @@ export function CodeBlock({ text, language }: { text: string; language?: string 
         contentContainerStyle={styles.codeContent}
       >
         <Text selectable style={styles.code}>
-          {text}
+          {children ?? text}
         </Text>
       </ScrollView>
     </View>
@@ -46,7 +73,7 @@ function Inline({ tokens }: { tokens: MarkedToken[] }) {
       case 'codespan':
         return (
           <Text key={key} style={styles.inlineCode}>
-            {token.text}
+            <MarkedText token={token} text={token.text} />
           </Text>
         );
       case 'link': {
@@ -69,21 +96,21 @@ function Inline({ tokens }: { tokens: MarkedToken[] }) {
         );
       }
       case 'br':
-        return '\n';
+        return <MarkedText key={key} token={token} text={'\n'} />;
       case 'image':
         return (
           <Text key={key} style={styles.muted}>
-            [Image: {token.text || 'attachment'}]
+            <MarkedText token={token} text={inlineTokenText(token)} />
           </Text>
         );
       case 'text':
         return token.tokens ? (
           <Inline key={key} tokens={builtInTokens(token.tokens)} />
         ) : (
-          token.text
+          <MarkedText key={key} token={token} text={token.text} />
         );
       default:
-        return 'text' in token ? token.text : token.raw;
+        return <MarkedText key={key} token={token} text={inlineTokenText(token)} />;
     }
   });
 }
@@ -96,7 +123,11 @@ function Blocks({ tokens }: { tokens: MarkedToken[] }) {
       case 'def':
         return null;
       case 'code':
-        return <CodeBlock key={key} text={token.text} language={token.lang} />;
+        return (
+          <CodeBlock key={key} text={token.text} language={token.lang}>
+            <MarkedText token={token} text={token.text} />
+          </CodeBlock>
+        );
       case 'heading':
         return (
           <Text
@@ -166,25 +197,51 @@ function Blocks({ tokens }: { tokens: MarkedToken[] }) {
       case 'text':
         return (
           <Text key={key} selectable style={styles.body}>
-            {token.tokens ? <Inline tokens={builtInTokens(token.tokens)} /> : token.text}
+            {token.tokens ? (
+              <Inline tokens={builtInTokens(token.tokens)} />
+            ) : (
+              <MarkedText token={token} text={token.text} />
+            )}
           </Text>
         );
       default:
         return (
           <Text key={key} selectable style={styles.body}>
-            {token.raw}
+            <MarkedText token={token} text={token.raw} />
           </Text>
         );
     }
   });
 }
 
-export function Markdown({ text }: { text: string }) {
+export function Markdown({
+  text,
+  query = '',
+  active,
+}: {
+  text: string;
+  query?: string;
+  active?: TextMatch;
+}) {
   const tokens = useMemo(() => markdownTokens(text), [text]);
+  const projection = useMemo(() => (query ? markdownProjection(tokens) : null), [tokens, query]);
+  const search = useMemo(
+    () =>
+      projection
+        ? {
+            offsets: projection.offsets,
+            matches: textMatches(projection.text, query),
+            active,
+          }
+        : null,
+    [projection, query, active],
+  );
   return (
-    <View style={styles.blocks}>
-      <Blocks tokens={tokens} />
-    </View>
+    <SearchContext.Provider value={search}>
+      <View style={styles.blocks}>
+        <Blocks tokens={tokens} />
+      </View>
+    </SearchContext.Provider>
   );
 }
 

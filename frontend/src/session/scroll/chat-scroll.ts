@@ -16,6 +16,10 @@ export function chatScroll(
     previousClientHeight = viewport.clientHeight;
     onFollowingChange(true);
   };
+  const pause = () => {
+    following = false;
+    onFollowingChange(false);
+  };
   const onScroll = () => {
     const nearBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight <= 64;
     const resized =
@@ -54,6 +58,7 @@ export function chatScroll(
   }
   return {
     follow,
+    pause,
     position: () => ({ top: previousTop, following }),
     disconnect: () => {
       viewport.removeEventListener('click', onClick, { capture: true });

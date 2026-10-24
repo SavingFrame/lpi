@@ -158,6 +158,18 @@ test('disclosures expand downward without following layout changes', (t) => {
   assert.equal(state.viewport.scrollTop, 2100);
 });
 
+test('search navigation can pause following before the next layout resize', (t) => {
+  const state = setup(t);
+  state.controller.pause();
+  assert.equal(state.following(), false);
+  state.viewport.scrollHeight += 300;
+  state.resize();
+  assert.equal(state.viewport.scrollTop, 1500);
+  state.controller.follow();
+  assert.equal(state.following(), true);
+  assert.equal(state.viewport.scrollTop, 1800);
+});
+
 test('explicit follow resumes immediately and cleanup removes listeners and observer', (t) => {
   const state = setup(t);
   state.scroll(700);

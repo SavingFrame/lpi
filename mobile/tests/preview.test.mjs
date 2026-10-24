@@ -4,7 +4,9 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 import { runInNewContext } from 'node:vm';
 import ts from 'typescript';
+import { nextTextMatch, textMatches } from '../../src/client/text-search.ts';
 import { conversationScroll } from '../src/features/conversation/scroll.ts';
+import { searchConversation } from '../src/features/conversation/search.ts';
 import { createConversationRows } from '../src/features/conversation/timeline.ts';
 
 test('replaces the empty native list on history arrival, then preserves its identity on updates', () => {
@@ -16,21 +18,27 @@ test('replaces the empty native list on history arrival, then preserves its iden
   const modules = {
     react: {
       memo: (component) => component,
+      useCallback: (fn) => fn,
+      useEffect: () => {},
       useMemo: (fn) => fn(),
       useRef: () => ({ current: null }),
       useState: (value) => [value, () => {}],
     },
     'react/jsx-runtime': require('react/jsx-runtime'),
     'react-native': { FlatList, Platform: { OS: 'ios' }, StyleSheet: { create: (value) => value } },
+    '../../../../src/client/text-search': { nextTextMatch, textMatches },
     '../../theme/colors': { colors: {} },
+    './chat-search': { ChatSearch: Symbol('ChatSearch') },
+    './codemode': {},
+    './tool-row': { ToolDetail: Symbol('ToolDetail') },
+    './status-bar-scroll': { StatusBarScrollTarget: Symbol('StatusBarScrollTarget') },
+    './highlighted-text': { HighlightedText: Symbol('HighlightedText') },
+    './search': { searchConversation },
     '../../extensions': { MobileQuestion: Symbol('MobileQuestion') },
     './display': { MobileDisplay: Symbol('MobileDisplay') },
     './markdown': {},
     './scroll': { conversationScroll },
     './timeline': { createConversationRows },
-    './codemode': {},
-    './tool-row': { ToolDetail: Symbol('ToolDetail') },
-    './status-bar-scroll': { StatusBarScrollTarget: Symbol('StatusBarScrollTarget') },
   };
   const { outputText } = ts.transpileModule(
     readFileSync(new URL('../src/features/conversation/preview.tsx', import.meta.url), 'utf8'),

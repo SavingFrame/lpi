@@ -1,13 +1,17 @@
-import { memo, type ReactNode, useMemo, useRef, useState } from 'react';
+import { memo, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { FlatList, Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import type { LiveState } from '../../../../src/client/live';
+import { nextTextMatch, textMatches } from '../../../../src/client/text-search';
 import { MobileQuestion } from '../../extensions';
 import type { MobileMessages } from '../../lib/messages';
 import { colors } from '../../theme/colors';
+import { ChatSearch } from './chat-search';
 import { CodemodeCallRow, CodemodeDetails, CodemodeHeader } from './codemode';
 import { MobileDisplay } from './display';
+import { HighlightedText } from './highlighted-text';
 import { CodeBlock, Markdown } from './markdown';
 import { conversationScroll } from './scroll';
+import { type ConversationMatch, searchConversation } from './search';
 import { StatusBarScrollTarget } from './status-bar-scroll';
 import { type ConversationRow, createConversationRows } from './timeline';
 import { ToolDetail } from './tool-row';
@@ -45,9 +49,13 @@ function Detail({
 const MessageRow = memo(function MessageRow({
   row,
   onInspect,
+  query,
+  active,
 }: {
   row: Exclude<ConversationRow, { kind: 'question' | 'codemode' }>;
   onInspect: () => void;
+  query: string;
+  active?: ConversationMatch;
 }) {
   if (row.kind === 'display') {
     return <MobileDisplay artifact={row.artifact} onInspect={onInspect} />;
@@ -106,10 +114,19 @@ const MessageRow = memo(function MessageRow({
           </Detail>
         ) : role === 'user' ? (
           <Text key={String(index)} selectable style={styles.userText}>
-            {block.text}
+            <HighlightedText
+              text={block.text}
+              matches={textMatches(block.text, query)}
+              active={active?.block === index ? active : undefined}
+            />
           </Text>
         ) : (
-          <Markdown key={String(index)} text={block.text} />
+          <Markdown
+            key={String(index)}
+            text={block.text}
+            query={query}
+            active={active?.block === index ? active : undefined}
+          />
         ),
       )}
     </View>
@@ -127,17 +144,27 @@ export function ConversationPreview({
   messages,
   questionsEnabled = false,
   visible = true,
+  searchOpen = false,
+  onSearchClose,
 }: {
   connection: LiveState;
   onFollowing: (following: boolean) => void;
   messages?: MobileMessages;
   questionsEnabled?: boolean;
   visible?: boolean;
+  searchOpen?: boolean;
+  onSearchClose?: () => void;
 }) {
   const snapshot = connection.snapshot;
   const list = useRef<FlatList<ConversationRow>>(null);
   const [showBottom, setShowBottom] = useState(false);
   const [collapsedCodemode, setCollapsedCodemode] = useState(new Set<string>());
+  const [query, setQuery] = useState('');
+  const [selected, setSelected] = useState(0);
+  const [jumpVersion, setJumpVersion] = useState(0);
+  const [jumpError, setJumpError] = useState(false);
+  const retry = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const attempts = useRef(0);
   const scroll = useMemo(
     () =>
       conversationScroll({
@@ -182,11 +209,55 @@ export function ConversationPreview({
     () => rows.filter((row) => !('parentKey' in row) || !collapsedCodemode.has(row.parentKey)),
     [rows, collapsedCodemode],
   );
+  const searchQuery = searchOpen ? query : '';
+  const matches = useMemo(() => searchConversation(rows, searchQuery), [rows, searchQuery]);
+  const current = Math.min(selected, Math.max(0, matches.length - 1));
+  const active = matches[current];
+  const targetIndex = active ? visibleRows.findIndex((row) => row.key === active.rowKey) : -1;
+  const cancelJump = useCallback(() => {
+    if (retry.current !== null) {
+      clearTimeout(retry.current);
+      retry.current = null;
+    }
+  }, []);
+  const jump = useCallback(() => {
+    if (targetIndex >= 0) {
+      scroll.pause();
+      list.current?.scrollToIndex({ index: targetIndex, animated: false, viewPosition: 0.5 });
+    }
+  }, [scroll, targetIndex]);
+  // A new occurrence or an explicit retry must jump even when it is in the same list row.
+  // biome-ignore lint/correctness/useExhaustiveDependencies: these values identify a search navigation request.
+  useEffect(() => {
+    cancelJump();
+    attempts.current = 0;
+    setJumpError(false);
+    jump();
+    return cancelJump;
+  }, [jump, cancelJump, active?.block, active?.start, searchQuery, jumpVersion]);
   return (
     <View style={styles.container}>
+      {searchOpen && (
+        <ChatSearch
+          query={query}
+          onQuery={(value) => {
+            setQuery(value);
+            setSelected(0);
+          }}
+          count={matches.length}
+          selected={current}
+          onMove={(direction) => {
+            setSelected(nextTextMatch(current, direction, matches.length));
+            setJumpVersion((value) => value + 1);
+          }}
+          onClose={() => onSearchClose?.()}
+          error={jumpError}
+        />
+      )}
       <StatusBarScrollTarget
         visible={visible}
         onTop={() => {
+          cancelJump();
           scroll.oldest();
         }}
       />
@@ -243,12 +314,32 @@ export function ConversationPreview({
               <ToolDetail tool={item.tool} onInspect={scroll.pause} />
             </MobileQuestion>
           ) : (
-            <MessageRow row={item} onInspect={scroll.pause} />
+            <MessageRow
+              row={item}
+              onInspect={scroll.pause}
+              query={searchQuery}
+              active={active?.rowKey === item.key ? active : undefined}
+            />
           )
         }
         ItemSeparatorComponent={ConversationSeparator}
         onScroll={({ nativeEvent }) => scroll.scroll(nativeEvent.contentOffset.y)}
-        onScrollBeginDrag={scroll.beginInteraction}
+        onScrollBeginDrag={() => {
+          cancelJump();
+          scroll.beginInteraction();
+        }}
+        onScrollToIndexFailed={({ index, averageItemLength }) => {
+          if (index !== targetIndex || !searchOpen) {
+            return;
+          }
+          cancelJump();
+          if (attempts.current++ >= 12) {
+            setJumpError(true);
+            return;
+          }
+          list.current?.scrollToOffset({ offset: averageItemLength * index, animated: false });
+          retry.current = setTimeout(jump, 100);
+        }}
         onScrollEndDrag={({ nativeEvent }) => {
           scroll.scroll(nativeEvent.contentOffset.y);
           scroll.endInteraction();

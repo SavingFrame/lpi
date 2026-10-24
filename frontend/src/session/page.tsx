@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import { Power, RefreshCw } from 'lucide-react';
-import { useLayoutEffect, useState, useSyncExternalStore } from 'react';
+import { Power, RefreshCw, Search } from 'lucide-react';
+import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ExtensionPanels } from '../../../src/extension-support/web';
 import { emptyView } from '../../../src/shared/client-state';
 import { Welcome } from '../app/welcome';
@@ -14,6 +14,7 @@ import { useBranchNavigation } from './branches/use-branch-navigation';
 import { Composer } from './composer/composer';
 import { ReadCompletion } from './read-completion';
 import { useChatScroll } from './scroll/use-chat-scroll';
+import { ChatSearch } from './transcript/chat-search';
 import { Transcript } from './transcript/transcript';
 import { useSessionCommands } from './use-session-commands';
 
@@ -43,11 +44,13 @@ function SessionPane({
   branch?: string;
 }) {
   const navigate = useNavigate();
+  const [searchOpen, setSearchOpen] = useState(false);
+  const searchButton = useRef<HTMLButtonElement>(null);
   const [treeOpen, setTreeOpen] = useState(false);
   const [treeWide, setTreeWide] = useState(false);
   const connection = useSyncExternalStore(live.subscribe, live.getState);
   const snapshot = connection.snapshot?.session.id === id ? connection.snapshot : null;
-  const { pane, following, follow } = useChatScroll(id, Boolean(snapshot));
+  const { pane, following, follow, pause } = useChatScroll(id, Boolean(snapshot));
   const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
   const projectName =
     projectQuery.data?.find((project) => project.id === projectId)?.name ??
@@ -94,6 +97,18 @@ function SessionPane({
             </p>
           </div>
           <div className="controls">
+            <Button
+              ref={searchButton}
+              type="button"
+              variant="outline"
+              size="sm"
+              aria-expanded={searchOpen}
+              onClick={() => setSearchOpen((open) => !open)}
+              title="Search current chat (Ctrl/Cmd+F)"
+            >
+              <Search aria-hidden="true" />
+              Search
+            </Button>
             {session && (
               <SessionTree
                 session={session}
@@ -139,6 +154,13 @@ function SessionPane({
             </Button>
           </div>
         </header>
+        <ChatSearch
+          pane={pane}
+          open={searchOpen}
+          onOpenChange={setSearchOpen}
+          trigger={searchButton}
+          onNavigate={pause}
+        />
         {connection.status !== 'ready' &&
           (connection.status !== 'syncing' || !snapshot || connection.error) && (
             <p className="banner" role="status">

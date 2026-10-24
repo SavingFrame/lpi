@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState } from 'react';
+import { useCallback, useLayoutEffect, useRef, useState } from 'react';
 import { desktop } from '../../client/platform';
 import { chatScroll } from './chat-scroll';
 
@@ -35,5 +35,6 @@ export function useChatScroll(id: string, ready: boolean) {
       scrolling.current = null;
     };
   }, [id, enabled]);
-  return { pane, following, follow: () => scrolling.current?.follow() };
+  const pause = useCallback(() => scrolling.current?.pause(), []);
+  return { pane, following, follow: () => scrolling.current?.follow(), pause };
 }

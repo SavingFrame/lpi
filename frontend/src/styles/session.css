@@ -21,6 +21,34 @@
     align-items: center;
     gap: 16px;
   }
+  .chat-search {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--border);
+  }
+  .chat-search input {
+    flex: 1 1 180px;
+    min-width: 100px;
+    padding: 6px 8px;
+    border: 1px solid var(--input);
+    border-radius: 6px;
+    background: var(--background);
+  }
+  .chat-search [role="status"] {
+    font-size: 12px;
+    white-space: nowrap;
+  }
+  ::highlight(chat-search) {
+    background: #fde047;
+    color: #18181b;
+  }
+  ::highlight(chat-search-active) {
+    background: #fb923c;
+    color: #18181b;
+  }
   .session-heading {
     flex: 1;
     min-width: 0;

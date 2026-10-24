@@ -133,14 +133,24 @@ export function MessageBody({
   return (
     <>
       {typeof content === 'string' ? (
-        <SafeMarkdown>{content}</SafeMarkdown>
+        <div
+          data-chat-search-text={item.role === 'user' || item.role === 'assistant' ? '' : undefined}
+        >
+          <SafeMarkdown>{content}</SafeMarkdown>
+        </div>
       ) : (
         content?.map((block, index) => {
           const key = `${index}:${String(block.type)}`;
           if (block.type === 'text') {
             return (
               <Fragment key={key}>
-                <SafeMarkdown>{String(block.text ?? '')}</SafeMarkdown>
+                <div
+                  data-chat-search-text={
+                    item.role === 'user' || item.role === 'assistant' ? '' : undefined
+                  }
+                >
+                  <SafeMarkdown>{String(block.text ?? '')}</SafeMarkdown>
+                </div>
                 {index === actionIndex && actions}
               </Fragment>
             );

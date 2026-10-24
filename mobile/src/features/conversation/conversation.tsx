@@ -1,3 +1,4 @@
+import { Search } from 'lucide-react-native';
 import { type ReactNode, useCallback, useEffect, useState, useSyncExternalStore } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import type { LiveState } from '../../../../src/client/live';
@@ -29,9 +30,11 @@ export function Conversation({
   const [confirmingRuntime, setConfirmingRuntime] = useState(false);
   const [choosingSettings, setChoosingSettings] = useState(false);
   const [changesOpen, setChangesOpen] = useState(false);
+  const [searchSession, setSearchSession] = useState<string | null>(null);
   const read = useSyncExternalStore(client.reads.subscribe, client.reads.getState);
   const inventory = useSyncExternalStore(client.subscribe, client.getState);
   const id = session?.id;
+  const searchOpen = Boolean(id && searchSession === id);
   const onFollowing = useCallback((value: boolean) => setFollowing(value), []);
   useEffect(() => {
     if (!id) {
@@ -45,6 +48,7 @@ export function Conversation({
         !confirmingRuntime &&
         !choosingSettings &&
         !changesOpen &&
+        !searchOpen &&
         connection.status === 'ready',
     );
     return () => client.setReading(id, false, false);
@@ -57,6 +61,7 @@ export function Conversation({
     confirmingRuntime,
     choosingSettings,
     changesOpen,
+    searchOpen,
     connection,
   ]);
   const snapshot = connection.snapshot?.session.id === id ? connection.snapshot : undefined;
@@ -88,6 +93,17 @@ export function Conversation({
   const renderContent = (changesButton: ReactNode) => {
     const headerActions = (
       <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+        {session && (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Search current chat"
+            accessibilityState={{ expanded: searchOpen }}
+            style={{ width: 44, height: 44, alignItems: 'center', justifyContent: 'center' }}
+            onPress={() => setSearchSession(searchOpen ? null : session.id)}
+          >
+            <Search size={21} color={colors.muted} />
+          </Pressable>
+        )}
         {changesButton}
         {sessionAction}
       </View>
@@ -119,7 +135,16 @@ export function Conversation({
           key={`${session?.id}:${connection.snapshot?.session.generation}`}
           connection={connection}
           onFollowing={onFollowing}
-          visible={visible && !picking && !confirmingRuntime && !choosingSettings && !changesOpen}
+          visible={
+            visible &&
+            !picking &&
+            !confirmingRuntime &&
+            !choosingSettings &&
+            !changesOpen &&
+            !searchOpen
+          }
+          searchOpen={searchOpen}
+          onSearchClose={() => setSearchSession(null)}
           messages={session ? client.messages(session.id, session.projectId) : undefined}
           questionsEnabled={
             visible &&

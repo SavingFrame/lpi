@@ -12,6 +12,7 @@ prebuilt installer is available.
 - Archive and restore sessions across clients.
 - Browse live working-tree changes and full-screen file diffs, without tabs or split panes.
 - Read streaming Markdown, code, tables, images, and expandable tool details. Thinking is hidden.
+- Search the current chat’s messages and replies with highlights and previous/next navigation.
 - View image and interactive HTML artifacts, including CDN-backed charts when online.
 - Send text and images, steer running agents, and stop a response.
 - Create, resume, and stop lpi-managed runtimes.
@@ -64,6 +65,13 @@ agents. Keep it behind trusted LAN, Tailscale, or tunnel access controls.**
 
 Open **Projects**, or swipe from the left edge, to select a conversation. Server settings and
 refresh are in the drawer. Use a project's **+** button to create a new native Pi session.
+
+The header **Search** icon searches user messages and assistant replies in the current chat.
+Search is literal and case-insensitive, includes rendered Markdown and code, and excludes
+thinking, tool arguments, and tool output. The arrows navigate occurrences with a match count
+and jump to the matching message. Long messages may require scrolling within that message to
+see the active highlight. Closing search keeps your reading position; **Latest** resumes
+following new output. Search does not mark the conversation read while it is open.
 
 The header **Changes** icon opens a full-screen changed-file list with addition/deletion
 counts. Tap a file for its unified diff, with line numbers and horizontal scrolling for long
