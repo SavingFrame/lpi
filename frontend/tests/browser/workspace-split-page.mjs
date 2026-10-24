@@ -169,14 +169,21 @@ async function run() {
       rightTabs.querySelectorAll('.session-tab').length === 3,
       'New file tabs join the right group while split',
     );
-    rightTabs.querySelector('.session-tab-select').dispatchEvent(
-      new frame.contentWindow.MouseEvent('auxclick', {
+    const middleClickTarget = rightTabs.querySelector('.session-tab-select');
+    for (const type of ['mousedown', 'mouseup', 'auxclick']) {
+      const event = new frame.contentWindow.MouseEvent(type, {
         button: 1,
         bubbles: true,
         cancelable: true,
-      }),
-    );
+      });
+      middleClickTarget.dispatchEvent(event);
+      check(event.defaultPrevented, `Middle-click ${type} suppresses browser defaults`);
+    }
     await until(() => rightTabs.querySelectorAll('.session-tab').length === 2);
+    check(
+      restoredEditor.value === 'Keep my unsent split draft',
+      'Middle-click close preserves the chat draft',
+    );
     check(
       rightTabs.querySelector('.active')?.textContent.includes('two.ts'),
       'Closing a background tab preserves the selected right tab',

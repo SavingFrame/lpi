@@ -43,6 +43,12 @@ export function WorkspaceTab({
           event.preventDefault();
         }
       }}
+      onMouseUp={(event) => {
+        if (event.button === 1) {
+          // Linux selection paste can run on release before auxclick closes the tab.
+          event.preventDefault();
+        }
+      }}
       onAuxClick={(event) => {
         if (event.button === 1) {
           event.preventDefault();
