@@ -136,7 +136,7 @@ export function MessageBody({
         <div
           data-chat-search-text={item.role === 'user' || item.role === 'assistant' ? '' : undefined}
         >
-          <SafeMarkdown>{content}</SafeMarkdown>
+          <SafeMarkdown preserveLineBreaks={item.role === 'user'}>{content}</SafeMarkdown>
         </div>
       ) : (
         content?.map((block, index) => {
@@ -149,7 +149,9 @@ export function MessageBody({
                     item.role === 'user' || item.role === 'assistant' ? '' : undefined
                   }
                 >
-                  <SafeMarkdown>{String(block.text ?? '')}</SafeMarkdown>
+                  <SafeMarkdown preserveLineBreaks={item.role === 'user'}>
+                    {String(block.text ?? '')}
+                  </SafeMarkdown>
                 </div>
                 {index === actionIndex && actions}
               </Fragment>

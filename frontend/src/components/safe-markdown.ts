@@ -1,5 +1,6 @@
 import { createElement, memo, type ReactNode } from 'react';
 import Markdown from 'react-markdown';
+import remarkBreaks from 'remark-breaks';
 import remarkGfm from 'remark-gfm';
 
 const components = {
@@ -9,10 +10,16 @@ const components = {
 };
 
 /** Fixed Markdown policy for transcripts and extension previews. Keep the default URL sanitizer. */
-export const SafeMarkdown = memo(function SafeMarkdown({ children }: { children: string }) {
+export const SafeMarkdown = memo(function SafeMarkdown({
+  children,
+  preserveLineBreaks = false,
+}: {
+  children: string;
+  preserveLineBreaks?: boolean;
+}) {
   return createElement(Markdown, {
     skipHtml: true,
-    remarkPlugins: [remarkGfm],
+    remarkPlugins: preserveLineBreaks ? [remarkGfm, remarkBreaks] : [remarkGfm],
     components,
     children,
   });

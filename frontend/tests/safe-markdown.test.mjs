@@ -24,6 +24,18 @@ test('ordinary Markdown renders headings, lists, emphasis, quotes and code', () 
   }
 });
 
+test('user messages preserve single line breaks while retaining Markdown', () => {
+  const text = '**First** line\nSecond line\n\n- Item one\n- Item two\n\n`inline code`\nNext line';
+  const html = renderToStaticMarkup(
+    createElement(SafeMarkdown, { preserveLineBreaks: true }, text),
+  );
+  assert.match(html, /<strong>First<\/strong> line<br\s*\/>\nSecond line/);
+  assert.match(html, /<li>Item one<\/li>/);
+  assert.match(html, /<li>Item two<\/li>/);
+  assert.match(html, /<code>inline code<\/code><br\s*\/>\nNext line/);
+  assert.doesNotMatch(render(text), /<br/);
+});
+
 test('GFM tables render headers, rows, alignment and inline Markdown', () => {
   const html = render(
     '| Item | Status |\n| :--- | ---: |\n| **Coffee** | Ready |\n| Table | Drawn |',
