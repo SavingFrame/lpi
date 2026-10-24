@@ -121,6 +121,26 @@ test('status events carry validated metadata without retransmitting conversation
   socket.terminate();
 });
 
+test('managed tmux metadata uses launch identity, not saved session identity, and survives disconnect', async (t) => {
+  const { open, bridges, inventory, snapshot } = await setup(t);
+  const launchId = '12345678-1234-1234-1234-123456789abc';
+  snapshot.state.managedRuntime = true;
+  const { socket, attached } = await open(launchId);
+  const expected = `lpi-${launchId}`;
+  assert.equal(inventory.snapshot(attached.sessionId).session.tmuxSession, expected);
+  assert.notEqual(expected, `lpi-${inventory.get(attached.sessionId).piSessionId}`);
+  socket.terminate();
+  await waitFor(() => bridges.get(attached.sessionId).connection === 'disconnected');
+  assert.equal(
+    inventory.list().find((item) => item.id === attached.sessionId).tmuxSession,
+    expected,
+  );
+  snapshot.state.managedRuntime = false;
+  const reconnected = await open(launchId);
+  assert.equal(inventory.get(attached.sessionId).tmuxSession, undefined);
+  reconnected.socket.terminate();
+});
+
 test('launch correlation resolves only connected registrations and survives reconnect', async (t) => {
   const { open, bridges } = await setup(t);
   assert.equal(bridges.findLaunch('launch-1'), undefined);

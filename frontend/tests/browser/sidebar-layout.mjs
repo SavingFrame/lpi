@@ -27,6 +27,7 @@ test('windowed sidebar search, project controls and settings work in desktop and
   const bootstrap = `<script>
     if (!new URLSearchParams(location.search).has('browser')) {
       window.lpiDesktop = {
+        copyText: async text => { window.lastCopied = text; },
         getZoom: async () => 1,
         setZoom: async value => value,
         onZoomChanged: () => () => {},
@@ -83,7 +84,11 @@ test('windowed sidebar search, project controls and settings work in desktop and
     })),
   );
   const snapshot = boundary(0, sessions[0].id);
-  snapshot.session = { ...sessions[0], connection: 'connected' };
+  snapshot.session = {
+    ...sessions[0],
+    connection: 'connected',
+    tmuxSession: 'lpi-12345678-1234-1234-1234-123456789abc',
+  };
   snapshot.state.sessionName =
     'A long session title that wraps on compact layouts without moving during synchronization';
   snapshot.state.managedRuntime = true;

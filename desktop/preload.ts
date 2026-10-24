@@ -4,6 +4,7 @@ import { type DesktopPlatform, isDesktopNotification } from '../src/shared/deskt
 // Expose narrow desktop controls, never IPC objects, events, or arbitrary channels.
 if (window.top === window) {
   const platform: DesktopPlatform = {
+    copyText: (text) => ipcRenderer.invoke('lpi:clipboard:write', text),
     onCloseTab: (listener) => {
       const close = () => listener();
       ipcRenderer.on('lpi:tab:close', close);

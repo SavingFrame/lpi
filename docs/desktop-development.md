@@ -51,8 +51,8 @@ app/Vite running; activation reopens it.
 ## Security and lifecycle
 
 - Sandboxed, context-isolated renderer; Node integration disabled in pages, workers, and frames.
-- A sandboxed preload exposes a close-tab subscription, get/set/subscribe UI-scale methods, and bounded notification
-  delivery/click methods. Main-process IPC checks the exact window, top-level frame, trusted UI
+- A sandboxed preload exposes a close-tab subscription, get/set/subscribe UI-scale methods,
+  write-only text copying (up to 8 Mi characters), and bounded notification delivery/click methods. Main-process IPC checks the exact window, top-level frame, trusted UI
   URL, and validated payloads. Native alerts are suppressed while the window is focused.
   It exposes no raw IPC objects/events, filesystem access, relay commands, or agent controls.
   Shared client code remains independent of Electron.
@@ -69,8 +69,9 @@ app/Vite running; activation reopens it.
   locally in bundled mode. Existing visual CSP permits HTTP(S) chart scripts/styles without
   granting relay access. Vite remains development-only and does not supply production CSP.
 - Webviews, permission requests/checks, device permissions, and display capture are denied.
-  Native notifications use main-process Electron APIs, not browser permission grants.
-  Permission-gated clipboard APIs are not integrated.
+  Native notifications and copy buttons use main-process Electron APIs, not browser permission
+  grants. Clipboard reads are not exposed. The frontend clipboard adapter uses this bridge in
+  Electron and the browser clipboard API otherwise.
 - Downloads retain the native Save As flow; files never open automatically.
 - Desktop storage lives in Electron's app-data directory under `lpi-desktop`, separate from
   browser storage. Reload guards are relay-scoped; there is no automatic runtime resume/stop.

@@ -65,7 +65,7 @@ Adapted from <https://github.com/earendil-works/pi/blob/main/AGENTS.md> for this
 
 ## Git
 
-- Never commit unless asked. Only commit files changed in the current session.
+- Never commit unless asked.
 - Check `git status` before staging. Stage explicit paths, never `git add .` or `git add -A`.
 - Use concise, informative commit messages such as `feat: ...`, `fix: ...`, or `docs: ...`.
 - Never run `git reset --hard`, `git checkout .`, `git clean -fd`, `git stash`, or `git commit --no-verify`. Never force push.

@@ -5,9 +5,37 @@ import { useDiffTabs } from './diff-tabs';
 import { useProjectDiff } from './use-project-diff';
 import { useWorkspacePanes } from './workspace-panes';
 
-export function Workspace({ projectId, children }: { projectId?: string; children: ReactNode }) {
-  const [open, setOpen] = useState(() => window.matchMedia('(min-width: 1200px)').matches);
-  const [width, setWidth] = useState(480);
+export function Workspace({
+  projectId,
+  children,
+}: {
+  projectId?: string;
+  children: (controls: ReactNode) => ReactNode;
+}) {
+  const [open, setOpen] = useState(() => {
+    try {
+      const saved = localStorage.getItem('lpi:workspace-panel-open');
+      return saved === null ? window.matchMedia('(min-width: 1200px)').matches : saved === 'true';
+    } catch {
+      return window.matchMedia('(min-width: 1200px)').matches;
+    }
+  });
+  const [width, setWidth] = useState(() => {
+    try {
+      const saved = Number(localStorage.getItem('lpi:workspace-panel-width'));
+      return Number.isFinite(saved) && saved >= 280 && saved <= 900 ? saved : 320;
+    } catch {
+      return 320;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem('lpi:workspace-panel-open', String(open));
+      localStorage.setItem('lpi:workspace-panel-width', String(width));
+    } catch {
+      // Resizing and toggling remain usable without device storage.
+    }
+  }, [open, width]);
   const { rightTab, canSplit, split } = useDiffTabs();
   const splitOpen = Boolean(rightTab);
   useEffect(() => {
@@ -21,24 +49,31 @@ export function Workspace({ projectId, children }: { projectId?: string; childre
       style={{ '--workspace-panel-width': `${width}px` } as CSSProperties}
     >
       <div className="workspace-chat">
-        {projectId && (
-          <div className="workspace-toolbar">
-            {canSplit && !rightTab && (
-              <button type="button" onClick={() => split({ projectId })}>
-                <PanelRightOpen size={15} aria-hidden="true" /> Split Diff
+        {children(
+          projectId && (
+            <div className="workspace-toolbar" role="toolbar" aria-label="Workspace actions">
+              <button
+                type="button"
+                aria-expanded={open}
+                aria-controls="workspace-panel"
+                onClick={() => setOpen(!open)}
+                title="Toggle changes panel"
+              >
+                <DiffIcon size={15} aria-hidden="true" /> Diff
               </button>
-            )}
-            <button
-              type="button"
-              aria-expanded={open}
-              aria-controls="workspace-panel"
-              onClick={() => setOpen(!open)}
-            >
-              <DiffIcon size={15} aria-hidden="true" /> Diff
-            </button>
-          </div>
+              {canSplit && !rightTab && (
+                <button
+                  type="button"
+                  aria-label="Split Diff"
+                  title="Split Diff"
+                  onClick={() => split({ projectId })}
+                >
+                  <PanelRightOpen size={15} aria-hidden="true" />
+                </button>
+              )}
+            </div>
+          ),
         )}
-        {children}
       </div>
       {projectId && open && (
         <aside id="workspace-panel" className="workspace-panel" aria-label="Project workspace">
@@ -54,7 +89,7 @@ export function Workspace({ projectId, children }: { projectId?: string; childre
             onPointerMove={(event) => {
               if (event.currentTarget.hasPointerCapture(event.pointerId)) {
                 const right = event.currentTarget.parentElement?.getBoundingClientRect().right ?? 0;
-                setWidth(Math.max(300, Math.min(900, right - event.clientX)));
+                setWidth(Math.max(280, Math.min(900, right - event.clientX)));
               }
             }}
             onPointerUp={(event) => event.currentTarget.releasePointerCapture(event.pointerId)}
@@ -62,11 +97,11 @@ export function Workspace({ projectId, children }: { projectId?: string; childre
               if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
                 event.preventDefault();
                 setWidth((current) =>
-                  Math.max(300, Math.min(900, current + (event.key === 'ArrowLeft' ? 20 : -20))),
+                  Math.max(280, Math.min(900, current + (event.key === 'ArrowLeft' ? 20 : -20))),
                 );
               } else if (event.key === 'Home') {
                 event.preventDefault();
-                setWidth(480);
+                setWidth(320);
               }
             }}
           />

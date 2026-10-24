@@ -42,12 +42,11 @@
   }
   .session-header {
     border-bottom: 1px solid var(--border);
-    padding: 18px 28px;
+    padding: 10px 28px;
     display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: center;
-    gap: 16px;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
   }
   .chat-search {
     display: flex;
@@ -78,7 +77,6 @@
     color: #18181b;
   }
   .session-heading {
-    flex: 1 1 240px;
     min-width: 0;
   }
   .session-header-status {
@@ -91,12 +89,38 @@
   .session-header h1 {
     font-size: 17px;
     font-weight: 550;
-    margin: 4px 0;
-    overflow-wrap: anywhere;
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
   }
   .session-header p {
     margin-bottom: 0;
     font-size: 11px;
+  }
+  .session-title-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-width: 0;
+  }
+  .session-metadata {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 28px;
+  }
+  .session-metadata code {
+    text-transform: none;
+    letter-spacing: normal;
+    overflow-wrap: anywhere;
+    user-select: text;
+  }
+  .session-target-status {
+    text-transform: none;
+    letter-spacing: normal;
   }
   .controls {
     display: flex;

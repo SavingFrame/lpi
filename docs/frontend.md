@@ -58,7 +58,9 @@ The shadcn configuration is `frontend/components.json`. Run future shadcn CLI co
 
 ## Behavior
 
-The **Diff** button opens a resizable, collapsible changes panel on the right. It lists current
+The **Diff** button at the right end of the main tab strip opens a resizable, collapsible
+changes panel on the right. The adjacent **Split Diff** icon opens the split view; tabs scroll
+independently while these controls stay visible. It lists current
 project changes against Git HEAD, combining staged and unstaged changes and including
 non-ignored untracked files. **Settings > Diff > Diff opening** controls how file selections
 open in the main tab bar. **All files in one tab** is the default: one project Diff tab contains
@@ -84,8 +86,9 @@ stops it. Returning to the foreground or reconnecting refreshes authoritative da
 preserve file selection and scroll position. Refresh remains available manually. This is a
 read-only working-tree view, not per-turn history. See [live Diff protocol](server.md#live-project-diffs)
 for the relay polling cadence and limits.
-The panel starts open on wide screens and overlays the conversation on narrow screens;
-opening a diff on a narrow screen closes the picker.
+The panel defaults to 320 pixels wide and starts open on wide screens. Its width and
+open/collapsed state are remembered on this device. It overlays the conversation on narrow
+screens; opening a diff on a narrow screen closes the picker.
 `GET /projects/:projectId/diff` reads configured projects only, disables external diff/textconv
 commands, and limits output to 4 MiB. At most 100 untracked files are included, with an
 omission notice when that limit or the combined output limit is reached. A tracked diff
@@ -100,6 +103,13 @@ Branch links use `?branch=<entryId>`. An ordinary tree/sidebar click, **Branch f
 Completion/read state lives in relay SQLite and is shared across clients. The browser acknowledges the completion ID from its loaded snapshot only when synchronized, the tab is visible, at least half of the chat pane is visible, and it is following the transcript bottom. Scrolling up or hiding the tab prevents automatic acknowledgment. Failures offer an explicit retry without replaying agent commands. Read-state broadcasts update metadata without reloading history. Relay restarts and reconnects preserve unread state. Existing saved history is not marked unread, and settlements while disconnected are not inferred.
 
 The sidebar and session have independent viewport-height scroll areas. Within a session, the header and composer stay outside the history scroller, so its scrollbar ends above the composer; the composer has its own overflow when the window is short. Sessions open at the end of the conversation and follow new content while near the bottom. Scrolling up pauses following so incoming output does not pull you away from older messages. Message groups use their real layout heights, not offscreen estimates. Native browser scroll anchoring preserves visible content when deferred previews above the reader expand.
+
+The session header uses the same name or first-user-text fallback as the sidebar, including
+offline sessions. The title has its own single-line row above the actions.
+The metadata row above the title shows the project and, for registered managed runtimes,
+the tmux session ID with a button to copy the full attach command. Run that command on the relay host.
+Disconnected targets are last-known metadata, not proof that tmux is still running; targets
+are unavailable after relay restart until the bridge registers again.
 
 The session header’s **Search** button or `Ctrl/Cmd+F` searches the displayed conversation’s user messages and assistant replies, excluding thinking, tool calls, and tool output. Search is case-insensitive and literal, works across Markdown formatting, and updates as replies stream. Matches are highlighted in browsers supporting CSS Custom Highlights. Previous/next buttons and `Shift+Enter`/`Enter` navigate occurrences and wrap at the ends; `Escape` closes search and restores focus. Jumping to a match pauses scroll following. Search covers the current branch or read-only preview, not other sessions.
 

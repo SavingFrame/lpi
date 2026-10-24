@@ -70,6 +70,7 @@ test('preload exposes narrow desktop methods, strips IPC events and removes subs
     },
   );
   assert.deepEqual(Object.keys(bridge).sort(), [
+    'copyText',
     'getZoom',
     'notify',
     'onCloseTab',
@@ -86,6 +87,11 @@ test('preload exposes narrow desktop methods, strips IPC events and removes subs
   assert.equal(await bridge.getZoom(), 1.25);
   await bridge.setZoom(1.5);
   assert.deepEqual(calls, [['lpi:zoom:get'], ['lpi:zoom:set', 1.5]]);
+  await bridge.copyText('tmux -L lpi attach-session -t =lpi-example');
+  assert.deepEqual(calls.at(-1), [
+    'lpi:clipboard:write',
+    'tmux -L lpi attach-session -t =lpi-example',
+  ]);
   const values = [];
   const unsubscribe = bridge.onZoomChanged((...args) => values.push(args));
   callback({ secret: 'must not reach renderer' }, 1.5);

@@ -3,6 +3,7 @@ import { fileURLToPath } from 'node:url';
 import {
   app,
   type BrowserWindow,
+  clipboard,
   dialog,
   ipcMain,
   Menu,
@@ -168,7 +169,7 @@ if (primary) {
   void app.whenReady().then(() => {
     app.dock?.setIcon(appIcon);
     zoom = new ZoomSettings(join(app.getPath('userData'), 'desktop-settings.json'));
-    for (const channel of ['lpi:zoom:get', 'lpi:zoom:set', 'lpi:notify']) {
+    for (const channel of ['lpi:zoom:get', 'lpi:zoom:set', 'lpi:notify', 'lpi:clipboard:write']) {
       ipcMain.handle(channel, (event, value: unknown) => {
         const contents = window?.webContents;
         if (
@@ -179,6 +180,12 @@ if (primary) {
           !allowedNavigation(event.senderFrame.url, origin, true)
         ) {
           throw new Error('Desktop controls are restricted to the desktop main frame.');
+        }
+        if (channel === 'lpi:clipboard:write') {
+          if (typeof value !== 'string' || value.length > 8 * 1024 * 1024) {
+            throw new Error('Clipboard text must be a string of at most 8 Mi characters.');
+          }
+          return clipboard.writeText(value);
         }
         if (channel === 'lpi:notify') {
           if (!isDesktopNotification(value)) {

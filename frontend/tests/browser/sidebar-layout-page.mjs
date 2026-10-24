@@ -218,7 +218,10 @@ async function run() {
       `Project list has usable height: ${context}, nav=${navigation.clientHeight}, sidebar=${sidebar.clientHeight}, children=${Array.from(sidebar.children, (child) => `${child.className}:${child.getBoundingClientRect().height}`).join(',')}`,
     );
     if (!desktop) {
-      check(!frameDocument.querySelector('.session-tabs'), 'Browser does not show session tabs');
+      check(
+        frameDocument.querySelector('[aria-label="Workspace tabs"]'),
+        'Browser exposes the shared workspace tab strip',
+      );
       check(settings, 'Browser must expose shared keyboard settings');
       frame.remove();
       continue;
@@ -339,6 +342,53 @@ async function run() {
       frame.contentDocument?.querySelector('.session-header-status')?.textContent.includes('idle'),
     );
     const doc = frame.contentDocument;
+    const title = doc.querySelector('.session-header h1');
+    const titleRow = doc.querySelector('.session-title-row');
+    check(title.textContent.startsWith('A long session title'), 'Header shows the session name');
+    check(
+      frame.contentWindow.getComputedStyle(title).whiteSpace === 'nowrap' &&
+        titleRow.getBoundingClientRect().bottom <=
+          doc.querySelector('.session-header .controls').getBoundingClientRect().top,
+      'Title keeps its own single-line row above actions',
+    );
+    check(
+      !doc.querySelector('.session-topbar').textContent.includes('Connected to native Pi.'),
+      'Permanent runtime explanation is removed',
+    );
+    const metadata = doc.querySelector('.session-metadata');
+    check(
+      metadata.querySelector('code').textContent === 'lpi-12345678-1234-1234-1234-123456789abc' &&
+        metadata.getBoundingClientRect().bottom <= titleRow.getBoundingClientRect().top,
+      'Actual tmux target is visible above the title',
+    );
+    check(
+      !doc.querySelector('.session-details') &&
+        !doc.querySelector('[aria-label="Copy session name"]'),
+      'No details dropdown or title-copy button',
+    );
+    const copy = metadata.querySelector('[aria-label="Copy tmux attach command"]');
+    copy.click();
+    await until(
+      () =>
+        frame.contentWindow.lastCopied ===
+        "tmux -L lpi attach-session -t '=lpi-12345678-1234-1234-1234-123456789abc'",
+    );
+    const headerHeight = doc.querySelector('.session-header').getBoundingClientRect().height;
+    frame.contentWindow.lpiDesktop.copyText = async () => {
+      throw new Error('Clipboard unavailable');
+    };
+    copy.click();
+    await until(() => copy.title.includes('Copy failed'));
+    check(
+      doc.querySelector('.session-header').getBoundingClientRect().height === headerHeight,
+      'Clipboard failures do not enlarge the header',
+    );
+    if (width === 1280) {
+      check(
+        Math.abs(doc.querySelector('.workspace-panel').getBoundingClientRect().width - 320) < 1,
+        'Changes pane starts at a compact width',
+      );
+    }
     const status = doc.querySelector('.session-header-status [role="status"]');
     await until(() => status.textContent === '');
     const bounds = () => ({

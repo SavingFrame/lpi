@@ -1,6 +1,7 @@
 import { Check, Copy, GitBranch } from 'lucide-react';
 import { useState } from 'react';
 import type { Message } from '../../../../src/shared/client-state';
+import { copyText } from '../../client/clipboard';
 import { Button } from '../../components/ui/button';
 import { messageActionText } from './transcript-state';
 
@@ -38,7 +39,7 @@ export function MessageActions({
           title={copyLabel}
           onClick={async () => {
             try {
-              await navigator.clipboard.writeText(text);
+              await copyText(text);
               setCopyStatus('copied');
             } catch {
               setCopyStatus('failed');

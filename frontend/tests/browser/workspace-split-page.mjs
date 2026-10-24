@@ -37,9 +37,20 @@ async function run() {
     ).set;
     setValue.call(editor, 'Keep my unsent split draft');
     editor.dispatchEvent(new frame.contentWindow.Event('input', { bubbles: true }));
-    [...doc.querySelectorAll('.workspace-toolbar button')]
-      .find((button) => button.textContent.includes('Split Diff'))
-      .click();
+    const tabbar = doc.querySelector('.workspace-tabbar');
+    const tabs = tabbar.querySelector('.session-tabs');
+    const toolbar = tabbar.querySelector('.workspace-toolbar');
+    check(
+      Math.abs(toolbar.getBoundingClientRect().top - tabs.getBoundingClientRect().top) < 1 &&
+        tabs.getBoundingClientRect().right <= toolbar.getBoundingClientRect().left + 1 &&
+        toolbar.getBoundingClientRect().right <= tabbar.getBoundingClientRect().right + 1,
+      `Workspace controls share the tab row without overlapping tabs at ${width}px`,
+    );
+    check(
+      doc.querySelector('.workspace-chat').firstElementChild.classList.contains('split-workspace'),
+      'No separate toolbar row above the tab groups',
+    );
+    doc.querySelector('[aria-label="Split Diff"]').click();
     await until(() => doc.querySelector('[data-workspace-pane="right"] .diff-page'));
     check(
       doc.querySelector('[data-message-composer]') === editor &&

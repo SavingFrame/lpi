@@ -128,48 +128,53 @@ function ShellContent() {
       />
       <div className="desktop-workspace">
         <Workspace projectId={activePane === 'right' && rightTab ? rightTab.projectId : projectId}>
-          <SplitWorkspace
-            primary={
-              <WorkspaceGroup
-                pane="main"
-                tabs={
-                  <SessionTabs>
-                    {diffTabs.some((tab) => tab.pane === 'main') ? <DiffTabs /> : null}
-                  </SessionTabs>
-                }
-              >
-                <main tabIndex={-1} aria-label="Workspace content" data-workspace-scroll>
-                  <Outlet />
-                </main>
-              </WorkspaceGroup>
-            }
-            secondary={
-              rightTab && (
+          {(controls) => (
+            <SplitWorkspace
+              primary={
                 <WorkspaceGroup
-                  pane="right"
+                  pane="main"
                   tabs={
-                    <nav className="session-tabs" aria-label="Right workspace tabs">
-                      <DiffTabs pane="right" />
-                    </nav>
+                    <div className="workspace-tabbar">
+                      <SessionTabs>
+                        {diffTabs.some((tab) => tab.pane === 'main') ? <DiffTabs /> : null}
+                      </SessionTabs>
+                      {controls}
+                    </div>
                   }
                 >
-                  <section
-                    className="workspace-group-content"
-                    tabIndex={-1}
-                    aria-label="Right workspace content"
-                    data-workspace-scroll
-                  >
-                    <DiffView
-                      key={JSON.stringify([rightTab.projectId, rightTab.file])}
-                      projectId={rightTab.projectId}
-                      file={rightTab.file}
-                      pane="right"
-                    />
-                  </section>
+                  <main tabIndex={-1} aria-label="Workspace content" data-workspace-scroll>
+                    <Outlet />
+                  </main>
                 </WorkspaceGroup>
-              )
-            }
-          />
+              }
+              secondary={
+                rightTab && (
+                  <WorkspaceGroup
+                    pane="right"
+                    tabs={
+                      <nav className="session-tabs" aria-label="Right workspace tabs">
+                        <DiffTabs pane="right" />
+                      </nav>
+                    }
+                  >
+                    <section
+                      className="workspace-group-content"
+                      tabIndex={-1}
+                      aria-label="Right workspace content"
+                      data-workspace-scroll
+                    >
+                      <DiffView
+                        key={JSON.stringify([rightTab.projectId, rightTab.file])}
+                        projectId={rightTab.projectId}
+                        file={rightTab.file}
+                        pane="right"
+                      />
+                    </section>
+                  </WorkspaceGroup>
+                )
+              }
+            />
+          )}
         </Workspace>
       </div>
     </div>

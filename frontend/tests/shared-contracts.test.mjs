@@ -15,6 +15,9 @@ test('session validation requires native identity and valid connection metadata'
   assert.throws(() => session({ ...native, piSessionId: undefined }));
   assert.throws(() => session({ ...native, connection: 'invalid' }));
   assert.throws(() => session({ ...native, generation: -1 }));
+  const tmuxSession = 'lpi-12345678-1234-1234-1234-123456789abc';
+  assert.equal(session({ ...native, tmuxSession }).tmuxSession, tmuxSession);
+  assert.throws(() => session({ ...native, tmuxSession: 'lpi-$(touch injected)' }));
 });
 
 test('activity describes current work independently of completion notifications', () => {

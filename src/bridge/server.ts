@@ -329,6 +329,13 @@ export class NativeBridges {
       },
       snapshot: bridgeSnapshot(raw.snapshot),
     };
+    if (
+      native.snapshot.state.managedRuntime === true &&
+      native.launchId &&
+      /^[a-f0-9-]{36}$/.test(native.launchId)
+    ) {
+      native.session.tmuxSession = `lpi-${native.launchId}`;
+    }
     native.session.title =
       promptTitle(native.snapshot.state.sessionName) ??
       promptTitle(

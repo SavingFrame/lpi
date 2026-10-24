@@ -4,14 +4,16 @@ import { ArrowDown, Power, RefreshCw, Search } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ExtensionPanels } from '../../../src/extension-support/web';
 import { emptyView } from '../../../src/shared/client-state';
+import { promptTitle } from '../../../src/shared/sessions';
 import { Welcome } from '../app/welcome';
-import { projects } from '../client/api';
+import { projects, sessions } from '../client/api';
 import { launches, live, queryClient } from '../client/controllers';
 import { Button } from '../components/ui/button';
 import { LaunchSession } from '../navigation/launch-session';
 import { SessionTree } from './branches/tree';
 import { useBranchNavigation } from './branches/use-branch-navigation';
 import { Composer } from './composer/composer';
+import { CopySessionValue } from './copy-session-value';
 import { ReadCompletion } from './read-completion';
 import { useChatScroll } from './scroll/use-chat-scroll';
 import { ChatSearch } from './transcript/chat-search';
@@ -61,7 +63,16 @@ function SessionPane({
     live.select(id);
     return () => live.select(null);
   }, [id]);
-  const session = snapshot?.session;
+  const inventory = useQuery({ queryKey: ['sessions'], queryFn: sessions });
+  const session = snapshot?.session ?? inventory.data?.find((session) => session.id === id);
+  const title =
+    promptTitle(snapshot?.state.sessionName) ??
+    promptTitle(session?.title) ??
+    promptTitle(snapshot?.view.messages.find((message) => message.role === 'user')?.content) ??
+    'Untitled session';
+  const tmuxCommand = session?.tmuxSession
+    ? `tmux -L lpi attach-session -t '=${session.tmuxSession}'`
+    : undefined;
   const { preview, selectBranch, restoredDraft, navigationPending, navigationError } =
     useBranchNavigation(id, projectId, branch, commands);
   return (
@@ -69,14 +80,34 @@ function SessionPane({
       <div className="session-topbar">
         <header className="session-header">
           <div className="session-heading">
-            <p className="eyebrow">
-              {projectName} / {id.slice(0, 8)}
-            </p>
-            <h1>
-              {typeof snapshot?.state.sessionName === 'string'
-                ? snapshot.state.sessionName
-                : 'Pi session'}
-            </h1>
+            <div className="session-metadata eyebrow">
+              <span>{projectName} /</span>
+              {session?.tmuxSession && tmuxCommand ? (
+                <>
+                  <code title={tmuxCommand}>{session.tmuxSession}</code>
+                  <CopySessionValue
+                    key={tmuxCommand}
+                    value={tmuxCommand}
+                    label="tmux attach command"
+                  />
+                  {(session.connection !== 'connected' || connection.status === 'offline') && (
+                    <span
+                      className="session-target-status"
+                      title="The tmux session may no longer exist."
+                    >
+                      Last known
+                    </span>
+                  )}
+                </>
+              ) : (
+                <span title="No managed tmux target registered for this session.">
+                  {id.slice(0, 8)}
+                </span>
+              )}
+            </div>
+            <div className="session-title-row">
+              <h1 title={title}>{title}</h1>
+            </div>
             <p className="session-header-status muted">
               {session?.connection ?? 'Loading'}
               {snapshot?.view.compacting
@@ -168,14 +199,6 @@ function SessionPane({
               {connection.error}
             </p>
           )}
-        {session?.connection === 'connected' && (
-          <p className="banner">
-            Connected to native Pi. Prompts run in its terminal process. Model and thinking changes
-            require idle Pi with no queued messages or dialogs. Supported extension questions appear
-            below. Queued messages can be inspected and cleared above the composer. Other dialogs
-            remain terminal-only.
-          </p>
-        )}
         {snapshot && snapshot.session.projectId !== projectId && (
           <p className="banner error">This session belongs to a different project.</p>
         )}

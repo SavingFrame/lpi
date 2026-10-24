@@ -17,6 +17,8 @@ export interface Session {
   updatedAt?: string;
   title?: string;
   piSessionId: string;
+  /** Last registered managed tmux target, not proof that the runtime is still alive. */
+  tmuxSession?: string;
   /** Pi's parentSession header, also used by clone and explicitly parented sessions. */
   parentSession?: string;
   connection: 'connected' | 'disconnected';
@@ -80,6 +82,8 @@ export function session(value: unknown): Session {
       (typeof raw.updatedAt !== 'string' || !Number.isFinite(Date.parse(raw.updatedAt)))) ||
     (raw.title !== undefined && typeof raw.title !== 'string') ||
     typeof raw.piSessionId !== 'string' ||
+    (raw.tmuxSession !== undefined &&
+      (typeof raw.tmuxSession !== 'string' || !/^lpi-[a-f0-9-]{36}$/.test(raw.tmuxSession))) ||
     (raw.parentSession !== undefined && typeof raw.parentSession !== 'string') ||
     !['connected', 'disconnected'].includes(String(raw.connection)) ||
     typeof raw.generation !== 'number' ||
