@@ -16,7 +16,7 @@ export function DeferredContent({ label, children }: { label: string; children: 
           observer.disconnect();
         }
       },
-      { root: target.closest('main'), rootMargin: '400px' },
+      { root: target.closest('[data-workspace-scroll], main'), rootMargin: '400px' },
     );
     observer.observe(target);
     return () => observer.disconnect();

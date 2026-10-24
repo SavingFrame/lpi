@@ -1,20 +1,33 @@
 import { useMatch } from '@tanstack/react-router';
-import { FileDiff as DiffIcon, PanelRightClose, RefreshCw } from 'lucide-react';
-import { type CSSProperties, type ReactNode, useState } from 'react';
+import { FileDiff as DiffIcon, PanelRightClose, PanelRightOpen, RefreshCw } from 'lucide-react';
+import { type CSSProperties, type ReactNode, useEffect, useState } from 'react';
 import { useDiffTabs } from './diff-tabs';
 import { useProjectDiff } from './use-project-diff';
+import { useWorkspacePanes } from './workspace-panes';
 
 export function Workspace({ projectId, children }: { projectId?: string; children: ReactNode }) {
   const [open, setOpen] = useState(() => window.matchMedia('(min-width: 1200px)').matches);
   const [width, setWidth] = useState(480);
+  const { rightTab, canSplit, split } = useDiffTabs();
+  const splitOpen = Boolean(rightTab);
+  useEffect(() => {
+    if (splitOpen) {
+      setOpen(false);
+    }
+  }, [splitOpen]);
   return (
     <div
-      className={`workspace ${open && projectId ? 'workspace-panel-open' : ''}`}
+      className={`workspace ${open && projectId ? 'workspace-panel-open' : ''} ${splitOpen ? 'workspace-split-open' : ''}`}
       style={{ '--workspace-panel-width': `${width}px` } as CSSProperties}
     >
       <div className="workspace-chat">
         {projectId && (
           <div className="workspace-toolbar">
+            {canSplit && !rightTab && (
+              <button type="button" onClick={() => split({ projectId })}>
+                <PanelRightOpen size={15} aria-hidden="true" /> Split Diff
+              </button>
+            )}
             <button
               type="button"
               aria-expanded={open}
@@ -66,11 +79,19 @@ export function Workspace({ projectId, children }: { projectId?: string; childre
 
 function DiffPanel({ projectId, onClose }: { projectId: string; onClose: () => void }) {
   const { query, files } = useProjectDiff(projectId);
-  const { open, openFile, opening, visibleFile } = useDiffTabs();
+  const { open, openFile, opening, visibleFiles, rightTab } = useDiffTabs();
+  const { activePane } = useWorkspacePanes();
   const match = useMatch({ from: '/app/projects/$projectId/diff', shouldThrow: false });
+  const activeTab =
+    activePane === 'right'
+      ? rightTab
+      : match
+        ? { projectId: match.params.projectId, file: match.search.file }
+        : undefined;
+  const visibleFile = visibleFiles[activePane];
   const selectedFile =
-    match?.params.projectId === projectId
-      ? (match.search.file ?? (visibleFile?.projectId === projectId ? visibleFile.file : undefined))
+    activeTab?.projectId === projectId
+      ? (activeTab.file ?? (visibleFile?.projectId === projectId ? visibleFile.file : undefined))
       : undefined;
   function openDiff(file?: string) {
     if (file) {
@@ -78,7 +99,7 @@ function DiffPanel({ projectId, onClose }: { projectId: string; onClose: () => v
     } else {
       open({ projectId });
     }
-    if (window.matchMedia('(max-width: 1100px)').matches) {
+    if (rightTab || window.matchMedia('(max-width: 1100px)').matches) {
       onClose();
     }
   }

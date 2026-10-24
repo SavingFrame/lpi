@@ -5,12 +5,25 @@ import { RefreshCw } from 'lucide-react';
 import { DeferredContent } from '../components/deferred-content';
 import { useDiffScroll } from './use-diff-scroll';
 import { useProjectDiff } from './use-project-diff';
+import type { WorkspacePane } from './workspace-panes';
 
 export function DiffPage() {
   const { projectId } = useParams({ from: '/app/projects/$projectId/diff' });
   const { file } = useSearch({ from: '/app/projects/$projectId/diff' });
+  return <DiffView projectId={projectId} file={file} />;
+}
+
+export function DiffView({
+  projectId,
+  file,
+  pane = 'main',
+}: {
+  projectId: string;
+  file?: string;
+  pane?: WorkspacePane;
+}) {
   const { query, files } = useProjectDiff(projectId);
-  const page = useDiffScroll(projectId, file, files);
+  const page = useDiffScroll(projectId, file, files, pane);
   const visible = file ? files?.filter((entry) => entry.name === file) : files;
   return (
     <div className="diff-page" ref={page}>

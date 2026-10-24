@@ -5,13 +5,20 @@ import { type CSSProperties, useEffect, useState, useSyncExternalStore } from 'r
 import { projects } from '../client/api';
 import { live } from '../client/controllers';
 import { desktop } from '../client/platform';
+import { SplitWorkspace } from '../components/split-workspace';
 import { KeyboardProvider } from '../keyboard/keyboard';
 import { KeyboardNavigation } from '../keyboard/navigation';
 import { ProviderUsagePanel } from '../navigation/provider-usage';
 import { SessionNavigation } from '../navigation/session-navigation';
 import { SessionTabs } from '../navigation/session-tabs';
+import { DiffView } from '../workspace/diff-page';
 import { DiffTabs, DiffTabsProvider, useDiffTabs } from '../workspace/diff-tabs';
 import { Workspace } from '../workspace/workspace';
+import {
+  useWorkspacePanes,
+  WorkspaceGroup,
+  WorkspacePanesProvider,
+} from '../workspace/workspace-panes';
 
 function ConnectionStatus() {
   const status = useSyncExternalStore(live.subscribe, () => live.getState().status);
@@ -26,16 +33,19 @@ function ConnectionStatus() {
 export function Shell() {
   return (
     <KeyboardProvider>
-      <DiffTabsProvider>
-        <ShellContent />
-      </DiffTabsProvider>
+      <WorkspacePanesProvider>
+        <DiffTabsProvider>
+          <ShellContent />
+        </DiffTabsProvider>
+      </WorkspacePanesProvider>
     </KeyboardProvider>
   );
 }
 
 function ShellContent() {
   const [width, setWidth] = useState(280);
-  const { tabs: diffTabs } = useDiffTabs();
+  const { tabs: diffTabs, rightTab } = useDiffTabs();
+  const { activePane } = useWorkspacePanes();
   const navigate = useNavigate();
   useEffect(
     () =>
@@ -117,11 +127,49 @@ function ShellContent() {
         }}
       />
       <div className="desktop-workspace">
-        <SessionTabs>{diffTabs.length > 0 ? <DiffTabs /> : null}</SessionTabs>
-        <Workspace projectId={projectId}>
-          <main tabIndex={-1} aria-label="Workspace content">
-            <Outlet />
-          </main>
+        <Workspace projectId={activePane === 'right' && rightTab ? rightTab.projectId : projectId}>
+          <SplitWorkspace
+            primary={
+              <WorkspaceGroup
+                pane="main"
+                tabs={
+                  <SessionTabs>
+                    {diffTabs.some((tab) => tab.pane === 'main') ? <DiffTabs /> : null}
+                  </SessionTabs>
+                }
+              >
+                <main tabIndex={-1} aria-label="Workspace content" data-workspace-scroll>
+                  <Outlet />
+                </main>
+              </WorkspaceGroup>
+            }
+            secondary={
+              rightTab && (
+                <WorkspaceGroup
+                  pane="right"
+                  tabs={
+                    <nav className="session-tabs" aria-label="Right workspace tabs">
+                      <DiffTabs pane="right" />
+                    </nav>
+                  }
+                >
+                  <section
+                    className="workspace-group-content"
+                    tabIndex={-1}
+                    aria-label="Right workspace content"
+                    data-workspace-scroll
+                  >
+                    <DiffView
+                      key={JSON.stringify([rightTab.projectId, rightTab.file])}
+                      projectId={rightTab.projectId}
+                      file={rightTab.file}
+                      pane="right"
+                    />
+                  </section>
+                </WorkspaceGroup>
+              )
+            }
+          />
         </Workspace>
       </div>
     </div>

@@ -6,6 +6,7 @@ interface WorkspaceTabProps {
   active: boolean;
   icon?: ReactNode;
   indicator?: ReactNode;
+  actions?: ReactNode;
   title?: string;
   ariaLabel?: string;
   closeLabel?: string;
@@ -19,6 +20,7 @@ export function WorkspaceTab({
   active,
   icon,
   indicator,
+  actions,
   title = label,
   ariaLabel = label,
   closeLabel = `Close ${label}`,
@@ -60,6 +62,7 @@ export function WorkspaceTab({
         <span className="session-tab-title">{label}</span>
         {indicator}
       </button>
+      {actions}
       <button
         type="button"
         className="session-tab-close"

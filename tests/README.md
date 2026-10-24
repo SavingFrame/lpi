@@ -36,6 +36,7 @@ node --experimental-strip-types --test --test-reporter=spec frontend/tests/live-
 | Markdown formatting and safety policy | `frontend/tests/safe-markdown.test.mjs` |
 | Scroll-controller decisions with mocked DOM values | `frontend/tests/chat-scroll.test.mjs` |
 | Real Chromium layout and scroll-controller behavior | `npm run test:browser` |
+| Split Diff groups, draft preservation, focused closes and offscreen read safety | `node --test frontend/tests/browser/workspace-split.mjs` |
 
 Other feature tests remain beside these suites. `bridge-fixture.mjs` owns relay setup, fake native contexts, and extension transport teardown. `live-fixture.mjs` supplies snapshots and mocked browser transport. Neither fixture registers tests on import.
 

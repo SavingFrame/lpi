@@ -1,25 +1,30 @@
 import type { FileDiffMetadata } from '@pierre/diffs';
 import { useEffect, useRef } from 'react';
 import { useDiffTabs } from './diff-tabs';
+import type { WorkspacePane } from './workspace-panes';
 
 /** Keep requested anchors aligned as deferred diffs acquire their real heights. */
 export function useDiffScroll(
   projectId: string,
   file: string | undefined,
   files: FileDiffMetadata[] | null,
+  pane: WorkspacePane,
 ) {
   const page = useRef<HTMLDivElement>(null);
   const releasedRequest = useRef<number | undefined>(undefined);
-  const { focus, setVisibleFile } = useDiffTabs();
+  const { focus, setVisibleFiles } = useDiffTabs();
   useEffect(() => {
     const root = page.current;
-    const main = root?.closest('main');
+    const main = root?.closest<HTMLElement>('[data-workspace-scroll], main');
     if (!root || !main || !files) {
       return;
     }
     const sections = [...root.querySelectorAll<HTMLElement>('[data-diff-file]')];
     let anchor =
-      !file && focus?.projectId === projectId && focus.request !== releasedRequest.current
+      !file &&
+      focus?.projectId === projectId &&
+      focus.pane === pane &&
+      focus.request !== releasedRequest.current
         ? sections.find((section) => section.dataset.diffFile === focus.file)
         : undefined;
     let frame = 0;
@@ -45,13 +50,14 @@ export function useDiffScroll(
         current = sections.at(-1);
       }
       const name = current?.dataset.diffFile;
-      setVisibleFile((previous) => {
+      setVisibleFiles((previous) => {
+        const current = previous[pane];
         if (!name) {
-          return null;
+          return current === null ? previous : { ...previous, [pane]: null };
         }
-        return previous?.projectId === projectId && previous.file === name
+        return current?.projectId === projectId && current.file === name
           ? previous
-          : { projectId, file: name };
+          : { ...previous, [pane]: { projectId, file: name } };
       });
     };
     const schedule = () => {
@@ -61,7 +67,9 @@ export function useDiffScroll(
     };
     const release = () => {
       anchor = undefined;
-      releasedRequest.current = focus?.request;
+      if (focus?.pane === pane) {
+        releasedRequest.current = focus.request;
+      }
     };
     // Real user scrolling wins over a pending anchor. Layout changes must not pull it back.
     main.addEventListener('wheel', release, { passive: true });
@@ -82,6 +90,6 @@ export function useDiffScroll(
       main.removeEventListener('keydown', release);
       main.removeEventListener('scroll', schedule);
     };
-  }, [projectId, file, files, focus, setVisibleFile]);
+  }, [projectId, file, files, focus, pane, setVisibleFiles]);
   return page;
 }

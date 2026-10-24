@@ -41,6 +41,7 @@ The shadcn configuration is `frontend/components.json`. Run future shadcn CLI co
 - `frontend/src/client/`: browser transport construction, socket event adaptation, platform capabilities, and tab-scoped storage. `controllers.ts` wires tab-wide query, command, draft, and launch controllers. Framework-independent behavior belongs in repository-root `src/client/`, not here.
 - `frontend/src/app/`: router, application shell, welcome view, and settings.
 - `frontend/src/keyboard/`: action registry, shortcut matching, device-local preferences, command palette, and pane focus adapters.
+- `frontend/src/components/split-workspace.tsx`, `workspace/workspace-panes.tsx`: reusable split layout, tab-group presentation, and focused-group state, independent of content and session controllers. `workspace/diff-tabs.tsx` owns Diff tab placement; `diff-page.tsx` renders the same view in a route or a right-hand group.
 - `frontend/src/navigation/`: session search, project/sidebar presentation, launch/archive actions, and sidebar projections.
 - `frontend/src/components/`: reusable presentation primitives, Markdown policy, deferred content, and windowing. Feature-specific components stay with their feature.
 - `frontend/src/session/branches/tree.tsx`, `tree-graph.ts`, `tree-query.ts`: selected-session tree fetching, projected conversation-tip counting, nested branch groups, symmetric branch collapse controls, role-colored rows, and saved-entry browsing. Sidebar observers use the same query with fetching disabled.
@@ -66,6 +67,17 @@ to the file. The right-hand list highlights the file currently in view. **One ta
 opens or selects an individual file tab instead. The preference is saved on this device;
 changing it does not close existing tabs. Diff tabs are temporary; conversation tabs retain
 their existing persistence.
+
+**Split Diff** keeps the current chat mounted while opening a resizable right-hand tab group.
+Diff tabs also have controls to move right or back to the main group. While split, new Diff
+tabs open on the right; existing tabs are reused in their current group. Closing the last
+right-hand tab removes the split, and desktop close-tab shortcuts target the focused group.
+The changes picker becomes an overlay so it does not create a third content column.
+On compact screens, the two groups remain reachable through local horizontal scrolling.
+A chat must be at least half visible before its completion can be marked read. Only one
+live chat is supported; splitting does not create or resume a Pi runtime. Split placement
+is temporary and does not survive reload.
+
 Use the refresh controls to reload. This is a read-only working-tree view, not per-turn history.
 The panel starts open on wide screens and overlays the conversation on narrow screens;
 opening a diff on a narrow screen closes the picker.
@@ -80,7 +92,7 @@ Opening session details fetches only that session’s tree, even while the panel
 
 Branch links use `?branch=<entryId>`. An ordinary tree/sidebar click, **Branch from here**, or **Edit and branch** also creates a single-use in-memory selection intent. The selected page consumes that intent once, checks synchronized idle state, loads the target, rechecks identity/generation/expected leaf, then switches through the shared command lane without confirmation. Selecting the current native leaf simply returns to live view. Busy, disconnected, or guarded sessions stay in read-only preview; becoming idle, reconnecting, refreshing, or opening a preview URL does not authorize a later switch. Modified/new-tab clicks are preview-only. Switching affects every client and the native terminal; it does not restore files or request a summary. Selecting a user message rewinds before it and fills an empty composer with its text/images; existing drafts and edits during navigation are preserved. Unsupported attachment sets require native navigation. Rapid selections and page navigation invalidate stale preparations/restorations. The composer stays mounted, but sending and settings are disabled during preview. Previewing does not mark the live completion viewed. Browser fork creation is not implemented.
 
-Completion/read state lives in relay SQLite and is shared across clients. The browser acknowledges the completion ID from its loaded snapshot only when synchronized, the tab is visible, and it is following the transcript bottom. Scrolling up or hiding the tab prevents automatic acknowledgment. Failures offer an explicit retry without replaying agent commands. Read-state broadcasts update metadata without reloading history. Relay restarts and reconnects preserve unread state. Existing saved history is not marked unread, and settlements while disconnected are not inferred.
+Completion/read state lives in relay SQLite and is shared across clients. The browser acknowledges the completion ID from its loaded snapshot only when synchronized, the tab is visible, at least half of the chat pane is visible, and it is following the transcript bottom. Scrolling up or hiding the tab prevents automatic acknowledgment. Failures offer an explicit retry without replaying agent commands. Read-state broadcasts update metadata without reloading history. Relay restarts and reconnects preserve unread state. Existing saved history is not marked unread, and settlements while disconnected are not inferred.
 
 The sidebar and session have independent viewport-height scroll areas. Sessions open at the end of the conversation and follow new content while near the bottom. Scrolling up pauses following so incoming output does not pull you away from older messages.
 

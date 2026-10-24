@@ -14,6 +14,7 @@ import { relayServer } from '../client/connection';
 import { live } from '../client/controllers';
 import { desktop } from '../client/platform';
 import { WorkspaceTab } from '../components/workspace-tab';
+import { useWorkspacePanes } from '../workspace/workspace-panes';
 import { statuses } from './session-status';
 import {
   closeSessionTab,
@@ -26,6 +27,7 @@ const storageKey = `lpi:desktop-tabs:v1:${relayServer ?? window.location.origin}
 
 export function SessionTabs({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
+  const { activePane, setActivePane } = useWorkspacePanes();
   const { projectId, sessionId } = useParams({ strict: false });
   const { branch } = useSearch({ strict: false });
   const pathname = useLocation({ select: (location) => location.pathname });
@@ -45,6 +47,7 @@ export function SessionTabs({ children }: { children?: ReactNode }) {
   const restored = useRef(false);
 
   function activate(tab: SessionTab) {
+    setActivePane('main');
     void navigate({
       to: '/app/projects/$projectId/sessions/$sessionId',
       params: tab,
@@ -97,7 +100,7 @@ export function SessionTabs({ children }: { children?: ReactNode }) {
 
   useEffect(() =>
     desktop?.onCloseTab(() => {
-      if (sessionId) {
+      if (sessionId && activePane === 'main') {
         close(sessionId);
       }
     }),
