@@ -116,6 +116,46 @@ test('show accepts HTML directly without a file and rejects ambiguous inputs or 
   await assert.rejects(invoke({ html: '<style>main{height:100dvh}</style>' }), /viewport-height/);
 });
 
+test('show validates inline script syntax for direct HTML and files without executing code', async (t) => {
+  const { root } = fixture(t);
+  let tool;
+  registerShow({
+    registerTool: (value) => {
+      tool = value;
+    },
+  });
+  const invoke = (params) =>
+    tool.execute('syntax', { summary: 'Chart', ...params }, undefined, undefined, { cwd: root });
+  const broken =
+    '<h3>Chart</h3>\n<script>\nnew Chart(canvas, {options: {scales: {x: {}}});\n</script>';
+  await writeFile(join(root, 'broken.html'), broken);
+  for (const params of [{ html: broken }, { path: 'broken.html' }]) {
+    await assert.rejects(
+      invoke(params),
+      /Inline script #1.*HTML line 3, column \d+: Unexpected token.*Fix the script/,
+    );
+  }
+  // HTML parsing must not mistake comments, inert templates, quoted attributes or data for scripts.
+  const valid = `<!-- <script>const = ;</script> -->
+    <template><script>const = ;</script></template>
+    <script type="application/json">{"notJavaScript": true}</script>
+    <script src="https://cdn.example/chart.js?x=>">ignored invalid body )</script>
+    <script data-label=">">throw new Error('must not execute');</script>
+    <script type="module">export const value = await Promise.resolve(1);</script>
+    <script>new Chart(canvas, {options: {scales: {x: {}}}});</script>`;
+  assert.equal(displayArtifact(saved(await invoke({ html: valid }))).html, valid);
+  await assert.rejects(
+    invoke({
+      html: '<script>const first = 1;</script>\n<SCRIPT TYPE="text/javascript">const = ;</SCRIPT>',
+    }),
+    /Inline script #2.*HTML line 2/,
+  );
+  await assert.rejects(
+    invoke({ html: '<script type="module">export const = ;</script>' }),
+    /invalid JavaScript/,
+  );
+});
+
 test('show rejects unsupported, oversized, non-regular, invalid UTF-8 and corrupt image files, and observes abort', async (t) => {
   const { root } = fixture(t);
   let tool;

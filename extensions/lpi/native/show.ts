@@ -10,6 +10,7 @@ import {
   MAX_IMAGE_BYTES,
 } from '../../../src/shared/attachments.js';
 import { type DisplayArtifact, MAX_HTML_BYTES } from '../../../src/shared/display.js';
+import { validateDisplayScripts } from './validate-display.js';
 
 const imageTypes: Record<string, ImageAttachment['mimeType']> = {
   '.png': 'image/png',
@@ -38,6 +39,7 @@ export function registerShow(pi: ExtensionAPI): void {
         'Canvas does not inherit CSS colors. Read resolved colors with lpi.color("--chart-1"), never pass literal var(--...) strings to a chart library. Theme series, labels, axes, grids, legends and tooltips for both light and dark backgrounds. Apply colors initially and register lpi.onThemeChange(applyTheme) to reapply them and update the existing chart without recreating it or resetting controls; registration returns an unsubscribe function.',
         'Chart.js example after creating chart: const applyTheme = () => { Chart.defaults.color = lpi.color("--muted-foreground"); Chart.defaults.borderColor = lpi.color("--border"); chart.data.datasets[0].borderColor = lpi.color("--chart-1"); chart.update("none"); }; applyTheme(); lpi.onThemeChange(applyTheme); Apply any explicit per-axis, legend, tooltip and additional series colors inside applyTheme too.',
         'Inline CSS, JavaScript, SVG, Canvas and embedded data images work. You may load external scripts, styles and fonts from any HTTP(S) CDN, without an allowlist or local bundle requirement. Use a suitable library such as Chart.js, Apache ECharts, D3 or uPlot instead of hand-writing chart primitives when helpful. Prefer version-pinned HTTPS browser builds that do not need eval or workers. External images, local file references, fetch/XHR/WebSocket API calls, nested remote pages and agent commands stay blocked. Collect data with tools and embed it in the HTML. Make controls and chart labels accessible and layouts usable at about 360px as well as desktop width.',
+        'Inline classic and module scripts are syntax-checked before saving. Invalid JavaScript returns an error with an HTML line and column; fix it and retry. Validation does not execute scripts, check inline event handlers, fetch CDN assets, or verify rendering.',
         'summary is an accessibility and terminal fallback, not a visible caption. Publish before your final text reply. The reader already sees the visual: do not announce it, describe where it was saved, or repeat its contents. Add only useful interpretation not already in the visual. The saved result is a snapshot; local control state is not persisted.',
       ].join('\n'),
       parameters: Type.Object({
@@ -135,6 +137,7 @@ export function registerShow(pi: ExtensionAPI): void {
               'Inline visuals size to their content. Replace viewport-height units with content-based or fixed pixel heights.',
             );
           }
+          validateDisplayScripts(html);
           artifact = { ...metadata, kind: 'html', html };
         } else {
           const image = imageAttachments([
