@@ -2,8 +2,8 @@ import { constants } from 'node:fs';
 import { open } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import { basename, extname, resolve } from 'node:path';
-import { Type } from '@earendil-works/pi-ai';
 import { defineTool, type ExtensionAPI } from '@earendil-works/pi-coding-agent';
+import { Type } from 'typebox';
 import {
   type ImageAttachment,
   imageAttachments,
