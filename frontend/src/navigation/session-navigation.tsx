@@ -48,7 +48,7 @@ export const SessionNavigation = memo(function SessionNavigation({
   useKeyboardAction('previous', () => move(-1), ordered.length > 0);
   useKeyboardAction('next', () => move(1), ordered.length > 0);
   return (
-    <nav aria-label="Sessions by project">
+    <nav aria-label="Sessions">
       <label className="session-search">
         <span className="sr-only">Search sessions</span>
         <input
@@ -99,7 +99,6 @@ export const SessionNavigation = memo(function SessionNavigation({
           </button>
         ))}
       </fieldset>
-      <h2 className="eyebrow">Projects</h2>
       {sessionQuery.error && <p className="error">{sessionQuery.error.message}</p>}
       {sessionQuery.isPending && <p className="muted">Loading sessions…</p>}
       <div aria-busy={deferredSearch !== search}>

@@ -25,12 +25,14 @@ import { ArchiveSession } from './archive-session';
 import { LaunchSession } from './launch-session';
 import { statuses } from './session-status';
 import { projectColor, visibleProjects } from './sidebar-state';
+import { useRecentSessions } from './use-recent-sessions';
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
 const SessionRow = memo(function SessionRow({
   session,
   parent,
+  project,
   selected,
   online,
   open,
@@ -39,6 +41,7 @@ const SessionRow = memo(function SessionRow({
 }: {
   session: InventorySession;
   parent?: InventorySession;
+  project?: Project;
   selected: boolean;
   online: boolean;
   open: boolean;
@@ -83,6 +86,11 @@ const SessionRow = memo(function SessionRow({
           />
           <div className="session-summary">
             <span className="session-title">{title}</span>
+            {project && (
+              <span className="session-project" title={project.directory}>
+                {project.name}
+              </span>
+            )}
             <span className="sr-only">{status.description}</span>
             {isUnread && <span className="sr-only">Unviewed turn</span>}
           </div>
@@ -179,6 +187,12 @@ export const SessionSidebar = memo(function SessionSidebar({
   const [collapsed, setCollapsed] = useState<Set<string>>(() => new Set());
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [branches, setBranches] = useState<Set<string>>(() => new Set());
+  const [showAllRecent, setShowAllRecent] = useState(false);
+  const recency = useRecentSessions(
+    sessions,
+    `lpi:sidebar:${relayServer ?? window.location.origin}:recent`,
+    selectedId,
+  );
   const pinKey = `lpi:sidebar:${relayServer ?? window.location.origin}:pins`;
   const [pinned, setPinned] = useState<Set<string>>(() => {
     try {
@@ -245,6 +259,59 @@ export const SessionSidebar = memo(function SessionSidebar({
   }, []);
   const rows = useMemo(() => {
     const rows: WindowedItem[] = [];
+    if (!searching && filter === 'all') {
+      const recent = groups
+        .flatMap((group) => group.sessions.map((session) => ({ session, project: group.project })))
+        .sort((a, b) => (recency[b.session.id] ?? 0) - (recency[a.session.id] ?? 0));
+      if (recent.length > 0) {
+        rows.push({
+          key: 'heading:recent',
+          estimate: 30,
+          content: <h2 className="eyebrow sidebar-section-heading">Recent sessions</h2>,
+        });
+        for (const { session, project } of showAllRecent ? recent : recent.slice(0, 5)) {
+          rows.push({
+            key: `recent:${session.id}`,
+            estimate: 54,
+            content: (
+              <SessionRow
+                session={session}
+                project={project}
+                parent={session.parentSession ? byFile.get(session.parentSession) : undefined}
+                selected={selectedId === session.id}
+                online={online}
+                open={branches.has(session.id)}
+                onToggle={toggleBranch}
+                now={now}
+              />
+            ),
+          });
+        }
+        if (recent.length > 5) {
+          rows.push({
+            key: 'more:recent',
+            estimate: 36,
+            content: (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="show-project-sessions"
+                aria-expanded={showAllRecent}
+                onClick={() => setShowAllRecent((current) => !current)}
+              >
+                {showAllRecent ? 'Show less' : 'Show more'}
+              </Button>
+            ),
+          });
+        }
+      }
+    }
+    rows.push({
+      key: 'heading:projects',
+      estimate: 30,
+      content: <h2 className="eyebrow sidebar-section-heading">Projects</h2>,
+    });
     for (const group of shown) {
       const { project, sessions: items } = group;
       if (items.length === 0 && (searching || filter !== 'all')) {
@@ -314,6 +381,9 @@ export const SessionSidebar = memo(function SessionSidebar({
     }
     return rows;
   }, [
+    groups,
+    recency,
+    showAllRecent,
     shown,
     searching,
     filter,

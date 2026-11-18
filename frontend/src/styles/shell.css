@@ -470,6 +470,18 @@
     flex: 1;
     min-width: 0;
   }
+  .session-project {
+    display: block;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: 10px;
+    color: var(--muted-foreground);
+    line-height: 1.5;
+  }
+  .sidebar-section-heading {
+    padding-top: 8px;
+  }
   .session-title {
     overflow: hidden;
     display: block;
