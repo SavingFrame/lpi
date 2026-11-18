@@ -68,7 +68,9 @@ app/Vite running; activation reopens it.
 - Visuals use the existing `/display` shell and opaque-origin blank/srcdoc frames, generated
   locally in bundled mode. Existing visual CSP permits HTTP(S) chart scripts/styles without
   granting relay access. Vite remains development-only and does not supply production CSP.
-- Webviews, permission requests/checks, device permissions, and display capture are denied.
+- Webviews, device permissions, and display capture are denied. The bundled main frame may
+  use Chromium Local Network Access when an HTTP relay is configured. Its CSP still limits
+  connections to configured endpoints, and other permission requests/checks are denied.
   Native notifications and copy buttons use main-process Electron APIs, not browser permission
   grants. Clipboard reads are not exposed. The frontend clipboard adapter uses this bridge in
   Electron and the browser clipboard API otherwise.

@@ -298,7 +298,11 @@ if (primary) {
       });
     }
     const desktopSession = session.fromPartition('persist:lpi');
-    secureSession(desktopSession);
+    secureSession(
+      desktopSession,
+      origin,
+      () => !development && activeProfiles.some(({ origin }) => origin.startsWith('http:')),
+    );
     desktopSession.protocol.handle(DESKTOP_SCHEME, (request) =>
       bundledResponse(
         request,

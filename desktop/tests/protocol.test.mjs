@@ -15,7 +15,11 @@ test('bundled UI serves local assets, deep links and visuals without forwarding 
   writeFileSync(join(root, 'secret'), 'must not be exposed');
   symlinkSync(join(root, 'secret'), join(directory, 'assets', 'escape.js'));
   const primary = seedRelayProfile('http://127.0.0.1:3141');
-  const profiles = [primary, { ...seedRelayProfile('https://lab.example'), name: 'Lab <&' }];
+  const profiles = [
+    primary,
+    { ...seedRelayProfile('http://10.64.10.17:3141'), name: 'Lab <&' },
+    seedRelayProfile('https://lab.example'),
+  ];
   const request = (path, method = 'GET') =>
     bundledResponse(new Request(`lpi-app://app${path}`, { method }), directory, profiles);
 
@@ -30,7 +34,7 @@ test('bundled UI serves local assets, deep links and visuals without forwarding 
     assert.ok(html.includes('Lab &lt;&amp;'));
     assert.equal(
       csp.split('; ').find((directive) => directive.startsWith('connect-src')),
-      "connect-src 'self' http://127.0.0.1:3141 ws://127.0.0.1:3141 https://lab.example wss://lab.example",
+      "connect-src 'self' http://127.0.0.1:3141 ws://127.0.0.1:3141 http://10.64.10.17:3141 ws://10.64.10.17:3141 https://lab.example wss://lab.example",
     );
     assert.match(csp, /script-src 'self';/);
     assert.match(csp, /frame-ancestors 'none'/);

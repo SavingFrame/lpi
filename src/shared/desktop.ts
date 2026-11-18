@@ -67,14 +67,22 @@ export interface DesktopPlatform {
 export function desktopRelayOrigin(value = 'http://127.0.0.1:3141'): string {
   const url = new URL(value);
   const originOnly = /^https?:\/\/[^/?#@\\\s]+\/?$/i.test(value);
-  const loopback = ['127.0.0.1', 'localhost', '[::1]'].includes(url.hostname);
+  const [first, second = -1] = url.hostname.split('.').map(Number);
+  const localHttp =
+    url.hostname === 'localhost' ||
+    /^\[(?:::1\]|f[cd][\da-f]{2}:)/.test(url.hostname) ||
+    (/^\d+\.\d+\.\d+\.\d+$/.test(url.hostname) &&
+      (first === 127 ||
+        first === 10 ||
+        (first === 192 && second === 168) ||
+        (first === 172 && second >= 16 && second <= 31)));
   // The normalized origin is also serialized as a single CSP source.
   const validHost = /^[a-z0-9.-]+$|^\[[a-f0-9:]+\]$/.test(url.hostname);
   if (
     !originOnly ||
     !validHost ||
     value !== value.trim() ||
-    (url.protocol !== 'https:' && !(url.protocol === 'http:' && loopback)) ||
+    (url.protocol !== 'https:' && !(url.protocol === 'http:' && localHttp)) ||
     url.username ||
     url.password ||
     url.pathname !== '/' ||
@@ -82,7 +90,7 @@ export function desktopRelayOrigin(value = 'http://127.0.0.1:3141'): string {
     url.hash
   ) {
     throw new Error(
-      'Use an HTTPS origin or loopback HTTP, without a path, credentials, query, or fragment.',
+      'Use HTTPS or HTTP on localhost or a private IP address, without a path, credentials, query, or fragment.',
     );
   }
   return url.origin;

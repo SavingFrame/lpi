@@ -4,9 +4,27 @@ import appIcon from '../assets/brand/lpi-icon.png?asset';
 import { allowedExternalUrl, allowedNavigation } from './policy.js';
 
 /** Apply once to the dedicated desktop session, before creating a renderer. */
-export function secureSession(session: Session): void {
-  session.setPermissionCheckHandler(() => false);
-  session.setPermissionRequestHandler((_contents, _permission, callback) => callback(false));
+export function secureSession(
+  session: Session,
+  appOrigin: string,
+  hasHttpRelay: () => boolean,
+): void {
+  // Chromium may require Local Network Access for private relays. The bundled
+  // main frame still has a connect-src allowlist of exact configured endpoints.
+  const localNetwork = (permission: string, mainFrame: boolean, url?: string) =>
+    (permission === 'local-network' || permission === 'local-network-access') &&
+    mainFrame &&
+    url !== undefined &&
+    allowedNavigation(url, appOrigin, true) &&
+    hasHttpRelay();
+  session.setPermissionCheckHandler(
+    (contents, permission, origin, details) =>
+      origin === appOrigin &&
+      localNetwork(permission, details.isMainFrame, details.requestingUrl ?? contents?.getURL()),
+  );
+  session.setPermissionRequestHandler((_contents, permission, callback, details) =>
+    callback(localNetwork(permission, details.isMainFrame, details.requestingUrl)),
+  );
   session.setDevicePermissionHandler(() => false);
   session.setDisplayMediaRequestHandler((_request, callback) => callback(null));
   session.on('will-download', (_event, item) => {

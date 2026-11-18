@@ -59,12 +59,13 @@ If there is no saved list, the app starts with `http://127.0.0.1:3141` or the va
 `LPI_DESKTOP_SERVER`. A saved list takes precedence on app restart. The development launch
 uses `LPI_DESKTOP_SERVER` and does not edit the saved list.
 
-Only HTTPS or loopback HTTP is accepted. Do not include credentials, paths, query parameters,
-or fragments. For a remote plaintext relay, use an SSH loopback tunnel or trusted HTTPS.
-Certificates are validated normally.
+HTTP is accepted on localhost and private IP addresses (RFC 1918 IPv4 and IPv6 unique-local).
+Use it only on a trusted LAN: prompts and responses travel unencrypted. Other relay endpoints
+need HTTPS, and certificates are validated normally. Do not include credentials, paths, queries,
+or fragments.
 
-Allow `lpi-app://app` on the remote relay too, and add its HTTPS origin to `origins` so the
-hostname passes Host validation. Host/Origin checks are not authentication.
+Add both `lpi-app://app` and the relay's exact origin (for example `http://10.64.10.17:3141`)
+to the relay's `origins`, then restart it. Host/Origin checks are not authentication.
 
 **lpi has no application authentication. Only use a trusted relay behind LAN, Tailscale,
 or tunnel access controls. Do not expose it publicly.**

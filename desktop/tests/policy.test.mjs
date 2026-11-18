@@ -5,13 +5,24 @@ import { allowedExternalUrl, allowedNavigation, desktopDevelopmentOrigin } from 
 
 test('desktop configuration accepts only an explicit safe relay origin', () => {
   assert.equal(desktopRelayOrigin(), 'http://127.0.0.1:3141');
-  for (const url of ['http://localhost:5173/', 'http://[::1]:3141', 'https://lpi.example']) {
+  for (const url of [
+    'http://localhost:5173/',
+    'http://[::1]:3141',
+    'http://10.64.10.17:3141',
+    'http://172.31.255.255:3141',
+    'http://192.168.1.15:3141',
+    'http://[fd00::1]:3141',
+    'https://lpi.example',
+  ]) {
     assert.equal(desktopRelayOrigin(url), new URL(url).origin);
   }
   for (const url of [
     'file:///tmp/index.html',
     'javascript:alert(1)',
     'http://lpi.example',
+    'http://172.32.0.1:3141',
+    'http://10.64.10.17.example:3141',
+    'http://10.64.10.17:3141/?',
     'https://user:secret@lpi.example',
     'https://lpi.example/app',
     'https://lpi.example/?token=secret',

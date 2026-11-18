@@ -85,7 +85,7 @@ export function DesktopRelaySettings({ platform }: { platform: DesktopPlatform }
       setOrigin('');
     } catch {
       setError(
-        'Use an HTTPS origin or loopback HTTP, without a path, credentials, query, or fragment.',
+        'Use HTTPS or HTTP on localhost or a private IP address, without a path, credentials, query, or fragment.',
       );
     }
   }
