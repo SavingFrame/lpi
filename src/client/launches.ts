@@ -36,6 +36,9 @@ export class LaunchController {
     return guard;
   }
 
+  hasPending = (): boolean =>
+    [...this.guards.values()].some((guard) => guard.getState().status === 'pending');
+
   initialize = (resumeId?: string): Promise<void> => this.guard(resumeId).initialize();
   getState = (resumeId?: string): MutationState => this.guard(resumeId).getState();
 

@@ -3,9 +3,9 @@ import { useNavigate } from '@tanstack/react-router';
 import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import type { SessionCommands } from '../../../../src/client/commands';
 import type { ComposerDraft } from '../../../../src/client/drafts';
-import { previewBranch } from '../../client/api';
-import { live, queryClient } from '../../client/controllers';
-import { branchAction, branchSelections, navigateBranch } from './branch-navigation';
+import { sessionRoute } from '../../app/routes';
+import { useRelay } from '../../client/relay-context';
+import { branchAction, branchSelectionsFor, navigateBranch } from './branch-navigation';
 
 export function useBranchNavigation(
   id: string,
@@ -14,6 +14,9 @@ export function useBranchNavigation(
   commands: Pick<SessionCommands, 'available' | 'submit'>,
 ) {
   const navigate = useNavigate();
+  const relay = useRelay();
+  const { api, live, queryClient } = relay.client;
+  const branchSelections = branchSelectionsFor(relay);
   const [restoredDraft, setRestoredDraft] = useState<ComposerDraft | null>(null);
   const [navigationPending, setNavigationPending] = useState(false);
   const [navigationError, setNavigationError] = useState<string | null>(null);
@@ -38,10 +41,10 @@ export function useBranchNavigation(
         }
       });
     };
-  }, [branch, id]);
+  }, [branch, id, branchSelections]);
   const preview = useQuery({
     queryKey: ['branch', id, branch],
-    queryFn: ({ signal }) => previewBranch(id, branch ?? '', signal),
+    queryFn: ({ signal }) => api.previewBranch(id, branch ?? '', signal),
     enabled: Boolean(branch),
     retry: false,
   });
@@ -55,12 +58,12 @@ export function useBranchNavigation(
         );
       }
       return navigate({
-        to: '/app/projects/$projectId/sessions/$sessionId',
-        params: { projectId, sessionId: id },
+        to: sessionRoute,
+        params: { profileId: relay.profileId, projectId, sessionId: id },
         search: entryId ? { branch: entryId } : {},
       });
     },
-    [id, projectId, commands.available, navigate],
+    [id, projectId, commands.available, navigate, live, relay, branchSelections],
   );
   useEffect(() => {
     if (!branch || selectionRequest?.sessionId !== id || selectionRequest.entryId !== branch) {
@@ -87,7 +90,7 @@ export function useBranchNavigation(
         preview: (sessionId, entryId) =>
           queryClient.fetchQuery({
             queryKey: ['branch', sessionId, entryId],
-            queryFn: ({ signal }) => previewBranch(sessionId, entryId, signal),
+            queryFn: ({ signal }) => api.previewBranch(sessionId, entryId, signal),
             retry: false,
           }),
         submit: commands.submit,
@@ -100,8 +103,8 @@ export function useBranchNavigation(
             setRestoredDraft(result.draft);
           }
           void navigate({
-            to: '/app/projects/$projectId/sessions/$sessionId',
-            params: { projectId, sessionId: id },
+            to: sessionRoute,
+            params: { profileId: relay.profileId, projectId, sessionId: id },
             search: {},
             replace: true,
           });
@@ -117,6 +120,19 @@ export function useBranchNavigation(
           }
         });
     });
-  }, [branch, id, projectId, selectionRequest, commands.available, commands.submit, navigate]);
+  }, [
+    branch,
+    id,
+    projectId,
+    selectionRequest,
+    commands.available,
+    commands.submit,
+    navigate,
+    api,
+    live,
+    queryClient,
+    relay,
+    branchSelections,
+  ]);
   return { preview, selectBranch, restoredDraft, navigationPending, navigationError };
 }

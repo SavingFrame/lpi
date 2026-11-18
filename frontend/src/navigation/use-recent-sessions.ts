@@ -1,26 +1,29 @@
 import { useEffect, useState } from 'react';
 import type { InventorySession } from '../../../src/shared/sessions';
+import { workspaceRelays } from '../client/controllers';
+import { workspaceKey } from '../client/workspace-inventory';
 
 /** Snapshot discovery times once; subsequent inventory updates must not reorder recent work. */
-export function useRecentSessions(
-  sessions: InventorySession[],
-  storageKey: string,
-  selectedId?: string,
-) {
+export function useRecentSessions(sessions: InventorySession[], selectedId?: string) {
   const [recency, setRecency] = useState<Record<string, number>>(() => {
-    try {
-      const value: unknown = JSON.parse(localStorage.getItem(storageKey) ?? '{}');
-      if (value && typeof value === 'object' && !Array.isArray(value)) {
-        return Object.fromEntries(
-          Object.entries(value).filter(
-            ([, time]) => typeof time === 'number' && Number.isFinite(time),
-          ),
+    const result: Record<string, number> = {};
+    for (const { profileId, client } of workspaceRelays) {
+      try {
+        const raw: unknown = JSON.parse(
+          localStorage.getItem(`lpi:sidebar:${client.origin}:recent`) ?? '{}',
         );
+        if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+          for (const [id, time] of Object.entries(raw)) {
+            if (typeof time === 'number' && Number.isFinite(time)) {
+              result[workspaceKey(profileId, id)] = time;
+            }
+          }
+        }
+      } catch {
+        // Ignore unreadable recents for this relay.
       }
-    } catch {
-      // Recents remain usable without browser storage.
     }
-    return {};
+    return result;
   });
   useEffect(() => {
     setRecency((current) => {
@@ -45,11 +48,20 @@ export function useRecentSessions(
     }
   }, [selectedId]);
   useEffect(() => {
-    try {
-      localStorage.setItem(storageKey, JSON.stringify(recency));
-    } catch {
-      // In-memory ordering remains usable when storage is unavailable.
+    for (const { profileId, client } of workspaceRelays) {
+      const prefix = workspaceKey(profileId, '');
+      const entries = Object.entries(recency)
+        .filter(([id]) => id.startsWith(prefix))
+        .map(([id, time]) => [id.slice(prefix.length), time]);
+      try {
+        localStorage.setItem(
+          `lpi:sidebar:${client.origin}:recent`,
+          JSON.stringify(Object.fromEntries(entries)),
+        );
+      } catch {
+        // In-memory ordering remains usable when storage is unavailable.
+      }
     }
-  }, [recency, storageKey]);
+  }, [recency]);
   return recency;
 }

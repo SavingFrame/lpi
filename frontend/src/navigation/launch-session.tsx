@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate } from '@tanstack/react-router';
+import { useNavigate, useRouter } from '@tanstack/react-router';
 import { LoaderCircle, Plus } from 'lucide-react';
 import { useEffect, useState, useSyncExternalStore } from 'react';
-import { projects } from '../client/api';
-import { launches } from '../client/controllers';
+import { sessionRoute } from '../app/routes';
+import { useRelay, useRelayReady } from '../client/relay-context';
 import { ConfirmButton } from '../components/confirm-button';
 import { Button } from '../components/ui/button';
 
@@ -19,21 +19,30 @@ export function LaunchSession({
   onStarted?: () => void;
 }) {
   const navigate = useNavigate();
-  const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
+  const router = useRouter();
+  const relay = useRelay();
+  const { projects, launches } = relay.client;
+  const ready = useRelayReady(relay);
+  const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects, enabled: ready });
   const [selected, setSelected] = useState(projectId ?? '');
   const state = useSyncExternalStore(launches.subscribe, () => launches.getState(resumeId));
   useEffect(() => {
     void launches.initialize(resumeId);
-  }, [resumeId]);
+  }, [launches, resumeId]);
   const pending = state.status === 'pending';
   const uncertain = state.status === 'uncertain';
   async function start() {
+    const location = router.state.location.href;
     const session = await launches.start(projectId ?? selected, resumeId);
-    if (session) {
+    if (session && router.state.location.href === location) {
       onStarted?.();
       void navigate({
-        to: '/app/projects/$projectId/sessions/$sessionId',
-        params: { projectId: session.projectId, sessionId: session.id },
+        to: sessionRoute,
+        params: {
+          profileId: relay.profileId,
+          projectId: session.projectId,
+          sessionId: session.id,
+        },
       });
     }
   }
@@ -60,7 +69,7 @@ export function LaunchSession({
           key={resumeId}
           variant="outline"
           size="sm"
-          disabled={state.status !== 'ready' || !(projectId ?? selected)}
+          disabled={!ready || state.status !== 'ready' || !(projectId ?? selected)}
           confirmLabel="Resume"
           onConfirm={() => void start()}
         >
@@ -79,7 +88,7 @@ export function LaunchSession({
           }
           data-launch-session
           title={compact ? 'New session in this project' : undefined}
-          disabled={state.status !== 'ready' || !(projectId ?? selected)}
+          disabled={!ready || state.status !== 'ready' || !(projectId ?? selected)}
           onClick={() => void start()}
         >
           {compact ? (

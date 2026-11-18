@@ -2,13 +2,19 @@ import { useQuery } from '@tanstack/react-query';
 import { Link, useSearch } from '@tanstack/react-router';
 import { ChevronDown, Circle, GitBranch } from 'lucide-react';
 import type { Session } from '../../../../src/shared/sessions';
-import { live } from '../../client/controllers';
-import { requestBranchSelection } from './branch-navigation';
+import { sessionRoute } from '../../app/routes';
+import { useRelay } from '../../client/relay-context';
+import { branchSelectionsFor, requestBranchSelection } from './branch-navigation';
 import { branchRows } from './branch-state';
 import { sessionTreeQuery } from './tree-query';
 
 function useSessionBranches(session: Session, online: boolean) {
-  const query = useQuery(sessionTreeQuery(session.id, 'sidebar'));
+  const {
+    client: { api },
+  } = useRelay();
+  const query = useQuery(
+    sessionTreeQuery(session.id, 'sidebar', (id, signal) => api.tree(id, signal)),
+  );
   const connected =
     online &&
     session.connection === 'connected' &&
@@ -61,6 +67,7 @@ export function SessionBranches({
   selected: boolean;
   online: boolean;
 }) {
+  const relay = useRelay();
   const search = useSearch({ strict: false });
   const { query, connected, rows } = useSessionBranches(session, online);
   if (rows.length < 2) {
@@ -81,8 +88,12 @@ export function SessionBranches({
           {rows.map((branch) => (
             <Link
               key={branch.id}
-              to="/app/projects/$projectId/sessions/$sessionId"
-              params={{ projectId: session.projectId, sessionId: session.id }}
+              to={sessionRoute}
+              params={{
+                profileId: relay.profileId,
+                projectId: session.projectId,
+                sessionId: session.id,
+              }}
               search={{ branch: branch.id }}
               onClick={(event) =>
                 requestBranchSelection(
@@ -90,7 +101,8 @@ export function SessionBranches({
                   session.id,
                   session.projectId,
                   branch.id,
-                  live.getState(),
+                  relay.client.live.getState(),
+                  branchSelectionsFor(relay),
                 )
               }
               className={`branch-link ${selected && search.branch === branch.id ? 'selected' : ''}`}

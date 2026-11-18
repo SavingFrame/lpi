@@ -562,6 +562,37 @@
     align-items: center;
     gap: 12px;
   }
+  .relay-settings-list,
+  .relay-settings-form {
+    display: grid;
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .relay-settings-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: end;
+    gap: 8px 12px;
+  }
+  .relay-settings-form label,
+  .relay-settings-list label {
+    display: grid;
+    gap: 4px;
+  }
+  .relay-settings-add {
+    justify-self: start;
+  }
+  .relay-settings-form input,
+  .relay-settings-list input {
+    border: 1px solid var(--input);
+    border-radius: 6px;
+    padding: 6px 10px;
+    background: var(--background);
+    max-width: 100%;
+  }
+  .relay-settings-origin {
+    overflow-wrap: anywhere;
+  }
   .settings-scale-controls select {
     border: 1px solid var(--input);
     border-radius: 6px;

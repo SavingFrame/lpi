@@ -1,18 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
 import { useLocation, useNavigate, useParams, useSearch } from '@tanstack/react-router';
-import {
-  type ReactNode,
-  useEffect,
-  useLayoutEffect,
-  useRef,
-  useState,
-  useSyncExternalStore,
-} from 'react';
+import { type ReactNode, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { hasUnreadCompletion } from '../../../src/shared/session-read-state';
-import { sessions } from '../client/api';
-import { relayServer } from '../client/connection';
-import { live } from '../client/controllers';
+import { sessionRoute } from '../app/routes';
+import { defaultRelay, relayFor, workspaceRelays } from '../client/controllers';
 import { desktop } from '../client/platform';
+import { useWorkspaceInventory } from '../client/workspace-inventory';
 import { WorkspaceTab } from '../components/workspace-tab';
 import { useWorkspacePanes } from '../workspace/workspace-panes';
 import { statuses } from './session-status';
@@ -21,24 +13,40 @@ import {
   openSessionTab,
   parseSessionTabs,
   type SessionTab,
+  sessionTabKey,
 } from './session-tabs-state';
 
-const storageKey = `lpi:desktop-tabs:v1:${relayServer ?? window.location.origin}`;
+const storageKey = defaultRelay.profileId
+  ? 'lpi:desktop-tabs:v2'
+  : `lpi:desktop-tabs:v1:${defaultRelay.client.origin}`;
 
 export function SessionTabs({ children }: { children?: ReactNode }) {
   const navigate = useNavigate();
   const { activePane, setActivePane } = useWorkspacePanes();
-  const { projectId, sessionId } = useParams({ strict: false });
+  const { profileId, projectId, sessionId } = useParams({ strict: false });
   const { branch } = useSearch({ strict: false });
   const pathname = useLocation({ select: (location) => location.pathname });
-  const inventory = useQuery({ queryKey: ['sessions'], queryFn: sessions });
-  const online = useSyncExternalStore(live.subscribe, () => {
-    const status = live.getState().status;
-    return status === 'ready' || status === 'syncing';
-  });
+  const inventory = useWorkspaceInventory();
+  const currentKey = sessionId && sessionTabKey({ profileId, sessionId });
   const [state, setState] = useState(() => {
     try {
-      return parseSessionTabs(JSON.parse(localStorage.getItem(storageKey) ?? 'null'));
+      const saved = localStorage.getItem(storageKey);
+      if (!saved && defaultRelay.profileId) {
+        let state = parseSessionTabs(null);
+        for (const relay of workspaceRelays) {
+          const legacy = parseSessionTabs(
+            JSON.parse(
+              localStorage.getItem(`lpi:desktop-tabs:v1:${relay.client.origin}`) ?? 'null',
+            ),
+          );
+          for (const tab of legacy.tabs) {
+            state = openSessionTab(state, { ...tab, profileId: relay.profileId });
+          }
+        }
+        return state;
+      }
+      const parsed = parseSessionTabs(JSON.parse(saved ?? 'null'));
+      return { ...parsed, tabs: parsed.tabs.filter((tab) => relayFor(tab.profileId)) };
     } catch {
       return parseSessionTabs(null);
     }
@@ -49,7 +57,7 @@ export function SessionTabs({ children }: { children?: ReactNode }) {
   function activate(tab: SessionTab) {
     setActivePane('main');
     void navigate({
-      to: '/app/projects/$projectId/sessions/$sessionId',
+      to: sessionRoute,
       params: tab,
       search: tab.branch ? { branch: tab.branch } : {},
     });
@@ -57,19 +65,19 @@ export function SessionTabs({ children }: { children?: ReactNode }) {
 
   useLayoutEffect(() => {
     if (projectId && sessionId) {
-      setState((current) => openSessionTab(current, { projectId, sessionId, branch }));
+      setState((current) => openSessionTab(current, { profileId, projectId, sessionId, branch }));
     }
-  }, [projectId, sessionId, branch]);
+  }, [profileId, projectId, sessionId, branch]);
 
   useEffect(() => {
     if (restored.current) {
       return;
     }
     restored.current = true;
-    const tab = initial.current.tabs.find((tab) => tab.sessionId === initial.current.active);
+    const tab = initial.current.tabs.find((tab) => sessionTabKey(tab) === initial.current.active);
     if (pathname === '/' && tab) {
       void navigate({
-        to: '/app/projects/$projectId/sessions/$sessionId',
+        to: sessionRoute,
         params: tab,
         search: tab.branch ? { branch: tab.branch } : {},
         replace: true,
@@ -88,8 +96,8 @@ export function SessionTabs({ children }: { children?: ReactNode }) {
   function close(id: string) {
     const next = closeSessionTab(state, id);
     setState(next);
-    if (sessionId === id) {
-      const tab = next.tabs.find((tab) => tab.sessionId === next.active);
+    if (currentKey === id) {
+      const tab = next.tabs.find((tab) => sessionTabKey(tab) === next.active);
       if (tab) {
         activate(tab);
       } else {
@@ -100,8 +108,8 @@ export function SessionTabs({ children }: { children?: ReactNode }) {
 
   useEffect(() =>
     desktop?.onCloseTab(() => {
-      if (sessionId && activePane === 'main') {
-        close(sessionId);
+      if (currentKey && activePane === 'main') {
+        close(currentKey);
       }
     }),
   );
@@ -109,8 +117,11 @@ export function SessionTabs({ children }: { children?: ReactNode }) {
   return (
     <nav className="session-tabs" aria-label="Workspace tabs">
       {state.tabs.map((tab) => {
-        const session = inventory.data?.find((session) => session.id === tab.sessionId);
-        const title = session?.title || `Session ${tab.sessionId.slice(0, 8)}`;
+        const owner = inventory.find(({ relay }) => relay.profileId === tab.profileId);
+        const session = owner?.sessions?.find((session) => session.id === tab.sessionId);
+        const online = owner?.online;
+        const name = session?.title || `Session ${tab.sessionId.slice(0, 8)}`;
+        const title = owner?.relay.name ? `${name} · ${owner.relay.name}` : name;
         const activity =
           online && session?.connection === 'connected' ? session.activity : 'unknown';
         const status = statuses[activity];
@@ -126,13 +137,13 @@ export function SessionTabs({ children }: { children?: ReactNode }) {
         const description = `${label}. ${status.description}${unread ? ' Unviewed turn. This does not imply task success.' : ''}`;
         return (
           <WorkspaceTab
-            key={tab.sessionId}
+            key={sessionTabKey(tab)}
             label={title}
-            active={sessionId === tab.sessionId}
+            active={currentKey === sessionTabKey(tab)}
             title={`${title}\n${description}`}
             ariaLabel={`${title}, ${label}${unread ? ', unviewed turn' : ''}`}
             onSelect={() => activate(tab)}
-            onClose={() => close(tab.sessionId)}
+            onClose={() => close(sessionTabKey(tab))}
             icon={
               activity !== 'idle' && (
                 <Icon

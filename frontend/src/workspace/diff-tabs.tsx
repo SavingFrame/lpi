@@ -10,11 +10,14 @@ import {
   useRef,
   useState,
 } from 'react';
+import { diffRoute, sessionRoute } from '../app/routes';
+import { relayFor } from '../client/controllers';
 import { desktop } from '../client/platform';
 import { WorkspaceTab } from '../components/workspace-tab';
 import { useWorkspacePanes, type WorkspacePane } from './workspace-panes';
 
 export interface DiffTab {
+  profileId?: string;
   projectId: string;
   file?: string;
 }
@@ -26,6 +29,7 @@ interface OpenDiffTab extends DiffTab {
 export type DiffOpening = 'combined' | 'files';
 
 interface VisibleDiffFile {
+  profileId?: string;
   projectId: string;
   file: string;
 }
@@ -38,7 +42,11 @@ interface DiffFocus extends VisibleDiffFile {
 const openingKey = 'lpi:diff-opening:v1';
 
 function sameTab(left: DiffTab, right: DiffTab) {
-  return left.projectId === right.projectId && left.file === right.file;
+  return (
+    left.profileId === right.profileId &&
+    left.projectId === right.projectId &&
+    left.file === right.file
+  );
 }
 
 interface DiffTabsState {
@@ -50,7 +58,7 @@ interface DiffTabsState {
   opening: DiffOpening;
   setOpening: (opening: DiffOpening) => void;
   settingsError: string;
-  openFile: (projectId: string, file: string) => void;
+  openFile: (projectId: string, file: string, profileId?: string) => void;
   focus: DiffFocus | null;
   visibleFiles: Record<WorkspacePane, VisibleDiffFile | null>;
   setVisibleFiles: Dispatch<SetStateAction<Record<WorkspacePane, VisibleDiffFile | null>>>;
@@ -63,12 +71,13 @@ const DiffTabsContext = createContext<DiffTabsState | null>(null);
 export function DiffTabsProvider({ children }: { children: ReactNode }) {
   const navigate = useNavigate();
   const { activePane, setActivePane } = useWorkspacePanes();
-  const diffMatch = useMatch({ from: '/app/projects/$projectId/diff', shouldThrow: false });
+  const diffMatch = useMatch({ from: diffRoute, shouldThrow: false });
   const sessionMatch = useMatch({
-    from: '/app/projects/$projectId/sessions/$sessionId',
+    from: sessionRoute,
     shouldThrow: false,
   });
   const projectId = diffMatch?.params.projectId;
+  const profileId = diffMatch?.params.profileId;
   const file = diffMatch?.search.file;
   const [tabs, setTabs] = useState<OpenDiffTab[]>([]);
   const [rightSelection, setRightSelection] = useState<DiffTab | null>(null);
@@ -88,9 +97,12 @@ export function DiffTabsProvider({ children }: { children: ReactNode }) {
     main: null,
     right: null,
   });
-  const lastSession = useRef<{ projectId: string; sessionId: string; branch?: string } | null>(
-    null,
-  );
+  const lastSession = useRef<{
+    profileId?: string;
+    projectId: string;
+    sessionId: string;
+    branch?: string;
+  } | null>(null);
   const canSplit = Boolean(sessionMatch || lastSession.current);
   function setOpening(value: DiffOpening) {
     updateOpening(value);
@@ -114,8 +126,8 @@ export function DiffTabsProvider({ children }: { children: ReactNode }) {
   }
   function navigateMain(tab: DiffTab) {
     void navigate({
-      to: '/app/projects/$projectId/diff',
-      params: { projectId: tab.projectId },
+      to: diffRoute,
+      params: { profileId: tab.profileId, projectId: tab.projectId },
       search: tab.file ? { file: tab.file } : {},
     });
   }
@@ -123,7 +135,7 @@ export function DiffTabsProvider({ children }: { children: ReactNode }) {
     if (lastSession.current) {
       const { branch, ...params } = lastSession.current;
       void navigate({
-        to: '/app/projects/$projectId/sessions/$sessionId',
+        to: sessionRoute,
         params,
         search: branch ? { branch } : {},
       });
@@ -143,11 +155,17 @@ export function DiffTabsProvider({ children }: { children: ReactNode }) {
       navigateMain(tab);
     }
   }
-  function openFile(projectId: string, file: string) {
-    const tab = { projectId, file: opening === 'files' ? file : undefined };
+  function openFile(projectId: string, file: string, profileId?: string) {
+    const tab = { profileId, projectId, file: opening === 'files' ? file : undefined };
     const pane = targetPane(tab);
     if (opening === 'combined') {
-      setFocus((current) => ({ projectId, file, pane, request: (current?.request ?? 0) + 1 }));
+      setFocus((current) => ({
+        profileId,
+        projectId,
+        file,
+        pane,
+        request: (current?.request ?? 0) + 1,
+      }));
     }
     open(tab);
   }
@@ -156,7 +174,7 @@ export function DiffTabsProvider({ children }: { children: ReactNode }) {
       return;
     }
     place(tab, 'right');
-    if (projectId === tab.projectId && file === tab.file) {
+    if (profileId === tab.profileId && projectId === tab.projectId && file === tab.file) {
       returnToChat();
     }
   }
@@ -172,17 +190,17 @@ export function DiffTabsProvider({ children }: { children: ReactNode }) {
     if (projectId) {
       setActivePane('main');
       setTabs((current) => {
-        const existing = current.find((tab) => sameTab(tab, { projectId, file }));
+        const existing = current.find((tab) => sameTab(tab, { profileId, projectId, file }));
         if (existing?.pane === 'main') {
           return current;
         }
         return [
-          ...current.filter((tab) => !sameTab(tab, { projectId, file })),
-          { projectId, file, pane: 'main' },
+          ...current.filter((tab) => !sameTab(tab, { profileId, projectId, file })),
+          { profileId, projectId, file, pane: 'main' },
         ];
       });
     }
-  }, [projectId, file, sessionMatch, setActivePane]);
+  }, [profileId, projectId, file, sessionMatch, setActivePane]);
   function close(tab: DiffTab) {
     const entry = tabs.find((item) => sameTab(item, tab));
     const next = tabs.filter((item) => !sameTab(item, tab));
@@ -195,7 +213,7 @@ export function DiffTabsProvider({ children }: { children: ReactNode }) {
           setActivePane('main');
         }
       }
-    } else if (projectId === tab.projectId && file === tab.file) {
+    } else if (profileId === tab.profileId && projectId === tab.projectId && file === tab.file) {
       const previous = next.findLast((item) => item.pane === 'main');
       if (previous) {
         navigateMain(previous);
@@ -209,7 +227,7 @@ export function DiffTabsProvider({ children }: { children: ReactNode }) {
       if (activePane === 'right' && rightTab) {
         close(rightTab);
       } else if (projectId) {
-        close({ projectId, file });
+        close({ profileId, projectId, file });
       }
     }),
   );
@@ -247,19 +265,22 @@ export function useDiffTabs() {
 
 export function DiffTabs({ pane = 'main' }: { pane?: WorkspacePane }) {
   const { tabs, open, close, rightTab, canSplit, split, moveToMain } = useDiffTabs();
-  const match = useMatch({ from: '/app/projects/$projectId/diff', shouldThrow: false });
+  const match = useMatch({ from: diffRoute, shouldThrow: false });
   return tabs
     .filter((tab) => tab.pane === pane)
     .map((tab) => {
       const active =
         pane === 'right'
           ? Boolean(rightTab && sameTab(rightTab, tab))
-          : match?.params.projectId === tab.projectId && match?.search.file === tab.file;
+          : match?.params.profileId === tab.profileId &&
+            match?.params.projectId === tab.projectId &&
+            match?.search.file === tab.file;
       const title = tab.file?.split('/').at(-1) ?? 'Diff';
+      const device = relayFor(tab.profileId)?.name;
       return (
         <WorkspaceTab
-          key={JSON.stringify([tab.projectId, tab.file])}
-          label={title}
+          key={JSON.stringify([tab.profileId, tab.projectId, tab.file])}
+          label={device ? `${title} · ${device}` : title}
           active={active}
           title={`${tab.file ?? 'All working-tree changes'}\nProject: ${tab.projectId}`}
           closeLabel={`Close ${title} diff`}

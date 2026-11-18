@@ -1,8 +1,11 @@
 import { useEffect } from 'react';
-import { live } from '../client/controllers';
+import { useRelay } from '../client/relay-context';
 
 export function Welcome() {
-  useEffect(() => live.select(null), []);
+  const {
+    client: { live },
+  } = useRelay();
+  useEffect(() => live.select(null), [live]);
   return (
     <div className="welcome">
       <img className="welcome-mark" src="/assets/lpi-icon.svg" width={48} height={48} alt="" />

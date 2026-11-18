@@ -5,8 +5,7 @@ import { type ComposerDraft, composerCommand } from '../../../../src/client/draf
 import type { BridgeCommand } from '../../../../src/shared/commands';
 import { composerCommands } from '../../../../src/shared/composer-commands';
 import type { Snapshot } from '../../../../src/shared/snapshots';
-import { searchFiles } from '../../client/api';
-import { drafts, launches } from '../../client/controllers';
+import { useRelay } from '../../client/relay-context';
 import { Button } from '../../components/ui/button';
 import { Textarea } from '../../components/ui/textarea';
 import { useKeyboard, useKeyboardAction } from '../../keyboard/keyboard';
@@ -44,6 +43,9 @@ export function Composer({
   onNew: () => Promise<boolean>;
 }) {
   const { bindings } = useKeyboard();
+  const {
+    client: { api, drafts, launches },
+  } = useRelay();
   const [controller] = useState(() => drafts.get(id));
   const draftState = useSyncExternalStore(controller.subscribe, controller.getState);
   const { draft } = draftState;
@@ -55,7 +57,7 @@ export function Composer({
   const launchState = useSyncExternalStore(launches.subscribe, () => launches.getState());
   useEffect(() => {
     void launches.initialize();
-  }, []);
+  }, [launches]);
   const reference = fileReference(draft.text, caret);
   const fileQuery = reference?.query ?? null;
   const [debouncedFileQuery, setDebouncedFileQuery] = useState<string | null>(null);
@@ -66,7 +68,7 @@ export function Composer({
   const referenceQuery = useQuery({
     queryKey: ['project-file-search', projectId, debouncedFileQuery],
     placeholderData: keepPreviousData,
-    queryFn: ({ signal }) => searchFiles(projectId, debouncedFileQuery ?? '', signal),
+    queryFn: ({ signal }) => api.searchFiles(projectId, debouncedFileQuery ?? '', signal),
     enabled: fileQuery !== null && fileQuery === debouncedFileQuery && !previewing,
     retry: false,
   });

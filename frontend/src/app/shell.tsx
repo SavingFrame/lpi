@@ -1,10 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
 import { Link, Outlet, useNavigate, useParams } from '@tanstack/react-router';
 import { Folder, Settings } from 'lucide-react';
-import { type CSSProperties, useEffect, useState, useSyncExternalStore } from 'react';
-import { projects } from '../client/api';
-import { live } from '../client/controllers';
+import { type CSSProperties, useEffect, useState } from 'react';
+import { relayFor } from '../client/controllers';
 import { desktop } from '../client/platform';
+import { RelayProvider, useRelay } from '../client/relay-context';
+import { useWorkspaceInventory, WorkspaceConnections } from '../client/workspace-inventory';
 import { SplitWorkspace } from '../components/split-workspace';
 import { KeyboardProvider } from '../keyboard/keyboard';
 import { KeyboardNavigation } from '../keyboard/navigation';
@@ -19,16 +19,7 @@ import {
   WorkspaceGroup,
   WorkspacePanesProvider,
 } from '../workspace/workspace-panes';
-
-function ConnectionStatus() {
-  const status = useSyncExternalStore(live.subscribe, () => live.getState().status);
-  const online = status === 'ready' || status === 'syncing';
-  return (
-    <p className={`connection ${online ? 'ready' : status}`} role="status">
-      {online ? 'connected' : status}
-    </p>
-  );
-}
+import { sessionRoute } from './routes';
 
 export function Shell() {
   return (
@@ -43,30 +34,28 @@ export function Shell() {
 }
 
 function ShellContent() {
+  const relay = useRelay();
   const [width, setWidth] = useState(280);
   const { tabs: diffTabs, rightTab } = useDiffTabs();
   const { activePane } = useWorkspacePanes();
   const navigate = useNavigate();
   useEffect(
     () =>
-      desktop?.onNotificationClicked(({ projectId, sessionId }) => {
+      desktop?.onNotificationClicked(({ profileId, projectId, sessionId }) => {
+        if (!relayFor(profileId)) {
+          return;
+        }
         void navigate({
-          to: '/app/projects/$projectId/sessions/$sessionId',
-          params: { projectId, sessionId },
+          to: sessionRoute,
+          params: { profileId, projectId, sessionId },
         });
       }),
     [navigate],
   );
   const { projectId, sessionId } = useParams({ strict: false });
-  const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
-  const online = useSyncExternalStore(live.subscribe, () => {
-    const status = live.getState().status;
-    return status === 'ready' || status === 'syncing';
-  });
-  useEffect(() => {
-    live.connect();
-    return live.disconnect;
-  }, []);
+  const inventory = useWorkspaceInventory();
+  const currentProjects = inventory.find((entry) => entry.relay === relay)?.projects;
+  const panelRelay = (activePane === 'right' && rightTab && relayFor(rightTab.profileId)) || relay;
   return (
     <div className="shell" style={{ '--sidebar-width': `${width}px` } as CSSProperties}>
       <KeyboardNavigation />
@@ -77,25 +66,17 @@ function ShellContent() {
             lpi<span>native Pi relay</span>
           </Link>
         </div>
-        <ConnectionStatus />
+        <WorkspaceConnections />
         <p className="local-warning">Local access. No authentication.</p>
-        {projectQuery.error && <p className="error">{projectQuery.error.message}</p>}
-        {projectQuery.isPending && <p className="muted">Loading projects…</p>}
-        {projectQuery.data?.length === 0 && (
-          <p className="muted">
-            No project folders found. Add a folder under a configured root, then restart the server.
-          </p>
-        )}
-        <SessionNavigation selectedId={sessionId} online={online} />
-        <ProviderUsagePanel />
+        <SessionNavigation selectedId={sessionId} selectedProfileId={relay.profileId} />
+        <ProviderUsagePanel key={relay.profileId} />
         <Link to="/app/settings" className="settings-link" activeProps={{ className: 'selected' }}>
           <Settings size={15} aria-hidden="true" />
           Settings
         </Link>
         <footer>
           <Folder size={13} aria-hidden="true" />
-          {projectQuery.data?.find((project) => project.id === projectId)?.name ??
-            'Select a project'}
+          {currentProjects?.find((project) => project.id === projectId)?.name ?? 'Select a project'}
         </footer>
       </aside>
       <button
@@ -127,7 +108,10 @@ function ShellContent() {
         }}
       />
       <div className="desktop-workspace">
-        <Workspace projectId={activePane === 'right' && rightTab ? rightTab.projectId : projectId}>
+        <Workspace
+          panelRelay={panelRelay}
+          projectId={activePane === 'right' && rightTab ? rightTab.projectId : projectId}
+        >
           {(controls) => (
             <SplitWorkspace
               primary={
@@ -163,12 +147,18 @@ function ShellContent() {
                       aria-label="Right workspace content"
                       data-workspace-scroll
                     >
-                      <DiffView
-                        key={JSON.stringify([rightTab.projectId, rightTab.file])}
-                        projectId={rightTab.projectId}
-                        file={rightTab.file}
-                        pane="right"
-                      />
+                      <RelayProvider relay={relayFor(rightTab.profileId) ?? relay}>
+                        <DiffView
+                          key={JSON.stringify([
+                            rightTab.profileId,
+                            rightTab.projectId,
+                            rightTab.file,
+                          ])}
+                          projectId={rightTab.projectId}
+                          file={rightTab.file}
+                          pane="right"
+                        />
+                      </RelayProvider>
                     </section>
                   </WorkspaceGroup>
                 )

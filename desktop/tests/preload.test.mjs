@@ -70,12 +70,15 @@ test('preload exposes narrow desktop methods, strips IPC events and removes subs
     },
   );
   assert.deepEqual(Object.keys(bridge).sort(), [
+    'applyRelaySettings',
     'copyText',
+    'getRelaySettings',
     'getZoom',
     'notify',
     'onCloseTab',
     'onNotificationClicked',
     'onZoomChanged',
+    'saveRelaySettings',
     'setZoom',
   ]);
   const closed = [];
@@ -87,6 +90,15 @@ test('preload exposes narrow desktop methods, strips IPC events and removes subs
   assert.equal(await bridge.getZoom(), 1.25);
   await bridge.setZoom(1.5);
   assert.deepEqual(calls, [['lpi:zoom:get'], ['lpi:zoom:set', 1.5]]);
+  const profiles = [{ name: 'Homelab', origin: 'https://lab.example' }];
+  await bridge.getRelaySettings();
+  await bridge.saveRelaySettings(profiles);
+  await bridge.applyRelaySettings();
+  assert.deepEqual(calls.slice(-3), [
+    ['lpi:relays:get'],
+    ['lpi:relays:save', profiles],
+    ['lpi:relays:apply'],
+  ]);
   await bridge.copyText('tmux -L lpi attach-session -t =lpi-example');
   assert.deepEqual(calls.at(-1), [
     'lpi:clipboard:write',
@@ -99,6 +111,7 @@ test('preload exposes narrow desktop methods, strips IPC events and removes subs
   unsubscribe();
   assert.equal(callback, undefined);
   const notification = {
+    profileId: 'c'.repeat(64),
     sessionId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
     projectId: 'b'.repeat(64),
     title: 'Session',
@@ -110,6 +123,7 @@ test('preload exposes narrow desktop methods, strips IPC events and removes subs
   const clicked = [];
   const stop = bridge.onNotificationClicked((...args) => clicked.push(args));
   callback({ secret: true }, notification);
+  callback({}, { ...notification, profileId: 'https://evil.test' });
   callback({}, { ...notification, projectId: 'https://evil.test' });
   callback({}, { ...notification, body: 'x'.repeat(201) });
   callback({}, { ...notification, body: 42 });

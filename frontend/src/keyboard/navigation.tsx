@@ -1,10 +1,12 @@
 import { useNavigate, useParams } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
+import { useRelay } from '../client/relay-context';
 import { Button } from '../components/ui/button';
-import { LaunchSession } from '../navigation/launch-session';
+import { WorkspaceLaunch } from '../navigation/workspace-projects';
 import { useKeyboardAction } from './keyboard';
 
 export function KeyboardNavigation() {
+  const relay = useRelay();
   const navigate = useNavigate();
   useKeyboardAction('settings', () => {
     void navigate({ to: '/app/settings' });
@@ -70,7 +72,11 @@ export function KeyboardNavigation() {
           Close
         </Button>
       </div>
-      <LaunchSession projectId={projectId} onStarted={() => launch.current?.close()} />
+      <WorkspaceLaunch
+        relay={relay}
+        projectId={projectId}
+        onStarted={() => launch.current?.close()}
+      />
     </dialog>
   );
 }

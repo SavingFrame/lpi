@@ -1,13 +1,13 @@
 import { useQuery } from '@tanstack/react-query';
-import { useNavigate, useParams, useSearch } from '@tanstack/react-router';
+import { useNavigate, useParams, useRouter, useSearch } from '@tanstack/react-router';
 import { ArrowDown, Power, RefreshCw, Search } from 'lucide-react';
 import { useLayoutEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { ExtensionPanels } from '../../../src/extension-support/web';
 import { emptyView } from '../../../src/shared/client-state';
 import { promptTitle } from '../../../src/shared/sessions';
+import { sessionRoute } from '../app/routes';
 import { Welcome } from '../app/welcome';
-import { projects, sessions } from '../client/api';
-import { launches, live, queryClient } from '../client/controllers';
+import { useRelay, useRelayReady } from '../client/relay-context';
 import { Button } from '../components/ui/button';
 import { LaunchSession } from '../navigation/launch-session';
 import { SessionTree } from './branches/tree';
@@ -21,6 +21,7 @@ import { Transcript } from './transcript/transcript';
 import { useSessionCommands } from './use-session-commands';
 
 export function SessionPage() {
+  const { profileId } = useRelay();
   const { projectId, sessionId } = useParams({ strict: false });
   const { branch } = useSearch({ strict: false });
   if (!projectId || !sessionId) {
@@ -28,7 +29,7 @@ export function SessionPage() {
   }
   return (
     <SessionPane
-      key={`${projectId}:${sessionId}`}
+      key={JSON.stringify([profileId, projectId, sessionId])}
       id={sessionId}
       projectId={projectId}
       branch={branch}
@@ -46,14 +47,22 @@ function SessionPane({
   branch?: string;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
+  const relay = useRelay();
+  const { profileId, name } = relay;
+  const { projects, sessions, launches, live, queryClient } = relay.client;
+  const ready = useRelayReady(relay);
   const [searchOpen, setSearchOpen] = useState(false);
   const searchButton = useRef<HTMLButtonElement>(null);
   const [treeOpen, setTreeOpen] = useState(false);
   const [treeWide, setTreeWide] = useState(false);
   const connection = useSyncExternalStore(live.subscribe, live.getState);
   const snapshot = connection.snapshot?.session.id === id ? connection.snapshot : null;
-  const { pane, viewport, following, follow, pause } = useChatScroll(id, Boolean(snapshot));
-  const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects });
+  const { pane, viewport, following, follow, pause } = useChatScroll(
+    profileId ? `${profileId}:${id}` : id,
+    Boolean(snapshot),
+  );
+  const projectQuery = useQuery({ queryKey: ['projects'], queryFn: projects, enabled: ready });
   const projectName =
     projectQuery.data?.find((project) => project.id === projectId)?.name ??
     connection.snapshot?.session.directory ??
@@ -62,8 +71,8 @@ function SessionPane({
   useLayoutEffect(() => {
     live.select(id);
     return () => live.select(null);
-  }, [id]);
-  const inventory = useQuery({ queryKey: ['sessions'], queryFn: sessions });
+  }, [id, live]);
+  const inventory = useQuery({ queryKey: ['sessions'], queryFn: sessions, enabled: ready });
   const session = snapshot?.session ?? inventory.data?.find((session) => session.id === id);
   const title =
     promptTitle(snapshot?.state.sessionName) ??
@@ -81,6 +90,7 @@ function SessionPane({
         <header className="session-header">
           <div className="session-heading">
             <div className="session-metadata eyebrow">
+              {name && <span>{name} /</span>}
               <span>{projectName} /</span>
               {session?.tmuxSession && tmuxCommand ? (
                 <>
@@ -109,14 +119,18 @@ function SessionPane({
               <h1 title={title}>{title}</h1>
             </div>
             <p className="session-header-status muted">
-              {session?.connection ?? 'Loading'}
-              {snapshot?.view.compacting
-                ? ' · compacting'
-                : snapshot?.view.running
-                  ? ' · running'
-                  : session?.connection === 'connected'
-                    ? ' · idle'
-                    : ''}
+              {connection.status === 'offline'
+                ? 'Relay offline'
+                : (session?.connection ?? 'Loading')}
+              {connection.status === 'offline'
+                ? ''
+                : snapshot?.view.compacting
+                  ? ' · compacting'
+                  : snapshot?.view.running
+                    ? ' · running'
+                    : session?.connection === 'connected'
+                      ? ' · idle'
+                      : ''}
               <span role="status">
                 {connection.status === 'syncing' && snapshot && !connection.error
                   ? ' · Updating…'
@@ -262,7 +276,7 @@ function SessionPane({
             <ReadCompletion
               viewport={viewport}
               snapshot={snapshot}
-              synchronized={connection.status === 'ready' && !branch}
+              synchronized={ready && connection.status === 'ready' && !branch}
               following={following}
             />
             {snapshot && !branch && (
@@ -301,13 +315,21 @@ function SessionPane({
         outcome={commands.outcome}
         onFollow={follow}
         onNew={async () => {
+          const location = router.state.location.href;
           const created = await launches.start(projectId);
           if (!created) {
             return false;
           }
+          if (router.state.location.href !== location) {
+            return true;
+          }
           void navigate({
-            to: '/app/projects/$projectId/sessions/$sessionId',
-            params: { projectId: created.projectId, sessionId: created.id },
+            to: sessionRoute,
+            params: {
+              profileId,
+              projectId: created.projectId,
+              sessionId: created.id,
+            },
           });
           return true;
         }}

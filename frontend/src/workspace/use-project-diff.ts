@@ -1,11 +1,14 @@
 import { parsePatchFiles } from '@pierre/diffs';
 import { useEffect, useMemo, useSyncExternalStore } from 'react';
-import { projectDiffEntry, retainProjectDiff } from '../client/project-diff';
+import { useRelay } from '../client/relay-context';
 
 export function useProjectDiff(projectId: string) {
-  const entry = useMemo(() => projectDiffEntry(projectId), [projectId]);
+  const {
+    client: { diffs },
+  } = useRelay();
+  const entry = useMemo(() => diffs.projectDiffEntry(projectId), [diffs, projectId]);
   const state = useSyncExternalStore(entry.controller.subscribe, entry.controller.getState);
-  useEffect(() => retainProjectDiff(projectId, entry), [projectId, entry]);
+  useEffect(() => diffs.retainProjectDiff(projectId, entry), [diffs, projectId, entry]);
   const files = useMemo(() => {
     try {
       return state.data ? parsePatchFiles(state.data.patch).flatMap((patch) => patch.files) : [];

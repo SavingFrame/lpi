@@ -12,9 +12,10 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import type { Session } from '../../../../src/shared/sessions';
-import { live } from '../../client/controllers';
+import { sessionRoute } from '../../app/routes';
+import { useRelay } from '../../client/relay-context';
 import { Button } from '../../components/ui/button';
-import { requestBranchSelection } from './branch-navigation';
+import { branchSelectionsFor, requestBranchSelection } from './branch-navigation';
 import { conversationBranchCount, type OutlineGroup, sessionGraph } from './tree-graph';
 import { sessionTreeQuery } from './tree-query';
 
@@ -31,6 +32,7 @@ function TreeOutlineGroup({
   searching: boolean;
   onToggle: (id: string, expanded: boolean) => void;
 }) {
+  const relay = useRelay();
   const header = group.header;
   const contentId = `tree-branch-${session.id}-${group.id}`;
   return (
@@ -67,8 +69,12 @@ function TreeOutlineGroup({
         {group.messages.map((row) => (
           <Link
             key={row.id}
-            to="/app/projects/$projectId/sessions/$sessionId"
-            params={{ projectId: session.projectId, sessionId: session.id }}
+            to={sessionRoute}
+            params={{
+              profileId: relay.profileId,
+              projectId: session.projectId,
+              sessionId: session.id,
+            }}
             search={{ branch: row.entryId }}
             onClick={(event) => {
               if (row.entryId) {
@@ -77,7 +83,8 @@ function TreeOutlineGroup({
                   session.id,
                   session.projectId,
                   row.entryId,
-                  live.getState(),
+                  relay.client.live.getState(),
+                  branchSelectionsFor(relay),
                 );
               }
             }}
@@ -136,7 +143,12 @@ export function SessionTree({
   wide: boolean;
   onWideChange: (wide: boolean) => void;
 }) {
-  const query = useQuery(sessionTreeQuery(session.id, 'details'));
+  const {
+    client: { api },
+  } = useRelay();
+  const query = useQuery(
+    sessionTreeQuery(session.id, 'details', (id, signal) => api.tree(id, signal)),
+  );
   const selection = useSearch({ strict: false });
   const [search, setSearch] = useState('');
   const [showAll, setShowAll] = useState(false);

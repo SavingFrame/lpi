@@ -9,6 +9,7 @@ export function useDiffScroll(
   file: string | undefined,
   files: FileDiffMetadata[] | null,
   pane: WorkspacePane,
+  profileId?: string,
 ) {
   const page = useRef<HTMLDivElement>(null);
   const releasedRequest = useRef<number | undefined>(undefined);
@@ -22,6 +23,7 @@ export function useDiffScroll(
     const sections = [...root.querySelectorAll<HTMLElement>('[data-diff-file]')];
     let anchor =
       !file &&
+      focus?.profileId === profileId &&
       focus?.projectId === projectId &&
       focus.pane === pane &&
       focus.request !== releasedRequest.current
@@ -55,9 +57,11 @@ export function useDiffScroll(
         if (!name) {
           return current === null ? previous : { ...previous, [pane]: null };
         }
-        return current?.projectId === projectId && current.file === name
+        return current?.profileId === profileId &&
+          current?.projectId === projectId &&
+          current.file === name
           ? previous
-          : { ...previous, [pane]: { projectId, file: name } };
+          : { ...previous, [pane]: { profileId, projectId, file: name } };
       });
     };
     const schedule = () => {
@@ -90,6 +94,6 @@ export function useDiffScroll(
       main.removeEventListener('keydown', release);
       main.removeEventListener('scroll', schedule);
     };
-  }, [projectId, file, files, focus, pane, setVisibleFiles]);
+  }, [profileId, projectId, file, files, focus, pane, setVisibleFiles]);
   return page;
 }

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import test from 'node:test';
 import { fixture } from '../../tests/helpers.mjs';
 import { bundledResponse } from '../protocol.ts';
+import { seedRelayProfile } from '../relay-settings.ts';
 
 test('bundled UI serves local assets, deep links and visuals without forwarding API requests', async (t) => {
   const { root } = fixture(t);
@@ -13,19 +14,24 @@ test('bundled UI serves local assets, deep links and visuals without forwarding 
   writeFileSync(join(directory, 'assets', 'app.js'), 'window.bundleLoaded = true;');
   writeFileSync(join(root, 'secret'), 'must not be exposed');
   symlinkSync(join(root, 'secret'), join(directory, 'assets', 'escape.js'));
-  const relay = 'http://127.0.0.1:3141';
+  const primary = seedRelayProfile('http://127.0.0.1:3141');
+  const profiles = [primary, { ...seedRelayProfile('https://lab.example'), name: 'Lab <&' }];
   const request = (path, method = 'GET') =>
-    bundledResponse(new Request(`lpi-app://app${path}`, { method }), directory, relay);
+    bundledResponse(new Request(`lpi-app://app${path}`, { method }), directory, profiles);
 
-  for (const path of ['/', '/app', '/app/projects/a/sessions/b?branch=c']) {
+  const profileId = primary.id;
+  for (const path of ['/', '/app', `/app/${profileId}/projects/a/sessions/b?branch=c`]) {
     const response = await request(path);
     assert.equal(response.status, 200);
-    assert.match(
-      await response.text(),
-      /name="lpi-relay-origin" content="http:\/\/127.0.0.1:3141"/,
-    );
+    const html = await response.text();
+    assert.match(html, /name="lpi-relay-origin" content="http:\/\/127.0.0.1:3141"/);
+    assert.ok(html.includes(`name="lpi-relay-profile" content="${profileId}"`));
     const csp = response.headers.get('Content-Security-Policy');
-    assert.match(csp, /connect-src 'self' http:\/\/127.0.0.1:3141 ws:\/\/127.0.0.1:3141;/);
+    assert.ok(html.includes('Lab &lt;&amp;'));
+    assert.equal(
+      csp.split('; ').find((directive) => directive.startsWith('connect-src')),
+      "connect-src 'self' http://127.0.0.1:3141 ws://127.0.0.1:3141 https://lab.example wss://lab.example",
+    );
     assert.match(csp, /script-src 'self';/);
     assert.match(csp, /frame-ancestors 'none'/);
     assert.doesNotMatch(csp, /unsafe-eval/);
@@ -56,7 +62,7 @@ test('bundled UI serves local assets, deep links and visuals without forwarding 
     'lpi-app://user@app/',
   ]) {
     assert.equal(
-      (await bundledResponse({ url, method: 'GET' }, directory, relay)).status,
+      (await bundledResponse({ url, method: 'GET' }, directory, profiles)).status,
       404,
       url,
     );

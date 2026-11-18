@@ -1,10 +1,37 @@
-import { desktopRelayOrigin } from '../../../src/shared/desktop.ts';
+import {
+  desktopRelayOrigin,
+  isRelayProfileId,
+  type RelayProfile,
+} from '../../../src/shared/desktop.ts';
 
-// Only the Electron protocol handler/dev launcher supplies this metadata.
-// Browser builds keep their existing relative, same-origin transport.
-const configured =
+const meta = (name: string) =>
   typeof document === 'undefined'
     ? undefined
-    : document.querySelector<HTMLMetaElement>('meta[name="lpi-relay-origin"]')?.content;
+    : document.querySelector<HTMLMetaElement>(`meta[name="${name}"]`)?.content;
 
-export const relayServer = configured === undefined ? undefined : desktopRelayOrigin(configured);
+const configured = meta('lpi-relay-origin');
+const serialized = meta('lpi-relay-profiles');
+const profiles: unknown =
+  serialized === undefined
+    ? configured === undefined
+      ? []
+      : [{ id: meta('lpi-relay-profile'), name: new URL(configured).hostname, origin: configured }]
+    : JSON.parse(serialized);
+if (!Array.isArray(profiles) || (configured !== undefined && profiles.length === 0)) {
+  throw new Error('Invalid desktop relay profiles');
+}
+export const relayProfiles: RelayProfile[] = profiles.map((value: unknown) => {
+  if (
+    !value ||
+    typeof value !== 'object' ||
+    !('id' in value) ||
+    !isRelayProfileId(value.id) ||
+    !('name' in value) ||
+    typeof value.name !== 'string' ||
+    !('origin' in value) ||
+    typeof value.origin !== 'string'
+  ) {
+    throw new Error('Invalid desktop relay profile');
+  }
+  return { id: value.id, name: value.name, origin: desktopRelayOrigin(value.origin) };
+});

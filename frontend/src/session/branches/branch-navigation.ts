@@ -58,6 +58,15 @@ export class BranchSelections {
 }
 
 export const branchSelections = new BranchSelections();
+const perRelay = new WeakMap<object, BranchSelections>();
+export function branchSelectionsFor(relay: object) {
+  let selections = perRelay.get(relay);
+  if (!selections) {
+    selections = new BranchSelections();
+    perRelay.set(relay, selections);
+  }
+  return selections;
+}
 
 export function requestBranchSelection(
   event: MouseEvent,
@@ -65,6 +74,7 @@ export function requestBranchSelection(
   projectId: string,
   entryId: string,
   connection: LiveState,
+  selections = branchSelections,
 ): void {
   if (
     event.defaultPrevented ||
@@ -76,7 +86,7 @@ export function requestBranchSelection(
   ) {
     return;
   }
-  branchSelections.request(
+  selections.request(
     sessionId,
     entryId,
     branchAction(connection, sessionId, projectId, entryId, true),

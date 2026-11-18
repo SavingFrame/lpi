@@ -4,6 +4,9 @@ import { type DesktopPlatform, isDesktopNotification } from '../src/shared/deskt
 // Expose narrow desktop controls, never IPC objects, events, or arbitrary channels.
 if (window.top === window) {
   const platform: DesktopPlatform = {
+    getRelaySettings: () => ipcRenderer.invoke('lpi:relays:get'),
+    saveRelaySettings: (profiles) => ipcRenderer.invoke('lpi:relays:save', profiles),
+    applyRelaySettings: () => ipcRenderer.invoke('lpi:relays:apply'),
     copyText: (text) => ipcRenderer.invoke('lpi:clipboard:write', text),
     onCloseTab: (listener) => {
       const close = () => listener();

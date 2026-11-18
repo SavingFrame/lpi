@@ -46,14 +46,18 @@ This builds and opens the bundled UI. The relay does not need a separate browser
 
 ## Connect to another relay
 
-The default is `http://127.0.0.1:3141`. Select another relay when launching:
+Open **Settings > Relay connections** to add, rename, or remove saved relay profiles. Save
+the list, then choose **Apply and reload** when no relay action is pending. Profiles can be
+saved while a relay is offline. The workspace connects to every saved profile independently.
+To replace an endpoint, remove it and add the new origin as a separate profile.
 
-```sh
-LPI_DESKTOP_SERVER=https://your-trusted-relay npm run desktop:start
-```
+The sidebar shows one project list. Projects with the same name share a visual group,
+not a working tree or session store. If a group has multiple launch targets, **+** asks
+for the device and directory. Sessions, tabs, and notifications identify the owning relay.
 
-Quit the existing desktop instance before changing the endpoint. Relay selection is not yet
-available in Settings, and there is no automatic discovery.
+If there is no saved list, the app starts with `http://127.0.0.1:3141` or the value of
+`LPI_DESKTOP_SERVER`. A saved list takes precedence on app restart. The development launch
+uses `LPI_DESKTOP_SERVER` and does not edit the saved list.
 
 Only HTTPS or loopback HTTP is accepted. Do not include credentials, paths, query parameters,
 or fragments. For a remote plaintext relay, use an SSH loopback tunnel or trusted HTTPS.
@@ -65,9 +69,10 @@ hostname passes Host validation. Host/Origin checks are not authentication.
 **lpi has no application authentication. Only use a trusted relay behind LAN, Tailscale,
 or tunnel access controls. Do not expose it publicly.**
 
-If the relay is unavailable, the local UI still opens and reports connection failures.
-Reconnection does not replay commands or start another runtime. Drafts and uncertain-command
-guards are stored separately for each relay.
+If a relay is unavailable, the workspace keeps its last loaded inventory visible and marks
+it stale. Its agents may still be running. Other relays stay usable. Reconnection refreshes
+inventory before actions resume and never replays commands or starts another runtime.
+Drafts and uncertain-command guards are stored separately for each relay.
 
 ## Appearance
 
@@ -91,8 +96,8 @@ for all defaults and scope rules. Native menu and operating-system shortcuts may
 ## Session tabs
 
 Opening or creating a session opens and activates a tab. Opening it again focuses the existing
-tab. Tabs share one renderer and relay connection. Each session retains its draft and scroll
-position when switching tabs. Open tabs and the active tab are restored per relay after restart;
+tab. Tabs share one renderer and use their owning relay's connection. Each session retains
+its draft and scroll position when switching tabs. Open tabs and the active tab are restored after restart;
 this only opens views, never starts or resumes runtimes. Scroll positions are kept in memory.
 
 Close a tab with its close button, middle-click, or Ctrl/Cmd+W. Closing a tab never stops its agent. Closing the

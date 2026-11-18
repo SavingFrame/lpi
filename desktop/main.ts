@@ -15,11 +15,13 @@ import appIcon from '../assets/brand/lpi-icon.png?asset';
 import {
   DESKTOP_ORIGIN,
   DESKTOP_SCHEME,
+  type DesktopRelaySettings,
   desktopRelayOrigin,
   isDesktopNotification,
 } from '../src/shared/desktop.ts';
 import { allowedNavigation, desktopDevelopmentOrigin } from './policy.ts';
 import { bundledResponse } from './protocol.js';
+import { RelaySettings, seedRelayProfile } from './relay-settings.ts';
 import { createWindow, secureSession } from './window.js';
 import { steppedZoom, ZoomSettings } from './zoom.js';
 
@@ -167,9 +169,29 @@ process.on('SIGTERM', () => app.quit());
 
 if (primary) {
   void app.whenReady().then(() => {
+    const relays = development
+      ? undefined
+      : new RelaySettings(join(app.getPath('userData'), 'relay-profiles.json'), relay);
+    let activeProfiles = relays?.profiles ?? [seedRelayProfile(relay)];
+    const relaySettings = (): DesktopRelaySettings => {
+      const profiles = relays?.profiles ?? activeProfiles;
+      return {
+        profiles,
+        editable: relays !== undefined,
+        needsReload: JSON.stringify(profiles) !== JSON.stringify(activeProfiles),
+      };
+    };
     app.dock?.setIcon(appIcon);
     zoom = new ZoomSettings(join(app.getPath('userData'), 'desktop-settings.json'));
-    for (const channel of ['lpi:zoom:get', 'lpi:zoom:set', 'lpi:notify', 'lpi:clipboard:write']) {
+    for (const channel of [
+      'lpi:zoom:get',
+      'lpi:zoom:set',
+      'lpi:notify',
+      'lpi:clipboard:write',
+      'lpi:relays:get',
+      'lpi:relays:save',
+      'lpi:relays:apply',
+    ]) {
       ipcMain.handle(channel, (event, value: unknown) => {
         const contents = window?.webContents;
         if (
@@ -181,6 +203,27 @@ if (primary) {
         ) {
           throw new Error('Desktop controls are restricted to the desktop main frame.');
         }
+        if (channel === 'lpi:relays:get') {
+          return relaySettings();
+        }
+        if (channel === 'lpi:relays:save' || channel === 'lpi:relays:apply') {
+          if (!relays || new URL(event.senderFrame.url).pathname !== '/app/settings') {
+            throw new Error('Relay changes are restricted to bundled desktop Settings.');
+          }
+          if (channel === 'lpi:relays:save') {
+            relays.save(value);
+            return relaySettings();
+          }
+          if (relaySettings().needsReload) {
+            activeProfiles = relays.profiles;
+            for (const notification of notifications.values()) {
+              notification.close();
+            }
+            notifications.clear();
+            contents.reload();
+          }
+          return;
+        }
         if (channel === 'lpi:clipboard:write') {
           if (typeof value !== 'string' || value.length > 8 * 1024 * 1024) {
             throw new Error('Clipboard text must be a string of at most 8 Mi characters.');
@@ -188,7 +231,10 @@ if (primary) {
           return clipboard.writeText(value);
         }
         if (channel === 'lpi:notify') {
-          if (!isDesktopNotification(value)) {
+          if (
+            !isDesktopNotification(value) ||
+            !activeProfiles.some((profile) => profile.id === value.profileId)
+          ) {
             throw new Error('Invalid desktop notification.');
           }
           const current = window;
@@ -201,8 +247,9 @@ if (primary) {
             error: 'Agent encountered an error.',
           };
           try {
-            notifications.get(value.sessionId)?.close();
-            notifications.delete(value.sessionId);
+            const key = `${value.profileId}:${value.sessionId}`;
+            notifications.get(key)?.close();
+            notifications.delete(key);
             if (notifications.size >= 32) {
               const oldest = notifications.keys().next().value;
               if (oldest !== undefined) {
@@ -216,8 +263,8 @@ if (primary) {
               icon: appIcon,
             });
             const remove = () => {
-              if (notifications.get(value.sessionId) === notification) {
-                notifications.delete(value.sessionId);
+              if (notifications.get(key) === notification) {
+                notifications.delete(key);
               }
             };
             notification.on('close', remove);
@@ -233,7 +280,7 @@ if (primary) {
               current.webContents.send('lpi:notification:clicked', value);
               current.focus();
             });
-            notifications.set(value.sessionId, notification);
+            notifications.set(key, notification);
             notification.show();
           } catch {
             // OS notification availability must not affect the relay connection.
@@ -253,7 +300,11 @@ if (primary) {
     const desktopSession = session.fromPartition('persist:lpi');
     secureSession(desktopSession);
     desktopSession.protocol.handle(DESKTOP_SCHEME, (request) =>
-      bundledResponse(request, fileURLToPath(new URL('../renderer', import.meta.url)), relay),
+      bundledResponse(
+        request,
+        fileURLToPath(new URL('../renderer', import.meta.url)),
+        activeProfiles,
+      ),
     );
     Menu.setApplicationMenu(
       Menu.buildFromTemplate([

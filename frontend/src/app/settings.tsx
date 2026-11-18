@@ -1,10 +1,11 @@
 import { useRouter } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
-import { live } from '../client/controllers';
 import { type DesktopPlatform, desktop } from '../client/platform';
+import { useRelay } from '../client/relay-context';
 import { Button } from '../components/ui/button';
 import { KeyboardSettings } from '../keyboard/settings';
 import { useDiffTabs } from '../workspace/diff-tabs';
+import { DesktopRelaySettings } from './desktop-relay-settings';
 
 function DesktopAppearance({ platform }: { platform: DesktopPlatform }) {
   const [factor, setFactor] = useState<number>();
@@ -125,7 +126,10 @@ function DiffSettings() {
 
 export function SettingsPage() {
   const router = useRouter();
-  useEffect(() => live.select(null), []);
+  const {
+    client: { live },
+  } = useRelay();
+  useEffect(() => live.select(null), [live]);
   useEffect(() => {
     const close = (event: KeyboardEvent) => {
       if (
@@ -155,6 +159,7 @@ export function SettingsPage() {
   return (
     <div className="settings-page">
       <h1>Settings</h1>
+      {desktop && <DesktopRelaySettings platform={desktop} />}
       <DiffSettings />
       <KeyboardSettings />
       {desktop ? (

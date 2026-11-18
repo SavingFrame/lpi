@@ -2,6 +2,7 @@ import { fileURLToPath } from 'node:url';
 import { defineConfig } from 'electron-vite';
 import { frontendConfig } from '../frontend/vite.config.ts';
 import { desktopRelayOrigin } from '../src/shared/desktop.ts';
+import { seededRelayProfileId } from './relay-profile.ts';
 
 export default defineConfig(({ command }) => {
   const relay = desktopRelayOrigin(process.env.LPI_DESKTOP_SERVER);
@@ -49,6 +50,11 @@ export default defineConfig(({ command }) => {
                   {
                     tag: 'meta',
                     attrs: { name: 'lpi-relay-origin', content: relay },
+                    injectTo: 'head',
+                  },
+                  {
+                    tag: 'meta',
+                    attrs: { name: 'lpi-relay-profile', content: seededRelayProfileId(relay) },
                     injectTo: 'head',
                   },
                 ]

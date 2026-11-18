@@ -1,5 +1,5 @@
 import { emptyView } from '../../src/shared/client-state.ts';
-import { LiveSession } from '../src/client/live.ts';
+import { createRelayClient } from '../src/client/relay-client.ts';
 
 export const id = '11111111-1111-1111-1111-111111111111';
 export const otherId = '22222222-2222-2222-2222-222222222222';
@@ -35,6 +35,7 @@ export function boundary(cursor = 0, sessionId = id, epoch = 'server-one') {
 
 export function setup(t) {
   const sockets = [];
+  const relayOrigin = 'http://127.0.0.1:3141';
   class FakeSocket {
     static OPEN = 1;
     readyState = 1;
@@ -50,25 +51,23 @@ export function setup(t) {
     }
   }
   const original = globalThis.WebSocket;
-  const previousWindow = globalThis.window;
   globalThis.WebSocket = FakeSocket;
-  globalThis.window = { location: { href: 'http://127.0.0.1:3141/' } };
   const requests = [];
   t.mock.method(
     globalThis,
     'fetch',
     (path, options) => new Promise((resolve) => requests.push({ path, options, resolve })),
   );
+  const { live, queryClient } = createRelayClient({ relayOrigin });
   let invalidations = 0;
-  const live = new LiveSession(() => invalidations++);
+  t.mock.method(queryClient, 'invalidateQueries', async ({ queryKey }) => {
+    if (queryKey[0] === 'sessions') {
+      invalidations++;
+    }
+  });
   t.after(() => {
     live.disconnect();
     globalThis.WebSocket = original;
-    if (previousWindow === undefined) {
-      delete globalThis.window;
-    } else {
-      globalThis.window = previousWindow;
-    }
   });
   live.select(id);
   live.connect();

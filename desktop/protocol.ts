@@ -1,6 +1,6 @@
 import { readFile, realpath } from 'node:fs/promises';
 import { extname, isAbsolute, relative, resolve } from 'node:path';
-import { DESKTOP_ORIGIN } from '../src/shared/desktop.ts';
+import { DESKTOP_ORIGIN, type RelayProfile } from '../src/shared/desktop.ts';
 import { DISPLAY_CSP } from '../src/shared/display.ts';
 import { displayDocument } from '../src/shared/display-document.ts';
 
@@ -20,7 +20,7 @@ const types: Record<string, string> = {
 export async function bundledResponse(
   request: Request,
   directory: string,
-  relay: string,
+  profiles: readonly RelayProfile[],
 ): Promise<Response> {
   const url = new URL(request.url);
   if (
@@ -66,21 +66,31 @@ export async function bundledResponse(
     }
     const bytes = await readFile(file);
     headers.set('Content-Type', types[extname(file)] ?? 'application/octet-stream');
-    // The endpoint is validated before registration. Serialize it as HTML attribute data, not code.
-    const escaped = relay
+    // Profiles come from validated settings. Serialize them as HTML attribute data, not code.
+    const primary = profiles[0];
+    if (!primary) {
+      return new Response('No relay configured', { status: 503, headers });
+    }
+    const escaped = JSON.stringify(profiles)
       .replaceAll('&', '&amp;')
       .replaceAll('"', '&quot;')
       .replaceAll('<', '&lt;');
     const body = page
       ? bytes
           .toString('utf8')
-          .replace('</head>', `<meta name="lpi-relay-origin" content="${escaped}"></head>`)
+          .replace(
+            '</head>',
+            `<meta name="lpi-relay-origin" content="${primary.origin}"><meta name="lpi-relay-profile" content="${primary.id}"><meta name="lpi-relay-profiles" content="${escaped}"></head>`,
+          )
       : Uint8Array.from(bytes);
-    const socket = new URL(relay);
-    socket.protocol = socket.protocol === 'https:' ? 'wss:' : 'ws:';
+    const sources = profiles.flatMap(({ origin }) => {
+      const socket = new URL(origin);
+      socket.protocol = socket.protocol === 'https:' ? 'wss:' : 'ws:';
+      return [origin, socket.origin];
+    });
     headers.set(
       'Content-Security-Policy',
-      `default-src 'self'; connect-src 'self' ${relay} ${socket.origin}; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`,
+      `default-src 'self'; connect-src 'self' ${sources.join(' ')}; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self'; frame-src 'self'; object-src 'none'; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`,
     );
     return new Response(request.method === 'HEAD' ? null : body, { headers });
   } catch {

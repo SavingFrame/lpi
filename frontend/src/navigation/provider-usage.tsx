@@ -3,7 +3,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react';
 import { resetLabel, UsageController, usagePresentation } from '../../../src/client/provider-usage';
 import { openAiIconPath } from '../../../src/shared/provider-icon';
 import type { UsageAccount } from '../../../src/shared/provider-usage';
-import { usage } from '../client/api';
+import { useRelay } from '../client/relay-context';
 
 function AccountBadge({
   account,
@@ -59,7 +59,10 @@ function AccountBadge({
 }
 
 export function ProviderUsagePanel() {
-  const [controller] = useState(() => new UsageController(usage));
+  const {
+    client: { api },
+  } = useRelay();
+  const [controller] = useState(() => new UsageController((signal) => api.usage(signal)));
   const state = useSyncExternalStore(controller.subscribe, controller.getState);
   useEffect(() => {
     controller.start();

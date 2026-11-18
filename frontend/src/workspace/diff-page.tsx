@@ -2,15 +2,19 @@ import type { FileDiffMetadata } from '@pierre/diffs';
 import { FileDiff } from '@pierre/diffs/react';
 import { useParams, useSearch } from '@tanstack/react-router';
 import { RefreshCw } from 'lucide-react';
+import { diffRoute } from '../app/routes';
+import { useRelay } from '../client/relay-context';
 import { DeferredContent } from '../components/deferred-content';
 import { useDiffScroll } from './use-diff-scroll';
 import { useProjectDiff } from './use-project-diff';
 import type { WorkspacePane } from './workspace-panes';
 
 export function DiffPage() {
-  const { projectId } = useParams({ from: '/app/projects/$projectId/diff' });
-  const { file } = useSearch({ from: '/app/projects/$projectId/diff' });
-  return <DiffView projectId={projectId} file={file} />;
+  const { profileId, projectId } = useParams({ from: diffRoute });
+  const { file } = useSearch({ from: diffRoute });
+  return (
+    <DiffView key={JSON.stringify([profileId, projectId])} projectId={projectId} file={file} />
+  );
 }
 
 export function DiffView({
@@ -22,8 +26,9 @@ export function DiffView({
   file?: string;
   pane?: WorkspacePane;
 }) {
+  const { profileId, name } = useRelay();
   const { query, files } = useProjectDiff(projectId);
-  const page = useDiffScroll(projectId, file, files, pane);
+  const page = useDiffScroll(projectId, file, files, pane, profileId);
   const visible = file ? files?.filter((entry) => entry.name === file) : files;
   return (
     <div className="diff-page" ref={page}>
@@ -31,7 +36,7 @@ export function DiffView({
         <div>
           <h1>{file ?? 'Working-tree diff'}</h1>
           <span className="muted">
-            Current changes against HEAD ·{' '}
+            {name && `${name} · `}Current changes against HEAD ·{' '}
             {query.status === 'live'
               ? 'Live'
               : query.status === 'paused'

@@ -2,8 +2,7 @@ import { type RefObject, useEffect, useRef, useState, useSyncExternalStore } fro
 import { completionToView, ReadCompletions } from '../../../src/client/read-completion';
 import { hasUnreadCompletion } from '../../../src/shared/session-read-state';
 import type { Snapshot } from '../../../src/shared/snapshots';
-import { markViewed } from '../client/api';
-import { queryClient } from '../client/controllers';
+import { useRelay } from '../client/relay-context';
 import { Button } from '../components/ui/button';
 
 /** Browser visibility and React lifecycle bind the shared read-completion controller. */
@@ -18,6 +17,9 @@ export function ReadCompletion({
   synchronized: boolean;
   following: boolean;
 }) {
+  const {
+    client: { api, queryClient },
+  } = useRelay();
   const paneVisible = useRef(false);
   const context = useRef<{ snapshot: Snapshot | null; synchronized: boolean; following: boolean }>({
     snapshot: null,
@@ -33,7 +35,7 @@ export function ReadCompletion({
             following: context.current.following,
             visible: document.visibilityState === 'visible' && paneVisible.current,
           }),
-        dispatch: markViewed,
+        dispatch: (id, completionId) => api.markViewed(id, completionId),
         refresh: () => {
           void queryClient.invalidateQueries({ queryKey: ['sessions'] });
         },

@@ -1,15 +1,20 @@
 import { useMatch } from '@tanstack/react-router';
 import { FileDiff as DiffIcon, PanelRightClose, PanelRightOpen, RefreshCw } from 'lucide-react';
 import { type CSSProperties, type ReactNode, useEffect, useState } from 'react';
+import { diffRoute } from '../app/routes';
+import type { WorkspaceRelay } from '../client/controllers';
+import { RelayProvider, useRelay } from '../client/relay-context';
 import { useDiffTabs } from './diff-tabs';
 import { useProjectDiff } from './use-project-diff';
 import { useWorkspacePanes } from './workspace-panes';
 
 export function Workspace({
   projectId,
+  panelRelay,
   children,
 }: {
   projectId?: string;
+  panelRelay: WorkspaceRelay;
   children: (controls: ReactNode) => ReactNode;
 }) {
   const [open, setOpen] = useState(() => {
@@ -66,7 +71,7 @@ export function Workspace({
                   type="button"
                   aria-label="Split Diff"
                   title="Split Diff"
-                  onClick={() => split({ projectId })}
+                  onClick={() => split({ profileId: panelRelay.profileId, projectId })}
                 >
                   <PanelRightOpen size={15} aria-hidden="true" />
                 </button>
@@ -105,7 +110,13 @@ export function Workspace({
               }
             }}
           />
-          <DiffPanel key={projectId} projectId={projectId} onClose={() => setOpen(false)} />
+          <RelayProvider relay={panelRelay}>
+            <DiffPanel
+              key={JSON.stringify([panelRelay.profileId, projectId])}
+              projectId={projectId}
+              onClose={() => setOpen(false)}
+            />
+          </RelayProvider>
         </aside>
       )}
     </div>
@@ -113,26 +124,34 @@ export function Workspace({
 }
 
 function DiffPanel({ projectId, onClose }: { projectId: string; onClose: () => void }) {
+  const { profileId } = useRelay();
   const { query, files } = useProjectDiff(projectId);
   const { open, openFile, opening, visibleFiles, rightTab } = useDiffTabs();
   const { activePane } = useWorkspacePanes();
-  const match = useMatch({ from: '/app/projects/$projectId/diff', shouldThrow: false });
+  const match = useMatch({ from: diffRoute, shouldThrow: false });
   const activeTab =
     activePane === 'right'
       ? rightTab
       : match
-        ? { projectId: match.params.projectId, file: match.search.file }
+        ? {
+            profileId: match.params.profileId,
+            projectId: match.params.projectId,
+            file: match.search.file,
+          }
         : undefined;
   const visibleFile = visibleFiles[activePane];
   const selectedFile =
-    activeTab?.projectId === projectId
-      ? (activeTab.file ?? (visibleFile?.projectId === projectId ? visibleFile.file : undefined))
+    activeTab?.profileId === profileId && activeTab?.projectId === projectId
+      ? (activeTab.file ??
+        (visibleFile?.profileId === profileId && visibleFile?.projectId === projectId
+          ? visibleFile.file
+          : undefined))
       : undefined;
   function openDiff(file?: string) {
     if (file) {
-      openFile(projectId, file);
+      openFile(projectId, file, profileId);
     } else {
-      open({ projectId });
+      open({ profileId, projectId });
     }
     if (rightTab || window.matchMedia('(max-width: 1100px)').matches) {
       onClose();

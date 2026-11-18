@@ -2,10 +2,10 @@ import { queryOptions } from '@tanstack/react-query';
 import { tree } from '../../client/api.ts';
 
 /** Only session details may fetch. Sidebar observers consume the same cache passively. */
-export function sessionTreeQuery(id: string, source: 'details' | 'sidebar') {
+export function sessionTreeQuery(id: string, source: 'details' | 'sidebar', read = tree) {
   return queryOptions({
     queryKey: ['tree', id],
-    queryFn: ({ signal }) => tree(id, signal),
+    queryFn: ({ signal }) => read(id, signal),
     enabled: source === 'details',
     retry: false,
   });

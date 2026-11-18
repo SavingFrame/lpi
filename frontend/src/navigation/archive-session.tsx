@@ -2,8 +2,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { Archive, ArchiveRestore, Power } from 'lucide-react';
 import { useSyncExternalStore } from 'react';
 import type { InventorySession } from '../../../src/shared/sessions';
-import { setArchived } from '../client/api';
-import { live } from '../client/controllers';
+import { useRelay } from '../client/relay-context';
 import { Button } from '../components/ui/button';
 import { useSessionCommands } from '../session/use-session-commands';
 
@@ -14,10 +13,18 @@ export function ArchiveSession({
   session: InventorySession;
   online: boolean;
 }) {
+  const {
+    client: { api, live, canMutate },
+  } = useRelay();
   const client = useQueryClient();
   const commands = useSessionCommands(session.id, session.projectId);
   const mutation = useMutation({
-    mutationFn: () => setArchived(session.id, !session.archived),
+    mutationFn: () => {
+      if (!canMutate() || live.getState().status === 'offline') {
+        throw new Error('Relay is unavailable. Nothing was sent.');
+      }
+      return api.setArchived(session.id, !session.archived);
+    },
     retry: false,
     onSettled: () => client.invalidateQueries({ queryKey: ['sessions'] }),
   });

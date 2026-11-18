@@ -17,15 +17,18 @@ import {
 import { relativeTime } from '../../../src/client/relative-time';
 import { hasUnreadCompletion } from '../../../src/shared/session-read-state';
 import type { InventorySession, Project } from '../../../src/shared/sessions';
-import { relayServer } from '../client/connection';
+import { sessionRoute } from '../app/routes';
+import { type WorkspaceRelay, workspaceRelays } from '../client/controllers';
+import { RelayProvider, useRelay } from '../client/relay-context';
+import { workspaceKey } from '../client/workspace-inventory';
 import { Button } from '../components/ui/button';
 import { type WindowedItem, WindowedList } from '../components/windowed-list';
 import { SessionBranches, SessionBranchToggle } from '../session/branches/session-branches';
 import { ArchiveSession } from './archive-session';
-import { LaunchSession } from './launch-session';
 import { statuses } from './session-status';
 import { projectColor, visibleProjects } from './sidebar-state';
 import { useRecentSessions } from './use-recent-sessions';
+import { type LaunchTarget, ProjectLaunch } from './workspace-projects';
 
 const dateFormat = new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' });
 
@@ -48,22 +51,20 @@ const SessionRow = memo(function SessionRow({
   now: number;
   onToggle: (id: string) => void;
 }) {
-  const status = statuses[session.activity];
+  const { profileId, name } = useRelay();
+  const activity = online ? session.activity : 'unknown';
+  const status = statuses[activity];
   const isUnread = hasUnreadCompletion(session.readState);
   const hasCompletion = session.readState.completionId !== null;
   const Icon =
-    session.activity === 'idle' && hasCompletion
-      ? isUnread
-        ? CheckCircle2
-        : CheckCheck
-      : status.icon;
+    activity === 'idle' && hasCompletion ? (isUnread ? CheckCircle2 : CheckCheck) : status.icon;
   const updatedAt = session.updatedAt ?? session.createdAt;
   const date = new Date(updatedAt);
   const dateTitle = Number.isFinite(date.getTime()) ? dateFormat.format(date) : updatedAt;
   const title = session.title || 'Untitled session';
   return (
     <div
-      className={`session-item ${selected ? 'selected' : ''} activity-${session.activity} ${isUnread ? 'unread' : ''}`}
+      className={`session-item ${selected ? 'selected' : ''} activity-${activity} ${isUnread ? 'unread' : ''}`}
     >
       <div className="session-row">
         <SessionBranchToggle
@@ -73,22 +74,26 @@ const SessionRow = memo(function SessionRow({
           onToggle={() => onToggle(session.id)}
         />
         <Link
-          to="/app/projects/$projectId/sessions/$sessionId"
-          params={{ projectId: session.projectId, sessionId: session.id }}
-          className={`session-link activity-${session.activity} ${hasCompletion ? 'has-completion' : ''} ${isUnread ? 'unread' : ''} ${selected ? 'selected' : ''}`}
+          to={sessionRoute}
+          params={{
+            profileId,
+            projectId: session.projectId,
+            sessionId: session.id,
+          }}
+          className={`session-link activity-${activity} ${hasCompletion ? 'has-completion' : ''} ${isUnread ? 'unread' : ''} ${selected ? 'selected' : ''}`}
           aria-current={selected ? 'page' : undefined}
           title={`${title}\n${status.description}${session.parentSession ? `\nFrom ${parent?.title || 'another session'}` : ''}`}
         >
           <Icon
-            className={`session-status-icon ${session.activity === 'running' ? 'working-icon' : ''}`}
+            className={`session-status-icon ${activity === 'running' ? 'working-icon' : ''}`}
             size={16}
             aria-hidden="true"
           />
           <div className="session-summary">
             <span className="session-title">{title}</span>
-            {project && (
-              <span className="session-project" title={project.directory}>
-                {project.name}
+            {(project || name) && (
+              <span className="session-project" title={session.directory}>
+                {[project?.name, name].filter(Boolean).join(' · ')}
               </span>
             )}
             <span className="sr-only">{status.description}</span>
@@ -109,12 +114,14 @@ const SessionRow = memo(function SessionRow({
 
 const ProjectHeader = memo(function ProjectHeader({
   group,
+  targets,
   closed,
   pinned,
   onToggle,
   onPin,
 }: {
   group: ReturnType<typeof groupSessions>[number];
+  targets: LaunchTarget[];
   closed: boolean;
   pinned: boolean;
   onToggle: (id: string) => void;
@@ -159,7 +166,7 @@ const ProjectHeader = memo(function ProjectHeader({
           >
             <Pin size={12} aria-hidden="true" />
           </button>
-          {configured && <LaunchSession projectId={project.id} compact />}
+          {configured && <ProjectLaunch targets={targets} compact />}
         </div>
       </div>
       {sessions.length === 0 && !closed && <p className="project-empty">No sessions yet</p>}
@@ -172,7 +179,8 @@ export const SessionSidebar = memo(function SessionSidebar({
   sessions,
   filtered,
   selectedId,
-  online,
+  rows: owners,
+  targets,
   filter,
   search,
 }: {
@@ -180,7 +188,8 @@ export const SessionSidebar = memo(function SessionSidebar({
   sessions: InventorySession[];
   filtered: InventorySession[];
   selectedId?: string;
-  online: boolean;
+  rows: Map<string, { relay: WorkspaceRelay; session: InventorySession; online: boolean }>;
+  targets: Map<string, LaunchTarget[]>;
   filter: SessionFilter;
   search: string;
 }) {
@@ -188,27 +197,44 @@ export const SessionSidebar = memo(function SessionSidebar({
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set());
   const [branches, setBranches] = useState<Set<string>>(() => new Set());
   const [showAllRecent, setShowAllRecent] = useState(false);
-  const recency = useRecentSessions(
-    sessions,
-    `lpi:sidebar:${relayServer ?? window.location.origin}:recent`,
-    selectedId,
-  );
-  const pinKey = `lpi:sidebar:${relayServer ?? window.location.origin}:pins`;
-  const [pinned, setPinned] = useState<Set<string>>(() => {
-    try {
-      const value: unknown = JSON.parse(localStorage.getItem(pinKey) ?? '[]');
-      if (Array.isArray(value) && value.every((id) => typeof id === 'string')) {
-        return new Set(value);
+  const recency = useRecentSessions(sessions, selectedId);
+  const [pins, setPins] = useState<Set<string>>(() => {
+    const keys = new Set<string>();
+    for (const { profileId, client } of workspaceRelays) {
+      try {
+        const value: unknown = JSON.parse(
+          localStorage.getItem(`lpi:sidebar:${client.origin}:pins`) ?? '[]',
+        );
+        if (Array.isArray(value)) {
+          for (const id of value) {
+            if (typeof id === 'string') {
+              keys.add(workspaceKey(profileId, id));
+            }
+          }
+        }
+      } catch {
+        // Project pinning is optional.
       }
-    } catch {
-      // Project pinning is optional; unavailable storage must not prevent browsing.
     }
-    return new Set();
+    return keys;
   });
+  const pinned = useMemo(
+    () =>
+      new Set(
+        [...targets]
+          .filter(([, choices]) =>
+            choices.some(({ relay, project }) =>
+              pins.has(workspaceKey(relay.profileId, project.id)),
+            ),
+          )
+          .map(([id]) => id),
+      ),
+    [targets, pins],
+  );
   const [now, setNow] = useState(Date.now);
   const groups = useMemo(
-    () => groupSessions(projects, filtered, online, filter === 'archived'),
-    [projects, filtered, online, filter],
+    () => groupSessions(projects, filtered, true, filter === 'archived'),
+    [projects, filtered, filter],
   );
   const searching = search.trim().length > 0;
   const byFile = useMemo(
@@ -228,15 +254,26 @@ export const SessionSidebar = memo(function SessionSidebar({
       return next;
     });
   }, []);
-  const togglePin = useCallback((id: string) => {
-    setPinned((current) => {
-      const next = new Set(current);
-      if (!next.delete(id)) {
-        next.add(id);
-      }
-      return next;
-    });
-  }, []);
+  const togglePin = useCallback(
+    (id: string) => {
+      const keys = (targets.get(id) ?? []).map(({ relay, project }) =>
+        workspaceKey(relay.profileId, project.id),
+      );
+      setPins((current) => {
+        const next = new Set(current);
+        const remove = keys.some((key) => current.has(key));
+        for (const key of keys) {
+          if (remove) {
+            next.delete(key);
+          } else {
+            next.add(key);
+          }
+        }
+        return next;
+      });
+    },
+    [targets],
+  );
   const toggleBranch = useCallback((id: string) => {
     setBranches((current) => {
       const next = new Set(current);
@@ -247,17 +284,43 @@ export const SessionSidebar = memo(function SessionSidebar({
     });
   }, []);
   useEffect(() => {
-    try {
-      localStorage.setItem(pinKey, JSON.stringify([...pinned]));
-    } catch {
-      // In-memory pins remain usable when browser storage is unavailable.
+    for (const { profileId, client } of workspaceRelays) {
+      const prefix = workspaceKey(profileId, '');
+      const ids = [...pins]
+        .filter((key) => key.startsWith(prefix))
+        .map((key) => key.slice(prefix.length));
+      try {
+        localStorage.setItem(`lpi:sidebar:${client.origin}:pins`, JSON.stringify(ids));
+      } catch {
+        // In-memory pins remain usable when browser storage is unavailable.
+      }
     }
-  }, [pinKey, pinned]);
+  }, [pins]);
   useEffect(() => {
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(timer);
   }, []);
   const rows = useMemo(() => {
+    function renderSession(session: InventorySession, project?: Project) {
+      const owner = owners.get(session.id);
+      if (!owner) {
+        return null;
+      }
+      return (
+        <RelayProvider relay={owner.relay}>
+          <SessionRow
+            session={owner.session}
+            project={project}
+            parent={session.parentSession ? byFile.get(session.parentSession) : undefined}
+            selected={selectedId === session.id}
+            online={owner.online}
+            open={branches.has(session.id)}
+            onToggle={() => toggleBranch(session.id)}
+            now={now}
+          />
+        </RelayProvider>
+      );
+    }
     const rows: WindowedItem[] = [];
     if (!searching && filter === 'all') {
       const recent = groups
@@ -273,18 +336,7 @@ export const SessionSidebar = memo(function SessionSidebar({
           rows.push({
             key: `recent:${session.id}`,
             estimate: 54,
-            content: (
-              <SessionRow
-                session={session}
-                project={project}
-                parent={session.parentSession ? byFile.get(session.parentSession) : undefined}
-                selected={selectedId === session.id}
-                online={online}
-                open={branches.has(session.id)}
-                onToggle={toggleBranch}
-                now={now}
-              />
-            ),
+            content: renderSession(session, project),
           });
         }
         if (recent.length > 5) {
@@ -324,6 +376,7 @@ export const SessionSidebar = memo(function SessionSidebar({
         content: (
           <ProjectHeader
             group={group}
+            targets={targets.get(project.id) ?? []}
             closed={closed}
             pinned={pinned.has(project.id)}
             onToggle={toggleProject}
@@ -340,17 +393,7 @@ export const SessionSidebar = memo(function SessionSidebar({
         rows.push({
           key: `session:${session.id}`,
           estimate: 38,
-          content: (
-            <SessionRow
-              session={session}
-              parent={session.parentSession ? byFile.get(session.parentSession) : undefined}
-              selected={selectedId === session.id}
-              online={online}
-              open={branches.has(session.id)}
-              onToggle={toggleBranch}
-              now={now}
-            />
-          ),
+          content: renderSession(session),
         });
       }
       if (!searching && filter === 'all' && (all || visible.length < items.length)) {
@@ -394,7 +437,8 @@ export const SessionSidebar = memo(function SessionSidebar({
     expanded,
     selectedId,
     byFile,
-    online,
+    owners,
+    targets,
     branches,
     toggleBranch,
     now,

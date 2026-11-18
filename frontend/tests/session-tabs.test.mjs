@@ -4,6 +4,7 @@ import {
   closeSessionTab,
   openSessionTab,
   parseSessionTabs,
+  sessionTabKey,
 } from '../src/navigation/session-tabs-state.ts';
 
 const first = { projectId: 'a'.repeat(64), sessionId: '11111111-1111-1111-1111-111111111111' };
@@ -20,6 +21,18 @@ test('opening sessions deduplicates tabs and restores the active working set', (
   assert.deepEqual(parseSessionTabs(JSON.parse(JSON.stringify(state))), state);
   state = openSessionTab(state, first);
   assert.equal(state.tabs[0].branch, undefined);
+});
+
+test('identical session IDs on different relays stay separate across restore and close', () => {
+  const pc = { ...first, profileId: 'c'.repeat(64) };
+  const lab = { ...first, profileId: 'd'.repeat(64) };
+  const state = [pc, lab].reduce(openSessionTab, parseSessionTabs(null));
+  assert.deepEqual(parseSessionTabs(JSON.parse(JSON.stringify(state))), state);
+  assert.equal(state.active, sessionTabKey(lab));
+  assert.deepEqual(closeSessionTab(state, sessionTabKey(lab)), {
+    tabs: [pc],
+    active: sessionTabKey(pc),
+  });
 });
 
 test('closing background, active and final tabs chooses a neighbor without reopening sessions', () => {
