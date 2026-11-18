@@ -1,8 +1,9 @@
 /** Only explicit relay origins are accepted. Credentials and reverse-proxy paths are unsupported. */
 export function relayOrigin(value: string): string {
-  const url = new URL(value.trim());
+  const input = value.trim();
+  const url = new URL(input);
   if (
-    !['http:', 'https:'].includes(url.protocol) ||
+    !/^https?:\/\/[^/?#@\\\s]+\/?$/i.test(input) ||
     url.username ||
     url.password ||
     url.search ||

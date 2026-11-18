@@ -1,5 +1,5 @@
 import { Circle, LockKeyhole, MessageCircleQuestion } from 'lucide-react-native';
-import { useEffect, useState, useSyncExternalStore } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -7,45 +7,39 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
-import { activityCounts, groupSessions, visibleSessions } from '../../../../src/client/inventory';
-import type { LaunchController } from '../../../../src/client/launches';
-import type { UsageController } from '../../../../src/client/provider-usage';
+import { activityCounts, visibleSessions } from '../../../../src/client/inventory';
 import { relativeTime } from '../../../../src/client/relative-time';
 import { hasUnreadCompletion } from '../../../../src/shared/session-read-state';
 import { BrandIcon } from '../../components/brand-icon';
-import type { InventoryState } from '../../lib/relay';
+import { sessionKey, workspaceProjects } from '../../lib/project-list';
+import type { MobileDevice } from '../../lib/workspace';
 import { colors, projectColor } from '../../theme/colors';
 import { ProviderUsagePanel } from './provider-usage';
 
 export function ProjectDrawer({
-  inventory,
-  usage,
-  online,
+  devices,
+  focused,
   visible,
   onSelect,
   onClose,
   onSettings,
   onRefresh,
-  launches,
   onCreate,
 }: {
-  inventory: InventoryState;
-  usage: UsageController;
-  online: boolean;
+  devices: MobileDevice[];
+  focused: MobileDevice;
   visible: boolean;
-  onSelect: (id: string) => void;
+  onSelect: (origin: string, id: string) => void;
   onClose: () => void;
   onSettings: () => void;
   onRefresh: () => void;
-  launches: LaunchController;
-  onCreate: (projectId: string) => void;
+  onCreate: (origin: string, projectId: string) => void;
 }) {
-  const launch = useSyncExternalStore(launches.subscribe, launches.getState);
-  useEffect(() => {
-    void launches.initialize();
-  }, [launches]);
+  const [query, setQuery] = useState('');
+  const [choosing, setChoosing] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(new Set<string>());
   const [expanded, setExpanded] = useState(new Set<string>());
   const [archived, setArchived] = useState(false);
@@ -54,7 +48,14 @@ export function ProjectDrawer({
     const timer = setInterval(() => setNow(Date.now()), 60_000);
     return () => clearInterval(timer);
   }, []);
-  const groups = groupSessions(inventory.projects, inventory.sessions, online, archived);
+  const { groups, owners, targets } = useMemo(
+    () => workspaceProjects(devices, archived, query),
+    [devices, archived, query],
+  );
+  const selectedId = focused.inventory.selectedId
+    ? sessionKey(focused.origin, focused.inventory.selectedId)
+    : undefined;
+  const online = devices.some((device) => device.status === 'online');
   function toggle(id: string, current: Set<string>) {
     const next = new Set(current);
     if (next.has(id)) {
@@ -103,45 +104,38 @@ export function ProjectDrawer({
           Archived sessions. History is preserved; Pi may still be running.
         </Text>
       )}
-      {launch.status === 'pending' && <Text style={styles.notice}>Waiting for Pi…</Text>}
-      {launch.error && (
-        <Text accessibilityRole="alert" style={styles.error}>
-          {launch.error.message}
-        </Text>
-      )}
-      {launch.status === 'uncertain' && (
-        <View style={styles.launchNotice}>
-          <Text style={styles.notice}>
-            Launch outcome unknown. Inspect recent sessions and tmux -L lpi list-sessions on the
-            relay host before creating another session.
-          </Text>
-          <Pressable
-            accessibilityRole="button"
-            disabled={!online}
-            style={styles.footerButton}
-            onPress={() =>
-              Alert.alert('Clear launch warning?', 'This does not stop Pi or retry the launch.', [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'I inspected the runtimes', onPress: () => void launches.review() },
-              ])
-            }
-          >
-            <Text style={[styles.footerText, !online && styles.disabled]}>
-              I inspected the runtimes
-            </Text>
-          </Pressable>
-        </View>
-      )}
-      <ScrollView contentContainerStyle={styles.list} scrollsToTop={visible}>
+      <TextInput
+        style={styles.search}
+        accessibilityLabel="Search projects and sessions"
+        placeholder="Search projects and sessions"
+        placeholderTextColor={colors.muted}
+        value={query}
+        onChangeText={setQuery}
+      />
+      <ScrollView
+        contentContainerStyle={styles.list}
+        scrollsToTop={visible}
+        keyboardShouldPersistTaps="handled"
+      >
+        {devices.map((device) => (
+          <DeviceStatus key={device.origin} device={device} />
+        ))}
         {groups.length === 0 && (
           <Text style={styles.empty}>
-            {inventory.loading ? 'Loading projects…' : 'No configured projects.'}
+            {devices.some(({ inventory }) => inventory.loading)
+              ? 'Loading projects…'
+              : query.trim()
+                ? 'No matches.'
+                : archived
+                  ? 'No archived sessions.'
+                  : 'No configured projects.'}
           </Text>
         )}
         {groups.map(({ project, configured, sessions }) => {
           const closed = collapsed.has(project.id);
           const all = expanded.has(project.id);
-          const visible = visibleSessions(sessions, inventory.selectedId ?? undefined, all);
+          const visible = visibleSessions(sessions, selectedId, all || query.trim().length > 0);
+          const choices = targets.get(project.id) ?? [];
           const counts = activityCounts(sessions);
           return (
             <View key={project.id} style={styles.group}>
@@ -166,33 +160,52 @@ export function ProjectDrawer({
                   )}
                   <Text style={styles.chevron}>{closed ? '▸' : '▾'}</Text>
                 </Pressable>
-                {configured && (
+                {configured && choices.length === 1 && choices[0] && (
+                  <LaunchTarget
+                    device={choices[0].device}
+                    projectId={choices[0].project.id}
+                    label={`New session in ${project.name}`}
+                    compact
+                    onCreate={onCreate}
+                  />
+                )}
+                {choices.length > 1 && (
                   <Pressable
                     accessibilityRole="button"
-                    accessibilityLabel={`New session in ${project.name}`}
-                    accessibilityState={{ disabled: !online || launch.status !== 'ready' }}
-                    disabled={!online || launch.status !== 'ready'}
+                    accessibilityLabel={`Choose a device for ${project.name}`}
+                    accessibilityState={{
+                      expanded: choosing === project.id,
+                      disabled: !choices.some(({ device }) => device.status === 'online'),
+                    }}
+                    disabled={!choices.some(({ device }) => device.status === 'online')}
                     style={[styles.close, styles.projectCreate]}
-                    onPress={() => onCreate(project.id)}
+                    onPress={() => setChoosing(choosing === project.id ? null : project.id)}
                   >
-                    {launch.status === 'pending' ? (
-                      <ActivityIndicator size="small" color={colors.muted} />
-                    ) : (
-                      <Text
-                        style={[
-                          styles.closeText,
-                          (!online || launch.status !== 'ready') && styles.disabled,
-                        ]}
-                      >
-                        +
-                      </Text>
-                    )}
+                    <Text style={styles.closeText}>+</Text>
                   </Pressable>
                 )}
               </View>
+              {choosing === project.id && choices.length > 1 && (
+                <View style={styles.choices}>
+                  <Text style={styles.metadata}>Choose a device and directory</Text>
+                  {choices.map(({ device, project }) => (
+                    <LaunchTarget
+                      key={sessionKey(device.origin, project.id)}
+                      device={device}
+                      projectId={project.id}
+                      label={`${device.name} · ${project.directory}`}
+                      onCreate={onCreate}
+                    />
+                  ))}
+                </View>
+              )}
               {!closed &&
                 visible.map((session) => {
-                  const selected = inventory.selectedId === session.id;
+                  const owner = owners.get(session.id);
+                  if (!owner) {
+                    return null;
+                  }
+                  const selected = selectedId === session.id;
                   const unread = hasUnreadCompletion(session.readState);
                   const status =
                     session.activity === 'running'
@@ -208,8 +221,8 @@ export function ProjectDrawer({
                       <Pressable
                         accessibilityRole="button"
                         accessibilityState={{ selected }}
-                        accessibilityLabel={`${session.title || 'Untitled session'}, ${status}${unread ? ', unread' : ''}`}
-                        onPress={() => onSelect(session.id)}
+                        accessibilityLabel={`${session.title || 'Untitled session'}, ${owner.device.name}, ${status}${unread ? ', unread' : ''}`}
+                        onPress={() => onSelect(owner.device.origin, owner.session.id)}
                         style={({ pressed }) => [styles.session, pressed && styles.pressed]}
                       >
                         <View
@@ -243,6 +256,10 @@ export function ProjectDrawer({
                               />
                             )}
                           </View>
+                          <Text style={styles.metadata}>
+                            {owner.device.name}
+                            {owner.device.status === 'offline' ? ' · stale' : ''}
+                          </Text>
                         </View>
                         <Text style={styles.timestamp}>{dateLabel}</Text>
                       </Pressable>
@@ -267,10 +284,10 @@ export function ProjectDrawer({
           );
         })}
       </ScrollView>
-      <ProviderUsagePanel controller={usage} />
+      <ProviderUsagePanel key={focused.origin} controller={focused.client.usage} />
       <View style={styles.footer}>
         <Pressable accessibilityRole="button" style={styles.footerButton} onPress={onSettings}>
-          <Text style={styles.footerText}>Server settings</Text>
+          <Text style={styles.footerText}>Relay settings</Text>
         </Pressable>
         <Pressable
           accessibilityRole="button"
@@ -282,6 +299,99 @@ export function ProjectDrawer({
           <Text style={[styles.footerText, !online && styles.disabled]}>Refresh</Text>
         </Pressable>
       </View>
+    </View>
+  );
+}
+
+function LaunchTarget({
+  device,
+  projectId,
+  label,
+  compact,
+  onCreate,
+}: {
+  device: MobileDevice;
+  projectId: string;
+  label: string;
+  compact?: boolean;
+  onCreate: (origin: string, projectId: string) => void;
+}) {
+  const { client, origin } = device;
+  const launch = useSyncExternalStore(client.launches.subscribe, client.launches.getState);
+  const ready = useSyncExternalStore(client.live.subscribe, client.actionsReady);
+  const enabled = ready && device.inventory.fresh && launch.status === 'ready';
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      accessibilityState={{ disabled: !enabled }}
+      disabled={!enabled}
+      style={compact ? [styles.close, styles.projectCreate] : styles.footerButton}
+      onPress={() => onCreate(origin, projectId)}
+    >
+      {launch.status === 'pending' ? (
+        <ActivityIndicator size="small" color={colors.muted} />
+      ) : (
+        <Text style={[compact ? styles.closeText : styles.footerText, !enabled && styles.disabled]}>
+          {compact ? '+' : label}
+        </Text>
+      )}
+    </Pressable>
+  );
+}
+
+function DeviceStatus({ device }: { device: MobileDevice }) {
+  const { client, name, status, inventory } = device;
+  const { launches } = client;
+  const launch = useSyncExternalStore(launches.subscribe, launches.getState);
+  const ready = useSyncExternalStore(client.live.subscribe, client.actionsReady);
+  useEffect(() => {
+    void launches.initialize();
+  }, [launches]);
+  return (
+    <View style={styles.launchNotice}>
+      <Text style={styles.metadata}>
+        {name}: {status}
+        {status !== 'online' && (inventory.projects.length > 0 || inventory.sessions.length > 0)
+          ? ' · stale inventory'
+          : ''}
+      </Text>
+      {inventory.error && (
+        <Text accessibilityRole="alert" style={styles.error}>
+          {inventory.error}
+        </Text>
+      )}
+      {launch.error && (
+        <Text accessibilityRole="alert" style={styles.error}>
+          {launch.error.message}
+        </Text>
+      )}
+      {launch.status === 'uncertain' && (
+        <View>
+          <Text style={styles.notice}>
+            Launch outcome unknown. Inspect recent sessions and tmux on {name} before retrying.
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            disabled={!ready}
+            style={styles.footerButton}
+            onPress={() =>
+              Alert.alert(
+                `Clear the launch warning on ${name}?`,
+                'This does not retry the launch.',
+                [
+                  { text: 'Cancel', style: 'cancel' },
+                  { text: 'I inspected the runtimes', onPress: () => void launches.review() },
+                ],
+              )
+            }
+          >
+            <Text style={[styles.footerText, !ready && styles.disabled]}>
+              I inspected the runtimes
+            </Text>
+          </Pressable>
+        </View>
+      )}
     </View>
   );
 }
@@ -322,6 +432,16 @@ const styles = StyleSheet.create({
   tabText: { color: colors.muted, fontSize: 14, fontWeight: '500' },
   activeTabText: { color: colors.text, fontWeight: '700' },
   list: { paddingHorizontal: 12, paddingBottom: 20 },
+  search: {
+    marginHorizontal: 16,
+    marginBottom: 12,
+    padding: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 8,
+    color: colors.text,
+  },
+  choices: { paddingHorizontal: 12, paddingBottom: 8 },
   group: { marginBottom: 24 },
   projectHeader: {
     flexDirection: 'row',

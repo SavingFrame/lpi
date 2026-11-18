@@ -11,23 +11,27 @@ import {
 } from 'react-native';
 import { Drawer } from 'react-native-drawer-layout';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import type { MobileRelay } from '../../lib/relay';
+import type { MobileDevice, MobileWorkspace } from '../../lib/workspace';
 import { colors } from '../../theme/colors';
 import { Conversation } from '../conversation/conversation';
 import { ProjectDrawer } from './drawer';
 
 export function SessionShell({
-  client,
+  device,
+  devices,
+  workspace,
   onSettings,
   visible,
   sessionLink,
 }: {
-  client: MobileRelay;
+  device: MobileDevice;
+  devices: MobileDevice[];
+  workspace: MobileWorkspace;
   onSettings: () => void;
   visible: boolean;
   sessionLink?: string | string[];
 }) {
-  const inventory = useSyncExternalStore(client.subscribe, client.getState);
+  const { client, inventory } = device;
   const [open, setOpen] = useState(false);
   const connectionStatus = useSyncExternalStore(
     client.live.subscribe,
@@ -52,7 +56,7 @@ export function SessionShell({
   // The drawer's local layout excludes the outer safe area's screen-space top inset.
   const insets = useSafeAreaInsets();
   const selected = inventory.sessions.find((session) => session.id === inventory.selectedId);
-  const online = connectionStatus === 'ready';
+  const online = client.actionsReady();
   const running =
     online &&
     selected !== undefined &&
@@ -82,13 +86,11 @@ export function SessionShell({
       drawerStyle={{ width: Math.min(width * 0.88, 400), backgroundColor: colors.panel }}
       renderDrawerContent={() => (
         <ProjectDrawer
-          inventory={inventory}
+          devices={devices}
+          focused={device}
           visible={visible && open}
-          usage={client.usage}
-          online={online && visible}
-          launches={client.launches}
-          onCreate={(projectId) => {
-            void client.createSession(projectId).then((selected) => {
+          onCreate={(origin, projectId) => {
+            void workspace.launch(origin, projectId).then((selected) => {
               if (selected) {
                 setOpen(false);
               }
@@ -100,11 +102,15 @@ export function SessionShell({
             onSettings();
           }}
           onRefresh={() => {
-            void client.refresh();
+            for (const relay of devices) {
+              if (relay.status === 'online') {
+                void relay.client.refresh();
+              }
+            }
             client.live.refresh();
           }}
-          onSelect={(id) => {
-            void client.select(id);
+          onSelect={(origin, id) => {
+            workspace.select(origin, id);
             setOpen(false);
           }}
         />
@@ -116,7 +122,7 @@ export function SessionShell({
         keyboardVerticalOffset={insets.top}
       >
         <Conversation
-          key={inventory.selectedId ?? 'none'}
+          key={JSON.stringify([device.origin, inventory.selectedId])}
           client={client}
           session={selected}
           connection={connection}
@@ -146,7 +152,7 @@ export function SessionShell({
                       style={[styles.status, !online && styles.warning, running && styles.running]}
                       numberOfLines={1}
                     >
-                      {status}
+                      {device.name} · {status}
                     </Text>
                   </View>
                 </View>

@@ -32,8 +32,9 @@ the lock screen. A connection-path icon uses lpi's blue palette on supported iOS
 versions; iOS controls the banner appearance. Notification tags replace earlier alerts for the same
 session where HA supports it.
 
-Tap links use `lpi:///?session=<inventory-session-id>` and select that session on the mobile
-app's **currently configured relay**. They never start/resume Pi or change the server address.
+Tap links use `lpi:///?session=<inventory-session-id>`. They open the session when the mobile
+app has one saved relay. With multiple relays, the link cannot identify the session's owner;
+open it from the project list instead. Links never start or resume Pi.
 Install a native lpi build to register `lpi://`; Expo Go does not register lpi's custom scheme.
 See [manual mobile testing](#manual-mobile-testing) for the HA test and
 [mobile session links](../mobile/README.md#notification-session-links) for the Expo Go alternative. iOS opens Home Assistant first, then redirects to lpi;

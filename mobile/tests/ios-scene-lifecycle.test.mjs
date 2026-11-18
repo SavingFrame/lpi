@@ -6,7 +6,7 @@ import withIosSceneLifecycle from '../plugins/with-ios-scene-lifecycle.cjs';
 
 const require = createRequire(import.meta.url);
 
-test('SDK 57 prebuild adopts Expo scene startup without losing app configuration or links', async () => {
+test('SDK 58 prebuild preserves Expo scene startup without losing app configuration or links', async () => {
   const template = execFileSync(
     'tar',
     ['-xOf', require.resolve('expo/template.tgz'), 'package/ios/HelloWorld/AppDelegate.swift'],
@@ -22,8 +22,7 @@ test('SDK 57 prebuild adopts Expo scene startup without losing app configuration
   assert.match(migrated, /class AppDelegate: ExpoAppDelegate, ExpoReactNativeFactoryProvider/);
   assert.match(migrated, /reactNativeFactory = factory/);
   assert.doesNotMatch(migrated, /factory.startReactNative\(|UIWindow\(frame:/);
-  assert.ok(migrated.includes('// Linking API'));
-  assert.ok(migrated.includes('// Universal Links'));
+  assert.equal(migrated, template);
   assert.equal((await applyAppDelegate(migrated)).modResults.contents, migrated);
 
   const plist = {
@@ -39,6 +38,18 @@ test('SDK 57 prebuild adopts Expo scene startup without losing app configuration
     manifest.UISceneConfigurations.UIWindowSceneSessionRoleApplication[0].UISceneDelegateClassName,
     'EXExpoAppSceneDelegate',
   );
+  const sceneManifest = {
+    UISceneConfigurations: {
+      UIWindowSceneSessionRoleApplication: [
+        { UISceneDelegateClassName: '$(PRODUCT_MODULE_NAME).SceneDelegate' },
+      ],
+    },
+  };
+  const current = await config.mods.ios.infoPlist({
+    modRequest: {},
+    modResults: { ...plist, UIApplicationSceneManifest: sceneManifest },
+  });
+  assert.deepEqual(current.modResults, { ...plist, UIApplicationSceneManifest: sceneManifest });
   await assert.rejects(
     applyAppDelegate('class AppDelegate: SomeFutureDelegate {}'),
     /template changed/,

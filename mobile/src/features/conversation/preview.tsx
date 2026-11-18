@@ -363,7 +363,9 @@ export function ConversationPreview({
           </View>
         }
         ListHeaderComponent={
-          snapshot?.view.notice ? <Text style={styles.notice}>{snapshot.view.notice}</Text> : null
+          snapshot?.view.notice ? (
+            <Text style={styles.notice}>{snapshot.view.notice}</Text>
+          ) : undefined
         }
       />
       {showBottom && (

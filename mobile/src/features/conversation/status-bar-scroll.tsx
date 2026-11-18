@@ -1,11 +1,11 @@
-import { useRef } from 'react';
+import { type ComponentRef, useRef } from 'react';
 import { Platform, ScrollView, StyleSheet, View } from 'react-native';
 
 /** iOS scrolls inverted lists to the newest message. Route its status-bar tap through a
  * non-inverted native target, without first jumping the visible transcript to offset zero.
  */
 export function StatusBarScrollTarget({ visible, onTop }: { visible: boolean; onTop: () => void }) {
-  const target = useRef<ScrollView>(null);
+  const target = useRef<ComponentRef<typeof ScrollView>>(null);
   if (Platform.OS !== 'ios') {
     return null;
   }

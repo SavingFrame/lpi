@@ -27,6 +27,7 @@ export interface InventoryState {
   sessions: InventorySession[];
   selectedId: string | null;
   loading: boolean;
+  fresh: boolean;
   error: string | null;
 }
 
@@ -51,9 +52,12 @@ export class MobileRelay {
     sessions: [],
     selectedId: null,
     loading: false,
+    fresh: false,
     error: null,
   };
   private active = false;
+  private focused = true;
+  private retry: ReturnType<typeof setTimeout> | undefined;
   private lifecycle = 0;
   private inventoryVersion = 0;
   private restored = false;
@@ -96,7 +100,7 @@ export class MobileRelay {
         }
         return this.api.launch(projectId, resumeId);
       },
-      eligible: () => this.active && this.live.getState().status === 'ready',
+      eligible: this.actionsReady,
       refresh: () => void this.refresh(),
     });
     this.reads = new ReadCompletions({
@@ -104,8 +108,8 @@ export class MobileRelay {
         const connection = this.live.getState();
         return completionToView(connection.snapshot, {
           synchronized:
-            this.active &&
-            connection.status === 'ready' &&
+            this.focused &&
+            this.actionsReady() &&
             connection.snapshot?.session.id === this.reading?.id &&
             this.current.selectedId === this.reading?.id,
           following: this.reading?.following === true,
@@ -116,7 +120,13 @@ export class MobileRelay {
       refresh: () => void this.refresh(),
     });
     this.live.subscribe(() => {
-      if (this.live.getState().status !== 'ready') {
+      const { status } = this.live.getState();
+      if (status === 'offline') {
+        this.inventoryVersion++;
+        clearTimeout(this.retry);
+        this.update({ ...this.current, fresh: false, loading: false });
+      }
+      if (status !== 'ready') {
         void this.reads.synchronize();
       }
     });
@@ -134,7 +144,10 @@ export class MobileRelay {
       controller = new MobileMessages(id, projectId, this.drafts.get(id), {
         server: this.origin,
         storage: this.storage,
-        connection: this.live.getState,
+        connection: () => {
+          const state = this.live.getState();
+          return this.focused && this.current.fresh ? state : { ...state, status: 'connecting' };
+        },
         runtime: () => this.current.sessions.find((session) => session.id === id),
         dispatch: this.api.operate.bind(this.api),
         refresh: () => {
@@ -147,12 +160,24 @@ export class MobileRelay {
     return controller;
   };
 
+  actionsReady = (): boolean =>
+    this.active && this.current.fresh && this.live.getState().status === 'ready';
+
+  setFocused = (focused: boolean): void => {
+    if (this.focused !== focused) {
+      this.focused = focused;
+      this.reading = null;
+      this.live.select(focused ? this.current.selectedId : null);
+      void this.reads.synchronize();
+    }
+  };
+
   private canResume(id: string, projectId: string): boolean {
     const connection = this.live.getState();
     const session = connection.snapshot?.session;
     return (
-      this.active &&
-      connection.status === 'ready' &&
+      this.focused &&
+      this.actionsReady() &&
       this.current.selectedId === id &&
       session?.id === id &&
       session.projectId === projectId &&
@@ -169,7 +194,7 @@ export class MobileRelay {
   };
 
   setArchived = async (id: string, archived: boolean): Promise<void> => {
-    if (!this.active || this.live.getState().status !== 'ready') {
+    if (!this.focused || !this.actionsReady()) {
       throw new Error('Reconnect before changing session visibility.');
     }
     try {
@@ -179,9 +204,14 @@ export class MobileRelay {
     }
   };
 
-  createSession = (projectId: string): Promise<boolean> => this.launchSession(projectId);
+  createSession = (projectId: string, current?: () => boolean): Promise<boolean> =>
+    this.launchSession(projectId, undefined, current);
 
-  private launchSession = async (projectId: string, resumeId?: string): Promise<boolean> => {
+  private launchSession = async (
+    projectId: string,
+    resumeId?: string,
+    current = () => true,
+  ): Promise<boolean> => {
     if (!this.current.projects.some((project) => project.id === projectId)) {
       return false;
     }
@@ -211,7 +241,7 @@ export class MobileRelay {
       loading: false,
     });
     // A late launch verdict must not navigate away from a newer selection.
-    const select = this.current.selectedId === selectedId;
+    const select = current() && this.current.selectedId === selectedId;
     if (select) {
       await this.select(session.id);
       if (resumeId) {
@@ -267,7 +297,7 @@ export class MobileRelay {
   stop = (): void => {
     this.active = false;
     this.lifecycle++;
-    this.inventoryVersion++;
+    clearTimeout(this.retry);
     this.live.disconnect();
     this.usage.stop();
     this.update({ ...this.current, loading: false });
@@ -277,6 +307,7 @@ export class MobileRelay {
     if (!this.active) {
       return;
     }
+    clearTimeout(this.retry);
     const version = ++this.inventoryVersion;
     this.update({ ...this.current, loading: true, error: null });
     try {
@@ -294,15 +325,19 @@ export class MobileRelay {
         sessions,
         selectedId,
         loading: false,
+        fresh: true,
         error: requested && !selectedId ? 'Linked session is unavailable on this relay.' : null,
       });
-      this.live.select(selectedId);
+      this.live.select(this.focused ? selectedId : null);
       if (requested && selectedId) {
         await this.select(selectedId);
       }
     } catch (error) {
       if (this.active && version === this.inventoryVersion) {
         this.update({ ...this.current, loading: false, error: String(error) });
+        if (!this.current.fresh) {
+          this.retry = setTimeout(() => void this.refresh(), 3_000);
+        }
       }
     }
   };
@@ -329,7 +364,9 @@ export class MobileRelay {
     this.pendingSessionId = null;
     this.savedId = null;
     this.update({ ...this.current, selectedId: id });
-    this.live.select(id);
+    if (this.focused) {
+      this.live.select(id);
+    }
     try {
       await this.storage.setItem(this.selectionKey, id);
     } catch {

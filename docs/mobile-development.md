@@ -24,8 +24,8 @@ Paths below are relative to `mobile/` unless stated otherwise:
 
 Keep shared behavior independent of React Native. Use platform adapters for storage,
 networking, and lifecycle. Expo's default Metro workspace support loads shared source
-without custom resolver aliases. Mobile and browser have separate React versions;
-Expo's monorepo autolinking must keep the mobile bundle on one React copy.
+without custom resolver aliases. Mobile and browser use React 19.3. Expo's monorepo autolinking must keep the mobile
+bundle on one React copy.
 
 Markdown is lexed with `marked` and rendered using native Text/View components.
 Only explicit HTML artifacts use a WebView. Transcript and drawer layout use explicit
@@ -84,12 +84,11 @@ validation. These settings apply to a native build, not the installed Expo Go bi
 
 ## Native iOS lifecycle
 
-`mobile/plugins/with-ios-scene-lifecycle.cjs` adapts the SDK 57 native template to
-Expo's scene lifecycle for Xcode 27 / iOS 27. The app delegate supplies the React Native
-factory; the scene delegate creates the window and forwards lifecycle/deep-link events.
-The plugin also registers scene configuration in Info.plist and fails on incompatible
-template changes. Review it when upgrading Expo. Its regression test is not native
-build or device validation.
+SDK 58 generates an iOS `SceneDelegate` and scene configuration. The app delegate supplies the
+React Native factory, and the scene delegate starts it in the window.
+`mobile/plugins/with-ios-scene-lifecycle.cjs` preserves the SDK 58 scene configuration and
+still handles the old SDK 57 template. Its template regression test does not validate a
+native build or device install.
 
 ## Simulator and remote testing
 

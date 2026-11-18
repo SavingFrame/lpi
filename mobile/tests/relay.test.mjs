@@ -4,8 +4,11 @@ import { setImmediate } from 'node:timers/promises';
 import { clientStorageKey } from '../../src/client/storage.ts';
 import { emptyView } from '../../src/shared/client-state.ts';
 import { linkedSessionId, sessionLink } from '../../src/shared/session-link.ts';
+import { serverPreferenceKey } from '../src/lib/connection.ts';
+import { sessionKey, workspaceProjects } from '../src/lib/project-list.ts';
 import { MobileRelay } from '../src/lib/relay.ts';
 import { eventsUrl, relayOrigin } from '../src/lib/server.ts';
+import { MobileWorkspace } from '../src/lib/workspace.ts';
 
 const id = '11111111-1111-1111-1111-111111111111';
 const project = { id: 'project', name: 'Project', directory: '/isolated/project' };
@@ -800,6 +803,126 @@ test('mobile read acknowledgment requires the loaded, visible, foreground conver
   await setImmediate();
   fixture.client.setReading(id, true, true);
   assert.equal(posts().length, 1);
+});
+
+test('mobile workspace keeps identical IDs and mutations on their owning relay across suspension', async (t) => {
+  const values = new Map();
+  const pc = setup(t, 'http://pc:3141', values, true);
+  const lab = setup(t, 'http://lab:3141', values, true);
+  values.set(serverPreferenceKey, pc.client.origin);
+  values.set(clientStorageKey(pc.client.origin, 'selection', 'session'), id);
+  values.set(clientStorageKey(lab.client.origin, 'selection', 'session'), id);
+  const workspace = new MobileWorkspace(pc.storage, (origin) => {
+    assert.ok([pc.client.origin, lab.client.origin].includes(origin));
+    return origin === pc.client.origin ? pc.client : lab.client;
+  });
+  t.after(() => workspace.setActive(false));
+  await workspace.load();
+  assert.equal(workspace.getState().focused.origin, pc.client.origin);
+  await workspace.save([
+    { name: 'PC', origin: pc.client.origin },
+    { name: 'Homelab', origin: lab.client.origin },
+  ]);
+  await assert.rejects(
+    workspace.save([
+      { name: 'PC', origin: pc.client.origin },
+      { name: 'Duplicate', origin: 'http://PC:3141/' },
+    ]),
+    /already saved/,
+  );
+  assert.equal(workspace.openLink(id), false, 'a link without an owner cannot pick a relay');
+
+  workspace.setActive(true);
+  await setImmediate();
+  pc.connected();
+  lab.connected();
+  await pc.inventory();
+  await lab.inventory();
+  assert.equal(
+    lab.requests.some(({ url }) => url.endsWith('/snapshot')),
+    false,
+  );
+  const list = workspaceProjects(workspace.getState().devices, false, '');
+  assert.equal(list.groups.length, 1);
+  assert.equal(list.targets.get(list.groups[0].project.id).length, 2);
+  assert.equal(list.owners.get(sessionKey(pc.client.origin, id)).device.name, 'PC');
+  assert.equal(list.owners.get(sessionKey(lab.client.origin, id)).device.name, 'Homelab');
+  assert.deepEqual(
+    workspaceProjects(workspace.getState().devices, false, 'homelab').groups[0].sessions.map(
+      ({ id }) => id,
+    ),
+    [sessionKey(lab.client.origin, id)],
+  );
+
+  await pc.client.launches.initialize();
+  const launching = workspace.launch(pc.client.origin, project.id);
+  assert.equal(await launching, false, 'the focused relay is waiting on its snapshot');
+  workspace.select(lab.client.origin, id);
+  const labSnapshot = lab.requests.findLast(({ url }) => url.endsWith('/snapshot'));
+  assert.ok(labSnapshot);
+  const snapshot = {
+    epoch: 'relay-epoch',
+    cursor: 0,
+    session,
+    readState: session.readState,
+    state: { isStreaming: false, hasPendingMessages: false },
+    view: emptyView(),
+    controls: {
+      availableModels: [],
+      scopedModels: [],
+      model: null,
+      thinkingLevel: null,
+      availableThinkingLevels: [],
+      contextUsage: null,
+    },
+  };
+  labSnapshot.resolve(Response.json(snapshot));
+  await setImmediate();
+  const messages = lab.client.messages(id, project.id);
+  await messages.initialize();
+  messages.draft.update(() => ({ text: 'Homelab only', images: [] }));
+  const sending = messages.send();
+  await setImmediate();
+  const request = lab.requests.findLast(({ url }) => url.endsWith('/commands'));
+  assert.equal(JSON.parse(request.request.body).command.message, 'Homelab only');
+  workspace.setActive(false);
+  request.reject(new Error('Response lost during suspension'));
+  assert.equal(await sending, false);
+  assert.equal(messages.commands.getState().uncertain, true);
+  workspace.setActive(true);
+  await setImmediate();
+  lab.connected();
+  assert.equal(lab.client.actionsReady(), false, 'foreground actions wait for refreshed inventory');
+  await lab.inventory();
+  assert.equal(pc.client.actionsReady(), false);
+  assert.equal(workspace.getState().focused.origin, lab.client.origin);
+  assert.equal(pc.requests.filter(({ request }) => request.method === 'POST').length, 0);
+  assert.equal(lab.requests.filter(({ request }) => request.method === 'POST').length, 1);
+  assert.equal(messages.draft.getState().draft.text, 'Homelab only');
+  lab.requests.findLast(({ url }) => url.endsWith('/snapshot')).resolve(Response.json(snapshot));
+  await setImmediate();
+  await lab.client.launches.initialize();
+  const creating = workspace.launch(lab.client.origin, project.id);
+  await setImmediate();
+  const launch = lab.requests.findLast(({ request }) => request.method === 'POST');
+  assert.equal(launch.url, `${lab.client.origin}/sessions`);
+  launch.resolve(
+    Response.json({
+      requestId: JSON.parse(launch.request.body).requestId,
+      outcome: 'acknowledged',
+      data: { session: { ...session, id: '33333333-3333-3333-3333-333333333333' } },
+    }),
+  );
+  assert.equal(await creating, true);
+  assert.equal(pc.requests.filter(({ request }) => request.method === 'POST').length, 0);
+
+  const restored = new MobileWorkspace(pc.storage, (origin) => setup(t, origin, values).client);
+  await restored.load();
+  assert.equal(restored.getState().focused.origin, lab.client.origin);
+  assert.deepEqual(
+    restored.getState().devices.map(({ name }) => name),
+    ['PC', 'Homelab'],
+  );
 });
 
 test('server switching isolates selection and outstanding requests', async (t) => {

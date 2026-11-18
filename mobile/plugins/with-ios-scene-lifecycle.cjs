@@ -1,7 +1,7 @@
 const { withAppDelegate, withInfoPlist } = require('expo/config-plugins');
 
-// SDK 57 includes ExpoAppSceneDelegate, but its bundled template still starts React Native
-// in AppDelegate. Let Expo's scene delegate create the window and forward lifecycle/deep links.
+// SDK 58 has its own SceneDelegate. Retain the existing adapter for iOS projects
+// generated with SDK 57, which do not have a project-local SceneDelegate.
 module.exports = function withIosSceneLifecycle(config) {
   config = withAppDelegate(config, (mod) => {
     if (mod.modResults.language !== 'swift') {
@@ -27,6 +27,9 @@ module.exports = function withIosSceneLifecycle(config) {
     return mod;
   });
   return withInfoPlist(config, (mod) => {
+    if (mod.modResults.UIApplicationSceneManifest) {
+      return mod;
+    }
     mod.modResults.UIApplicationSceneManifest = {
       UIApplicationSupportsMultipleScenes: false,
       UISceneConfigurations: {

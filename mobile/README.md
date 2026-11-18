@@ -23,7 +23,7 @@ prebuilt installer is available.
 ## Run with Expo Go
 
 You need Node.js **22.19 or newer**, a running [lpi relay](../README.md#install-and-run),
-and an Expo Go installation compatible with **Expo SDK 57**. Keep both the relay and Expo's
+and an Expo Go installation compatible with **Expo SDK 58**. Keep both the relay and Expo's
 development server on a trusted network. No paid Apple developer account is needed for Expo Go.
 
 From the repository root:
@@ -41,7 +41,7 @@ For simulator setup and source development, see [mobile development](../docs/mob
 
 ## Connect to your relay
 
-In the app's server settings, enter the full relay origin, for example:
+In **Relay settings**, enter a device name and full relay origin, for example:
 
 ```text
 http://192.168.1.20:3141
@@ -49,9 +49,9 @@ http://192.168.1.20:3141
 
 `localhost` on your phone refers to the phone, not your computer. Do not include paths,
 credentials, query parameters, or fragments. Use the relay address, not the Expo development
-server address. Before saving or switching servers, the app checks relay inventory responses
-and the event WebSocket handshake with a five-second timeout. Failed or cancelled checks
-keep your previous server settings and connection.
+server address. **Test connection** checks the inventory and event WebSocket. You can save
+a relay even if it is offline. Named relay profiles, text drafts, and unresolved command
+markers stay on the device; renaming a relay does not change its storage.
 
 Configure the relay to listen on a reachable address and add that exact relay URL, including
 its port, to `origins` in `lpi.config.json`. Restart the relay after changing its configuration.
@@ -63,8 +63,11 @@ agents. Keep it behind trusted LAN, Tailscale, or tunnel access controls.**
 
 ## Using the app
 
-Open **Projects**, or swipe from the left edge, to select a conversation. Server settings and
-refresh are in the drawer. Use a project's **+** button to create a new native Pi session.
+Open **Projects**, or swipe from the left edge, to select a conversation. Search and archive
+filters apply to the flat project list across all saved relays. Sessions show their owning
+device. **+** launches directly for a single target, or lets you choose a device and
+directory for same-name projects. Offline inventory stays visible as stale while other
+relays remain usable. Actions on a reconnecting relay wait for refreshed inventory.
 
 The header **Search** icon searches user messages and assistant replies in the current chat.
 Search is literal and case-insensitive, includes rendered Markdown and code, and excludes
@@ -112,7 +115,9 @@ npx expo prebuild --platform ios
 Open `ios/lpi.xcworkspace` in Xcode, configure your signing team, and select your phone.
 Use the **Release** run configuration to bundle JavaScript without Metro. A free Personal Team
 requires signing renewal every seven days and cannot enable remote push notifications.
-Avoid `prebuild --clean` unless you intend to recreate native settings.
+If moving an existing SDK 57 native project to SDK 58, regenerate the iOS project with
+`npx expo prebuild --platform ios --clean` after backing up any native changes. Reapply
+your signing team and the same bundle identifier before installing over the existing app.
 
 Custom native builds remain unverified. See [native lifecycle details](../docs/mobile-development.md#native-ios-lifecycle)
 when changing Expo or the generated iOS project.
@@ -123,9 +128,10 @@ Optional alerts use the Home Assistant Companion app, so lpi needs no push entit
 paid Apple membership. See [notification setup](../docs/notifications.md).
 
 A native lpi build registers links such as `lpi:///?session=<inventory-session-id>`.
-They open history on the app's currently configured relay, without starting Pi or switching
-servers. Missing sessions show an error. iOS opens Home Assistant first, then redirects to lpi;
-the first handoff may require confirmation.
+These links identify a local session but not its owning relay. With one saved relay they open
+history without starting Pi. With more than one relay, open the session from the project list
+instead. iOS opens Home Assistant first, then redirects to lpi; the first handoff may require
+confirmation.
 
 Expo Go cannot handle `lpi://`. For development, use
 `exp://<metro-host>:8081/--/?session=<inventory-session-id>` while Metro is reachable.
